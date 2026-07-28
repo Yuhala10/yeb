@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { supabase } from "../lib/supabaseClient";
+import supabase from "../lib/supabaseClient";
 
 const ADMIN_PHONE = "681731512";
 const ADMIN_PIN = "03035 02027";

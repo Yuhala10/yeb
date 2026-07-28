@@ -39,6 +39,24 @@ export default function FeedbackPage({ userId = null }) {
         }
 
         setSent(true);
+
+        const whatsappMessage = `*New Tayeb Feedback*
+
+📌 Type: ${type}
+
+📝 Message:
+${message.trim()}
+
+📞 Contact:
+${phone.trim() || "Not provided"}`;
+
+        window.open(
+            `https://wa.me/237681731512?text=${encodeURIComponent(
+                whatsappMessage
+            )}`,
+            "_blank"
+        );
+
         setMessage('');
         setPhone('');
     }
@@ -59,7 +77,8 @@ export default function FeedbackPage({ userId = null }) {
                         </p>
 
                         <p className="text-xs text-emerald-700 mt-2">
-                            Your message has been sent to the Tayeb admin.
+                            Your feedback has been received.
+                            WhatsApp has been opened so you can send it directly to the Tayeb team.
                         </p>
                     </div>
                 ) : (
@@ -73,8 +92,8 @@ export default function FeedbackPage({ userId = null }) {
                                     type="button"
                                     onClick={() => setType(t)}
                                     className={`flex-1 py-2 rounded-xl text-xs font-bold border transition ${type === t
-                                            ? 'bg-slate-900 text-amber-400 border-slate-900'
-                                            : 'bg-slate-50 border-slate-200 text-slate-600'
+                                        ? 'bg-slate-900 text-amber-400 border-slate-900'
+                                        : 'bg-slate-50 border-slate-200 text-slate-600'
                                         }`}
                                 >
                                     {t}

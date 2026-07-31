@@ -64,8 +64,8 @@ export default function Home() {
                         <button
                             onClick={() => changeLanguage("en")}
                             className={`px-3 py-1 rounded-lg text-sm font-bold ${language === "en"
-                                ? "bg-slate-900 text-white"
-                                : "bg-slate-200"
+                                    ? "bg-slate-900 text-white"
+                                    : "bg-slate-200"
                                 }`}
                         >
                             EN
@@ -74,8 +74,8 @@ export default function Home() {
                         <button
                             onClick={() => changeLanguage("fr")}
                             className={`px-3 py-1 rounded-lg text-sm font-bold ${language === "fr"
-                                ? "bg-slate-900 text-white"
-                                : "bg-slate-200"
+                                    ? "bg-slate-900 text-white"
+                                    : "bg-slate-200"
                                 }`}
                         >
                             FR
@@ -175,4 +175,29 @@ export default function Home() {
                             <span>{t.f4}</span>
                         </div>
                     </div>
-                </section></div>
+                </section>        <div className="text-center mt-10">
+                    <Link
+                        href="/feedback"
+                        className="text-orange-600 font-bold hover:text-orange-700 transition"
+                    >
+                        {t.feedback}
+                    </Link>
+                </div>
+            </main>
+
+            <footer className="mt-12 border-t bg-white">
+                <div className="max-w-md mx-auto px-5 py-8 text-center">
+                    <BrandLogo size={60} />
+
+                    <p className="mt-4 text-sm text-slate-500">
+                        © {new Date().getFullYear()} Tayeb
+                    </p>
+
+                    <p className="text-xs text-slate-400 mt-2">
+                        Move. Manage. Deliver.
+                    </p>
+                </div>
+            </footer>
+        </div>
+    );
+}

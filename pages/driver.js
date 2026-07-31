@@ -2,10 +2,13 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import supabase from "../lib/supabaseClient";
 import { getCurrentUser } from "../lib/getCurrentUser";
-import { logout } from "../lib/logout";
 import { useLanguage } from "../lib/LanguageContext";
-import BrandLogo from "../components/BrandLogo";
 import Notifications from "../components/Notifications";
+import SummaryCards from "../components/Driver/SummaryCards";
+import DriverHeader from "../components/Driver/DriverHeader";
+import AvailabilityCard from "../components/Driver/AvailabilityCard";
+import ShipmentCard from "../components/Driver/ShipmentCard";
+import BidModal from "../components/Driver/BidModal";
 
 export default function DriverPage() {
 
@@ -21,7 +24,34 @@ export default function DriverPage() {
     const [shipments, setShipments] = useState([]);
 
     const [loading, setLoading] = useState(true);
+    const [selectedShipment, setSelectedShipment] = useState(null);
+    const [bidModalOpen, setBidModalOpen] = useState(false);
 
+    async function submitBid(bid) {
+        const { error } = await supabase
+            .from("bids")
+            .insert([
+                {
+                    shipment_id: selectedShipment.id,
+                    driver_id: user.id,
+                    driver_name: user.full_name,
+                    driver_phone: user.phone_number,
+                    price: bid.price,
+                    eta: bid.eta,
+                    note: bid.note,
+                },
+            ]);
+
+        if (error) {
+            alert(error.message);
+            return;
+        }
+
+        alert("Bid submitted successfully.");
+
+        setBidModalOpen(false);
+        setSelectedShipment(null);
+    }
 
 
     // DRIVER AVAILABILITY
@@ -642,128 +672,13 @@ export default function DriverPage() {
 
                 {/* LANGUAGE */}
 
-                <div className="flex justify-end mb-4">
-
-
-                    <button
-
-                        onClick={() => changeLanguage("en")}
-
-                        className={`px-3 py-1 rounded-l-lg text-sm ${language === "en"
-                            ? "bg-amber-400 text-slate-900"
-                            : "bg-slate-700"
-                            }`}
-
-                    >
-
-                        EN
-
-                    </button>
-
-
-
-
-
-                    <button
-
-                        onClick={() => changeLanguage("fr")}
-
-                        className={`px-3 py-1 rounded-r-lg text-sm ${language === "fr"
-                            ? "bg-amber-400 text-slate-900"
-                            : "bg-slate-700"
-                            }`}
-
-                    >
-
-                        FR
-
-                    </button>
-
-
-                </div>
-
-
-
-
-
-
-
-
-
-                {/* HEADER */}
-
-
-                <div className="bg-slate-800 rounded-3xl p-5 mb-6">
-
-
-                    <div className="flex justify-center mb-5">
-
-                        <BrandLogo size="120" />
-
-                    </div>
-
-
-
-
-
-                    <div className="flex justify-between items-center">
-
-
-                        <div>
-
-
-                            <h1 className="text-2xl font-black">
-
-                                {t.welcome},
-
-                            </h1>
-
-
-
-
-                            <p className="text-amber-400 font-bold">
-
-                                {user.full_name}
-
-                            </p>
-
-
-
-
-
-                            <p className="text-sm text-slate-400">
-
-                                Driver
-
-                            </p>
-
-
-                        </div>
-
-
-
-
-
-
-                        <button
-
-                            onClick={() => logout(router)}
-
-                            className="bg-red-600 px-4 py-2 rounded-xl font-bold"
-
-                        >
-
-                            Logout
-
-                        </button>
-
-
-
-                    </div>
-
-
-                </div>
-
+                <DriverHeader
+                    user={user}
+                    router={router}
+                    t={t}
+                    language={language}
+                    changeLanguage={changeLanguage}
+                />
 
 
 
@@ -778,87 +693,10 @@ export default function DriverPage() {
                 {/* AVAILABILITY */}
 
 
-                <div className="bg-slate-800 rounded-3xl p-5 mb-5">
-
-
-                    <div className="flex justify-between items-center">
-
-
-                        <div>
-
-
-                            <h2 className="font-black">
-
-                                Availability
-
-                            </h2>
-
-
-
-
-                            <p className="text-sm text-slate-400">
-
-
-                                {
-                                    available
-
-                                        ? "🟢 Available"
-
-                                        : "🔴 Busy"
-                                }
-
-
-                            </p>
-
-
-                        </div>
-
-
-
-
-
-
-
-                        <button
-
-
-                            onClick={toggleAvailability}
-
-
-                            className={`px-5 py-2 rounded-xl font-black ${available
-                                ? "bg-green-600"
-                                : "bg-red-600"
-                                }`}
-
-
-                        >
-
-                            {
-                                available
-                                    ? "ON"
-                                    : "OFF"
-                            }
-
-
-                        </button>
-
-
-
-                    </div>
-
-
-                </div>
-
-
-
-
-
-
-
-
-
-
-
+                <AvailabilityCard
+                    available={available}
+                    toggleAvailability={toggleAvailability}
+                />
 
 
                 {/* SUBSCRIPTION */}
@@ -975,46 +813,11 @@ export default function DriverPage() {
 
 
 
-
-                {/* SUMMARY */}
-
-
-                <div className="grid grid-cols-3 gap-3 mb-6">
-
-
-
-                    <SummaryCard
-
-                        value={availableJobs.length}
-
-                        title="Jobs"
-
-                    />
-
-
-
-
-                    <SummaryCard
-
-                        value={activeJobs.length}
-
-                        title="Active"
-
-                    />
-
-
-
-
-                    <SummaryCard
-
-                        value={completedJobs.length}
-
-                        title="Done"
-
-                    />
-
-
-                </div>
+                <SummaryCards
+                    availableJobs={availableJobs}
+                    activeJobs={activeJobs}
+                    completedJobs={completedJobs}
+                />
 
 
 
@@ -1067,421 +870,40 @@ export default function DriverPage() {
 
                             )
 
-
-                            :
-
-
-                            shipments.map((item) => (
-
-
-                                <div
-
-                                    key={item.id}
-
-                                    className="bg-slate-800 rounded-3xl p-5 mb-5"
-
-                                >
-
-
-                                    <div className="flex justify-between">
-
-
-                                        <div>
-
-
-                                            <h2 className="font-black text-lg">
-
-                                                {item.item_type}
-
-                                            </h2>
-
-
-
-                                            <p className="text-sm text-slate-300">
-
-                                                {item.quantity} units
-
-                                            </p>
-
-
-                                        </div>
-
-
-
-
-
-                                        <div className="text-amber-400 font-black">
-
-                                            {item.initial_offer} FCFA
-
-                                        </div>
-
-
-                                    </div>
-
-
-
-
-
-
-                                    <div className="mt-4 space-y-2 text-sm">
-
-
-                                        <p>
-
-                                            📍 {item.origin}
-
-                                        </p>
-
-
-                                        <p>
-
-                                            🏁 {item.destination}
-
-                                        </p>
-
-
-                                        <p>
-
-                                            📞 Receiver:
-                                            {" "}
-                                            {item.receiver_phone}
-
-                                        </p>
-
-
-
-                                        {
-                                            item.shipper &&
-
-                                            <>
-
-                                                <p className="mt-3 font-bold text-amber-400">
-
-                                                    Shipper Details
-
-                                                </p>
-
-
-                                                <p>
-
-                                                    👤 {item.shipper.full_name}
-
-                                                </p>
-
-
-                                                <p>
-
-                                                    📱 {item.shipper.phone_number}
-
-                                                </p>
-
-                                            </>
-
-                                        }
-
-
-                                        <p className="font-bold">
-
-                                            Status:
-                                            {" "}
-                                            {item.status}
-
-                                        </p>
-
-
-                                    </div>                            {/* DELIVERY TRACKING */}
-
-
-                                    <div className="mt-5 bg-slate-700 rounded-2xl p-3">
-
-
-                                        <p className="font-bold mb-2">
-
-                                            Delivery Progress
-
-                                        </p>
-
-
-
-
-
-                                        <div className="flex justify-between text-xs">
-
-
-
-                                            <span
-
-                                                className={
-                                                    item.status !== "OPEN"
-
-                                                        ?
-
-                                                        "text-amber-400 font-bold"
-
-                                                        :
-
-                                                        ""
-                                                }
-
-                                            >
-
-                                                Accepted
-
-                                            </span>
-
-
-
-
-
-
-
-                                            <span
-
-                                                className={
-                                                    item.status === "DEPARTED" ||
-                                                        item.status === "ARRIVED" ||
-                                                        item.status === "COMPLETED"
-
-                                                        ?
-
-                                                        "text-amber-400 font-bold"
-
-                                                        :
-
-                                                        ""
-                                                }
-
-                                            >
-
-                                                On Way
-
-                                            </span>
-
-
-
-
-
-
-
-
-                                            <span
-
-                                                className={
-                                                    item.status === "COMPLETED"
-
-                                                        ?
-
-                                                        "text-green-400 font-bold"
-
-                                                        :
-
-                                                        ""
-                                                }
-
-                                            >
-
-                                                Delivered
-
-                                            </span>
-
-
-
-                                        </div>
-
-
-                                    </div>
-
-
-
-
-
-
-
-
-
-
-
-
-                                    {/* ACTION BUTTONS */}
-
-
-
-                                    <div className="mt-5">
-
-
-
-
-
-
-                                        {
-                                            item.status === "OPEN" &&
-
-
-                                            <button
-
-
-                                                onClick={() =>
-                                                    updateStatus(
-                                                        item.id,
-                                                        "MATCHED"
-                                                    )
-                                                }
-
-
-                                                className="w-full bg-amber-400 text-slate-900 rounded-xl py-3 font-black"
-
-
-                                            >
-
-                                                ACCEPT SHIPMENT
-
-
-                                            </button>
-
-
-                                        }
-
-
-
-
-
-
-
-
-
-                                        {
-                                            item.status === "MATCHED" &&
-                                            item.driver_id === user.id &&
-
-
-                                            <button
-
-
-                                                onClick={() =>
-                                                    updateStatus(
-                                                        item.id,
-                                                        "DEPARTED"
-                                                    )
-                                                }
-
-
-                                                className="w-full bg-orange-500 rounded-xl py-3 font-black"
-
-
-                                            >
-
-                                                START JOURNEY
-
-
-                                            </button>
-
-
-                                        }
-
-
-
-
-
-
-
-
-
-                                        {
-                                            item.status === "DEPARTED" &&
-                                            item.driver_id === user.id &&
-
-
-                                            <button
-
-
-                                                onClick={() =>
-                                                    updateStatus(
-                                                        item.id,
-                                                        "ARRIVED"
-                                                    )
-                                                }
-
-
-                                                className="w-full bg-green-600 rounded-xl py-3 font-black"
-
-
-                                            >
-
-                                                ARRIVED
-
-
-                                            </button>
-
-
-                                        }
-
-
-
-
-
-
-
-
-
-                                        {
-                                            item.status === "ARRIVED" &&
-                                            item.driver_id === user.id &&
-
-
-                                            <button
-
-
-                                                onClick={() =>
-                                                    updateStatus(
-                                                        item.id,
-                                                        "COMPLETED"
-                                                    )
-                                                }
-
-
-                                                className="w-full bg-blue-600 rounded-xl py-3 font-black"
-
-
-                                            >
-
-                                                COMPLETE DELIVERY
-
-
-                                            </button>
-
-
-                                        }
-
-
-
-
-
-                                    </div>
-
-
-
-
-
-                                </div>
-
-
-                            ))
-
-
-                }
-
-
-
-
-
-
-
-
-            </main>
-
-
-        </div>
+                            : (
+
+                                <>
+                                    {shipments.map((item) => (
+                                        <ShipmentCard
+                                            key={item.id}
+                                            item={item}
+                                            user={user}
+                                            updateStatus={updateStatus}
+                                            onBid={(shipment) => {
+                                                setSelectedShipment(shipment);
+                                                setBidModalOpen(true);
+                                            }}
+                                        />
+                                    ))}
+                                </>
+                            )}
+
+
+                <BidModal
+                    open={bidModalOpen}
+                    shipment={selectedShipment}
+                    onClose={() => {
+                        setBidModalOpen(false);
+                        setSelectedShipment(null);
+                    }}
+                    onSubmit={submitBid}
+                />
+
+
+            </main >
+
+
+        </div >
 
 
     );
@@ -1497,36 +919,3 @@ export default function DriverPage() {
 
 
 
-function SummaryCard({ value, title }) {
-
-
-    return (
-
-
-        <div className="bg-slate-800 rounded-2xl p-3 text-center">
-
-
-            <p className="text-xl font-black">
-
-                {value}
-
-            </p>
-
-
-
-
-
-            <p className="text-xs text-slate-400">
-
-                {title}
-
-            </p>
-
-
-        </div>
-
-
-    );
-
-
-}

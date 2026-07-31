@@ -43,6 +43,8 @@ export default function ShipperPage() {
     const [posted, setPosted] = useState(false);
 
     const [loadingShipments, setLoadingShipments] = useState(true);
+    const [bids, setBids] = useState([]);
+
 
 
 
@@ -154,7 +156,19 @@ export default function ShipperPage() {
         } else {
 
 
-            setShipments(data || []);
+            const shipmentIds = (data || []).map((s) => s.id);
+
+            if (shipmentIds.length > 0) {
+                const { data: bidsData } = await supabase
+                    .from("bids")
+                    .select("*")
+                    .in("shipment_id", shipmentIds)
+                    .order("created_at", { ascending: true });
+
+                setBids(bidsData || []);
+            } else {
+                setBids([]);
+            }
 
 
         }
@@ -384,7 +398,41 @@ export default function ShipperPage() {
 
 
 
+    async function acceptBid(bid) {
+        // Update the shipment with the selected driver
+        const { error: shipmentError } = await supabase
+            .from("shipments")
+            .update({
+                driver_id: bid.driver_id,
+                driver_name: bid.driver_name,
+                driver_phone: bid.driver_phone,
+                status: "MATCHED",
+                matched_at: new Date().toISOString(),
+            })
+            .eq("id", bid.shipment_id);
 
+        if (shipmentError) {
+            alert(shipmentError.message);
+            return;
+        }
+
+        // Mark the accepted bid
+        await supabase
+            .from("bids")
+            .update({ status: "ACCEPTED" })
+            .eq("id", bid.id);
+
+        // Mark all other bids for this shipment as rejected
+        await supabase
+            .from("bids")
+            .update({ status: "REJECTED" })
+            .eq("shipment_id", bid.shipment_id)
+            .neq("id", bid.id);
+
+        alert("Driver selected successfully.");
+
+        fetchShipments(user.id);
+    }
 
 
 
@@ -1461,6 +1509,40 @@ export default function ShipperPage() {
                                             {item.status}
 
                                         </p>
+
+                                        <div className="mt-4 border-t pt-4">
+                                            <h4 className="font-bold mb-2">Driver Bids</h4>
+
+                                            {bids
+                                                .filter((bid) => bid.shipment_id === item.id)
+                                                .map((bid) => (
+                                                    <div
+                                                        key={bid.id}
+                                                        className="border rounded-xl p-3 mb-2"
+                                                    >
+                                                        <p><strong>Driver:</strong> {bid.driver_name}</p>
+                                                        <p><strong>Price:</strong> {bid.price} FCFA</p>
+                                                        <p><strong>ETA:</strong> {bid.eta}</p>
+
+                                                        {bid.note && (
+                                                            <p><strong>Note:</strong> {bid.note}</p>
+                                                        )}
+
+                                                        <button
+                                                            className="mt-3 bg-green-600 text-white px-4 py-2 rounded-lg font-bold"
+                                                            onClick={() => acceptBid(bid)}
+                                                        >
+                                                            Accept Bid
+                                                        </button>
+                                                    </div>
+                                                ))}
+
+                                            {bids.filter((bid) => bid.shipment_id === item.id).length === 0 && (
+                                                <p className="text-slate-500 text-sm">
+                                                    No bids yet.
+                                                </p>
+                                            )}
+                                        </div>
 
 
 

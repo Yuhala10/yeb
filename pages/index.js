@@ -1,127 +1,178 @@
-import Link from 'next/link';
+import Link from "next/link";
+import { useLanguage } from "../lib/LanguageContext";
+import BrandLogo from "../components/BrandLogo";
 
 export default function Home() {
+    const { language, changeLanguage } = useLanguage();
 
-  const saveRole = (role) => {
-    localStorage.setItem('selectedRole', role);
-  };
+    const text = {
+        en: {
+            title: "Move. Manage. Deliver.",
+            subtitle:
+                "Cameroon's trusted logistics marketplace connecting shippers and drivers.",
+            shipper: "I Want to Send Cargo",
+            shipperDesc:
+                "Post cargo, receive competitive bids, and choose the best driver.",
+            driver: "I Am a Driver",
+            driverDesc:
+                "Browse available shipments, submit bids, and earn more deliveries.",
+            merchant: "For Shippers",
+            transporter: "For Drivers",
+            feedback: "💬 Share Feedback",
+            admin: "⚙️ Admin",
+            features: "Why Tayeb?",
+            f1: "Fast cargo matching",
+            f2: "Competitive driver bidding",
+            f3: "Secure shipment management",
+            f4: "Built for Cameroon",
+        },
+        fr: {
+            title: "Déplacer. Gérer. Livrer.",
+            subtitle:
+                "La plateforme logistique du Cameroun reliant expéditeurs et chauffeurs.",
+            shipper: "Envoyer un colis",
+            shipperDesc:
+                "Publiez votre cargaison et choisissez la meilleure offre.",
+            driver: "Je suis chauffeur",
+            driverDesc:
+                "Consultez les cargaisons disponibles et soumettez vos offres.",
+            merchant: "Expéditeurs",
+            transporter: "Chauffeurs",
+            feedback: "💬 Donner un avis",
+            admin: "⚙️ Admin",
+            features: "Pourquoi Tayeb ?",
+            f1: "Attribution rapide",
+            f2: "Système d'offres",
+            f3: "Gestion sécurisée",
+            f4: "Conçu pour le Cameroun",
+        },
+    };
 
-  return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-16 antialiased">
+    const t = text[language];
 
-      {/* NAVBAR */}
-      <header className="bg-white/80 backdrop-blur-md border-b border-slate-100 sticky top-0 z-50 px-5 py-3.5">
-        <div className="max-w-md mx-auto flex items-center justify-between">
+    const saveRole = (role) => {
+        localStorage.setItem("selectedRole", role);
+    };
 
-          <div className="flex items-center space-x-3">
-            <div className="w-11 h-11 bg-gradient-to-tr from-amber-400 to-amber-300 rounded-2xl flex items-center justify-center font-extrabold text-2xl text-slate-900 shadow-md">
-              T
-            </div>
+    return (
+        <div className="min-h-screen bg-gradient-to-b from-orange-50 via-white to-slate-100">
+            <header className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b">
+                <div className="max-w-md mx-auto flex items-center justify-between px-5 py-4">
+                    <BrandLogo size={55} />
 
-            <div>
-              <h1 className="font-extrabold text-xl tracking-tight leading-none">
-                TAYEB
-              </h1>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => changeLanguage("en")}
+                            className={`px-3 py-1 rounded-lg text-sm font-bold ${language === "en"
+                                ? "bg-slate-900 text-white"
+                                : "bg-slate-200"
+                                }`}
+                        >
+                            EN
+                        </button>
 
-              <p className="text-[10px] font-bold tracking-wide uppercase text-orange-600 mt-0.5">
-                Cameroon Freight
-              </p>
-            </div>
-          </div>
+                        <button
+                            onClick={() => changeLanguage("fr")}
+                            className={`px-3 py-1 rounded-lg text-sm font-bold ${language === "fr"
+                                ? "bg-slate-900 text-white"
+                                : "bg-slate-200"
+                                }`}
+                        >
+                            FR
+                        </button>
 
-          <Link
-            href="/admin"
-            className="bg-slate-900 text-amber-400 font-bold text-xs px-3.5 py-2.5 rounded-xl btn-bounce"
-          >
-            ⚙️ Admin
-          </Link>
+                        <Link
+                            href="/admin"
+                            className="bg-slate-900 text-amber-400 px-3 py-2 rounded-xl font-bold text-xs"
+                        >
+                            {t.admin}
+                        </Link>
+                    </div>
+                </div>
+            </header>
 
-        </div>
-      </header>
+            <main className="max-w-md mx-auto px-5 py-8">
+                <div className="text-center">
+                    <BrandLogo size={150} />
 
-      <main className="max-w-md mx-auto px-4 mt-8 space-y-6">
+                    <h1 className="text-4xl font-black mt-6 text-slate-900">
+                        {t.title}
+                    </h1>
 
-        <div className="text-center space-y-2">
-          <h2 className="text-2xl font-black tracking-tight text-slate-900">
-            Overland Cargo Network
-          </h2>
+                    <p className="mt-4 text-slate-500 leading-relaxed">
+                        {t.subtitle}
+                    </p>
+                </div>
 
-          <p className="text-xs text-slate-500 max-w-xs mx-auto">
-            Connect directly with drivers on the Douala - Yaoundé corridor with
-            0 escrow delays.
-          </p>
-        </div>
+                <div className="mt-10 space-y-5">          <Link
+                    href="/login"
+                    onClick={() => saveRole("SHIPPER")}
+                    className="block bg-white rounded-3xl shadow-xl border border-orange-100 p-6 hover:scale-[1.02] transition-all"
+                >
+                    <div className="flex items-center justify-between">
+                        <span className="text-5xl">📦</span>
 
-        {/* ROLE CHOICE CARDS */}
-        <div className="space-y-4 pt-2">
+                        <span className="bg-orange-100 text-orange-600 px-3 py-1 rounded-full text-xs font-black uppercase">
+                            {t.merchant}
+                        </span>
+                    </div>
 
-          <Link
-            href="/login"
-            onClick={() => saveRole('SHIPPER')}
-            className="block bg-white p-6 rounded-[2rem] border border-slate-100 shadow-lg hover-card-rise btn-bounce group relative overflow-hidden"
-          >
+                    <h2 className="text-2xl font-black mt-5 text-slate-900">
+                        {t.shipper}
+                    </h2>
 
-            <div className="flex justify-between items-start">
-              <span className="text-4xl">📦</span>
+                    <p className="text-slate-500 mt-2">
+                        {t.shipperDesc}
+                    </p>
+                </Link>
 
-              <span className="bg-orange-100 text-orange-600 text-[10px] font-extrabold px-3 py-1 rounded-full uppercase">
-                For Merchants
-              </span>
-            </div>
+                    <Link
+                        href="/login"
+                        onClick={() => saveRole("DRIVER")}
+                        className="block bg-slate-900 rounded-3xl shadow-xl p-6 hover:scale-[1.02] transition-all"
+                    >
+                        <div className="flex items-center justify-between">
+                            <span className="text-5xl">🚚</span>
 
-            <div className="mt-4">
-              <h3 className="font-extrabold text-lg text-slate-900 group-hover:text-orange-600 transition-colors">
-                I Want to Send Cargo
-              </h3>
+                            <span className="bg-amber-400 text-slate-900 px-3 py-1 rounded-full text-xs font-black uppercase">
+                                {t.transporter}
+                            </span>
+                        </div>
 
-              <p className="text-xs text-slate-400 mt-1">
-                Post bags, crates, drums or bulky items and get live driver bids
-                instantly.
-              </p>
-            </div>
+                        <h2 className="text-2xl font-black mt-5 text-amber-400">
+                            {t.driver}
+                        </h2>
 
-          </Link>
+                        <p className="text-slate-300 mt-2">
+                            {t.driverDesc}
+                        </p>
+                    </Link>
+                </div>
 
-          <Link
-            href="/login"
-            onClick={() => saveRole('DRIVER')}
-            className="block bg-slate-900 text-white p-6 rounded-[2rem] shadow-xl hover-card-rise btn-bounce group relative overflow-hidden"
-          >
+                <section className="mt-10 bg-white rounded-3xl shadow-lg p-6">
+                    <h3 className="text-xl font-black text-slate-900 mb-5">
+                        {t.features}
+                    </h3>
 
-            <div className="flex justify-between items-start">
-              <span className="text-4xl">🚚</span>
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                            <span className="text-xl">⚡</span>
+                            <span>{t.f1}</span>
+                        </div>
 
-              <span className="bg-amber-400 text-slate-900 text-[10px] font-extrabold px-3 py-1 rounded-full uppercase">
-                For Transporters
-              </span>
-            </div>
+                        <div className="flex items-center gap-3">
+                            <span className="text-xl">💰</span>
+                            <span>{t.f2}</span>
+                        </div>
 
-            <div className="mt-4">
-              <h3 className="font-extrabold text-lg text-amber-400">
-                I Am A Driver
-              </h3>
+                        <div className="flex items-center gap-3">
+                            <span className="text-xl">🛡️</span>
+                            <span>{t.f3}</span>
+                        </div>
 
-              <p className="text-xs text-slate-300 mt-1">
-                Browse active market cargo, place counter-bids, and collect cash
-                on delivery.
-              </p>
-            </div>
-
-          </Link>
-
-        </div>
-
-        <div className="text-center pt-4">
-          <Link
-            href="/feedback"
-            className="text-xs font-bold text-slate-400 hover:text-orange-600 transition-colors"
-          >
-            💬 Share Feedback or Report an Issue
-          </Link>
-        </div>
-
-      </main>
-
-    </div>
-  );
-}
+                        <div className="flex items-center gap-3">
+                            <span className="text-xl">🇨🇲</span>
+                            <span>{t.f4}</span>
+                        </div>
+                    </div>
+                </section></div>

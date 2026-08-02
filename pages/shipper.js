@@ -6,6 +6,7 @@ import { logout } from "../lib/logout";
 import { useLanguage } from "../lib/LanguageContext";
 import BrandLogo from "../components/BrandLogo";
 import Notifications from "../components/Notifications";
+import DeleteAccount from "../components/Account/DeleteAccount";
 
 
 export default function ShipperPage() {
@@ -159,11 +160,22 @@ export default function ShipperPage() {
             const shipmentIds = (data || []).map((s) => s.id);
 
             if (shipmentIds.length > 0) {
-                const { data: bidsData } = await supabase
+                const { data: bidsData, error: bidsError } = await supabase
                     .from("bids")
-                    .select("*")
+                    .select(`
+        *,
+        driver:driver_id (
+            id,
+            full_name,
+            phone_number
+        )
+    `)
                     .in("shipment_id", shipmentIds)
                     .order("created_at", { ascending: true });
+
+                if (bidsError) {
+                    console.log(bidsError);
+                }
 
                 setBids(bidsData || []);
             } else {
@@ -404,8 +416,8 @@ export default function ShipperPage() {
             .from("shipments")
             .update({
                 driver_id: bid.driver_id,
-                driver_name: bid.driver_name,
-                driver_phone: bid.driver_phone,
+                driver_name: bid.driver?.full_name,
+                driver_phone: bid.driver?.phone_number,
                 status: "MATCHED",
                 matched_at: new Date().toISOString(),
             })
@@ -1520,8 +1532,8 @@ export default function ShipperPage() {
                                                         key={bid.id}
                                                         className="border rounded-xl p-3 mb-2"
                                                     >
-                                                        <p><strong>Driver:</strong> {bid.driver_name}</p>
-                                                        <p><strong>Price:</strong> {bid.price} FCFA</p>
+                                                        <p><strong>Driver:</strong> {bid.driver?.full_name}</p>
+                                                        <p><strong>Offer:</strong> {bid.proposed_price} FCFA</p>
                                                         <p><strong>ETA:</strong> {bid.eta}</p>
 
                                                         {bid.note && (
@@ -1558,7 +1570,7 @@ export default function ShipperPage() {
 
 
 
-
+                <DeleteAccount user={user} />
 
             </div>
 

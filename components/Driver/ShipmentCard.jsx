@@ -4,6 +4,7 @@ export default function ShipmentCard({
     item,
     user,
     updateStatus,
+    onBid,
 }) {
     return (
         <div className="bg-slate-800 rounded-3xl p-5 mb-5">
@@ -59,16 +60,7 @@ export default function ShipmentCard({
             {/* ACTION BUTTONS */}
             <div className="mt-5">
 
-                {item.status === "OPEN" && (
-                    <button
-                        onClick={() =>
-                            updateStatus(item.id, "MATCHED")
-                        }
-                        className="w-full bg-amber-400 text-slate-900 rounded-xl py-3 font-black"
-                    >
-                        ACCEPT SHIPMENT
-                    </button>
-                )}
+
 
                 {item.status === "MATCHED" &&
                     item.driver_id === user.id && (

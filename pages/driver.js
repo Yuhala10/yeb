@@ -9,6 +9,7 @@ import DriverHeader from "../components/Driver/DriverHeader";
 import AvailabilityCard from "../components/Driver/AvailabilityCard";
 import ShipmentCard from "../components/Driver/ShipmentCard";
 import BidModal from "../components/Driver/BidModal";
+import DeleteAccount from "../components/Account/DeleteAccount";
 
 export default function DriverPage() {
 
@@ -34,14 +35,12 @@ export default function DriverPage() {
                 {
                     shipment_id: selectedShipment.id,
                     driver_id: user.id,
-                    driver_name: user.full_name,
-                    driver_phone: user.phone_number,
-                    price: bid.price,
+                    proposed_price: bid.price,
                     eta: bid.eta,
                     note: bid.note,
+                    status: "PENDING",
                 },
             ]);
-
         if (error) {
             alert(error.message);
             return;
@@ -899,6 +898,7 @@ export default function DriverPage() {
                     onSubmit={submitBid}
                 />
 
+                <DeleteAccount user={user} />
 
             </main >
 

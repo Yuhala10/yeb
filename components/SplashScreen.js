@@ -21,25 +21,16 @@ export default function SplashScreen({ children }) {
 
 
     if (showSplash) {
-
         return (
-
-            <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-
+            <div className="fixed inset-0">
                 <img
                     src="/branding/tayeb-splash.jpeg"
                     alt="Tayeb"
-                    className="w-64 h-auto object-contain"
+                    className="absolute inset-0 w-full h-full object-cover"
                 />
-
             </div>
-
         );
 
     }
-
-
-
     return children;
-
 }

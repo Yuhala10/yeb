@@ -3,6 +3,7 @@ import DeliveryTracker from "./DeliveryTracker";
 export default function ShipmentCard({
     item,
     user,
+    hasBid,
     updateStatus,
     onBid,
 }) {
@@ -86,7 +87,7 @@ export default function ShipmentCard({
                         </button>
                     )}
 
-                {item.status === "OPEN" && (
+                {item.status === "OPEN" && !hasBid && (
                     <button
                         onClick={() => onBid(item)}
                         className="w-full bg-amber-400 text-slate-900 rounded-xl py-3 font-black"
@@ -95,6 +96,11 @@ export default function ShipmentCard({
                     </button>
                 )}
 
+                {item.status === "OPEN" && hasBid && (
+                    <div className="w-full bg-slate-700 text-center rounded-xl py-3 font-bold text-amber-400">
+                        ⏳ Waiting for shipper's decision...
+                    </div>
+                )}
             </div>
 
         </div>

@@ -94,6 +94,7 @@ export default function ShipperPage() {
 
 
         setUser(currentUser);
+        console.log("Logged in user:", currentUser);
 
         setPhone(currentUser.phone_number || "");
 
@@ -121,7 +122,7 @@ export default function ShipperPage() {
 
         setLoadingShipments(true);
 
-
+        console.log("Fetching shipments for:", shipperId);
 
         const { data, error } = await supabase
 
@@ -141,7 +142,10 @@ export default function ShipperPage() {
 
                 ascending: false
 
+
             });
+
+        console.log("Shipments returned:", data);
 
 
 
@@ -149,13 +153,10 @@ export default function ShipperPage() {
 
 
         if (error) {
-
-
             alert(error.message);
-
-
         } else {
 
+            setShipments(data || []);
 
             const shipmentIds = (data || []).map((s) => s.id);
 
@@ -198,7 +199,7 @@ export default function ShipperPage() {
 
 
 
-
+    console.log("Shipments returned:", data);
 
 
 

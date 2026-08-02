@@ -27,6 +27,7 @@ export default function DriverPage() {
     const [loading, setLoading] = useState(true);
     const [selectedShipment, setSelectedShipment] = useState(null);
     const [bidModalOpen, setBidModalOpen] = useState(false);
+    const [driverBids, setDriverBids] = useState([]);
 
     async function submitBid(bid) {
         const { error } = await supabase
@@ -209,6 +210,12 @@ export default function DriverPage() {
 
 
             setShipments(data || []);
+            const { data: bids } = await supabase
+                .from("bids")
+                .select("shipment_id,status")
+                .eq("driver_id", driverId);
+
+            setDriverBids(bids || []);
 
 
         }
@@ -877,12 +884,18 @@ export default function DriverPage() {
                                             key={item.id}
                                             item={item}
                                             user={user}
+                                            hasBid={
+                                                driverBids.some(
+                                                    bid => bid.shipment_id === item.id
+                                                )
+                                            }
                                             updateStatus={updateStatus}
                                             onBid={(shipment) => {
                                                 setSelectedShipment(shipment);
                                                 setBidModalOpen(true);
                                             }}
                                         />
+
                                     ))}
                                 </>
                             )}

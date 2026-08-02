@@ -3,7 +3,7 @@ import DeliveryTracker from "./DeliveryTracker";
 export default function ShipmentCard({
     item,
     user,
-    hasBid,
+    driverBid,
     updateStatus,
     onBid,
 }) {
@@ -63,18 +63,6 @@ export default function ShipmentCard({
 
 
 
-                {item.status === "MATCHED" &&
-                    item.driver_id === user.id && (
-                        <button
-                            onClick={() =>
-                                updateStatus(item.id, "DEPARTED")
-                            }
-                            className="w-full bg-orange-500 rounded-xl py-3 font-black"
-                        >
-                            START JOURNEY
-                        </button>
-                    )}
-
                 {item.status === "DEPARTED" &&
                     item.driver_id === user.id && (
                         <button
@@ -87,7 +75,8 @@ export default function ShipmentCard({
                         </button>
                     )}
 
-                {item.status === "OPEN" && !hasBid && (
+                {/* Driver has not bid */}
+                {item.status === "OPEN" && !driverBid && (
                     <button
                         onClick={() => onBid(item)}
                         className="w-full bg-amber-400 text-slate-900 rounded-xl py-3 font-black"
@@ -96,9 +85,54 @@ export default function ShipmentCard({
                     </button>
                 )}
 
-                {item.status === "OPEN" && hasBid && (
-                    <div className="w-full bg-slate-700 text-center rounded-xl py-3 font-bold text-amber-400">
-                        ⏳ Waiting for shipper's decision...
+                {/* Waiting */}
+                {driverBid?.status === "PENDING" && (
+                    <div className="bg-amber-100 border border-amber-400 rounded-xl p-4 text-center">
+                        <p className="font-black text-amber-700">
+                            ⏳ Waiting for shipper's decision...
+                        </p>
+                    </div>
+                )}
+
+                {/* Accepted */}
+                {driverBid?.status === "ACCEPTED" &&
+                    item.driver_id === user.id && (
+                        <>
+                            <div className="bg-green-100 border border-green-400 rounded-xl p-4 mb-3">
+                                <p className="font-black text-green-700">
+                                    🎉 Your bid has been accepted!
+                                </p>
+
+                                <p className="mt-2 text-sm">
+                                    Please contact the shipper to arrange pickup.
+                                </p>
+
+                                <p className="mt-2 font-bold">
+                                    📞 {item.shipper?.phone_number}
+                                </p>
+                            </div>
+
+                            <button
+                                onClick={() =>
+                                    updateStatus(item.id, "DEPARTED")
+                                }
+                                className="w-full bg-orange-500 rounded-xl py-3 font-black"
+                            >
+                                START JOURNEY
+                            </button>
+                        </>
+                    )}
+
+                {/* Rejected */}
+                {driverBid?.status === "REJECTED" && (
+                    <div className="bg-red-100 border border-red-300 rounded-xl p-4 text-center">
+                        <p className="font-black text-red-700">
+                            ❌ Another driver was selected.
+                        </p>
+
+                        <p className="text-sm mt-2">
+                            Thank you for submitting your offer.
+                        </p>
                     </div>
                 )}
             </div>

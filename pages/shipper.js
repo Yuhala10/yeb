@@ -1539,12 +1539,38 @@ export default function ShipperPage() {
                                                             <p><strong>Note:</strong> {bid.note}</p>
                                                         )}
 
-                                                        <button
-                                                            className="mt-3 bg-green-600 text-white px-4 py-2 rounded-lg font-bold"
-                                                            onClick={() => acceptBid(bid)}
-                                                        >
-                                                            Accept Bid
-                                                        </button>
+                                                        {bid.status === "PENDING" && (
+                                                            <button
+                                                                className="mt-3 bg-green-600 text-white px-4 py-2 rounded-lg font-bold"
+                                                                onClick={() => acceptBid(bid)}
+                                                            >
+                                                                Accept Bid
+                                                            </button>
+                                                        )}
+
+                                                        {bid.status === "ACCEPTED" && (
+                                                            <div className="mt-3 rounded-xl bg-green-100 border border-green-300 p-4">
+                                                                <p className="font-black text-green-700">
+                                                                    ✅ DRIVER SELECTED
+                                                                </p>
+
+                                                                <p className="mt-2">
+                                                                    📞 {bid.driver?.phone_number}
+                                                                </p>
+
+                                                                <p className="text-sm mt-2">
+                                                                    Please contact this driver to arrange cargo pickup.
+                                                                </p>
+                                                            </div>
+                                                        )}
+
+                                                        {bid.status === "REJECTED" && (
+                                                            <div className="mt-3 rounded-xl bg-red-100 border border-red-300 p-4">
+                                                                <p className="font-black text-red-700">
+                                                                    ❌ Bid Not Selected
+                                                                </p>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 ))}
 

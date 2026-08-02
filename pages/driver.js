@@ -49,6 +49,8 @@ export default function DriverPage() {
 
         alert("Bid submitted successfully.");
 
+        await fetchShipments(user.id);
+
         setBidModalOpen(false);
         setSelectedShipment(null);
     }
@@ -884,8 +886,8 @@ export default function DriverPage() {
                                             key={item.id}
                                             item={item}
                                             user={user}
-                                            hasBid={
-                                                driverBids.some(
+                                            driverBid={
+                                                driverBids.find(
                                                     bid => bid.shipment_id === item.id
                                                 )
                                             }

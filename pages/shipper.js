@@ -889,58 +889,561 @@ export default function ShipperPage() {
 
                     />
 
+                </div>
+
+
+                {/* POST SUCCESS */}
+
+
+                {
+                    posted ?
+
+
+                        (
+
+                            <div className="bg-white rounded-3xl shadow-xl p-8 text-center">
+
+
+                                <h2 className="text-2xl font-black text-green-600">
+
+                                    Cargo Posted!
+
+                                </h2>
 
 
 
-                    {/* POST SUCCESS */}
+
+                                <p className="mt-3 text-slate-500">
+
+                                    Drivers can now see your shipment.
+
+                                </p>
+
+
+
+
+
+
+                                <button
+
+                                    onClick={() => setPosted(false)}
+
+                                    className="mt-6 w-full bg-slate-900 text-amber-400 rounded-2xl py-4 font-black"
+
+                                >
+
+                                    Post Another Shipment
+
+                                </button>
+
+
+
+
+                            </div>
+
+
+                        )
+
+
+
+                        :
+
+
+
+                        (
+
+                            <form
+
+                                onSubmit={handlePostCargo}
+
+                                className="bg-white rounded-3xl shadow-xl p-6 space-y-5"
+
+                            >
+
+
+
+
+                                <h2 className="text-xl font-black">
+
+                                    New Shipment
+
+                                </h2>
+
+
+
+
+
+                                <select
+
+                                    value={itemType}
+
+                                    onChange={(e) => setItemType(e.target.value)}
+
+                                    className="w-full border rounded-xl p-3"
+
+                                >
+
+                                    <option>
+                                        Bags/Sacks
+                                    </option>
+
+                                    <option>
+                                        Crates/Boxes
+                                    </option>
+
+                                    <option>
+                                        Drums/Oil
+                                    </option>
+
+                                    <option>
+                                        Furniture/Bulky
+                                    </option>
+
+
+                                </select>
+
+
+
+
+
+
+
+                                <input
+
+                                    value={origin}
+
+                                    onChange={(e) => setOrigin(e.target.value)}
+
+                                    className="w-full border rounded-xl p-3"
+
+                                    placeholder="Origin"
+
+                                />
+
+
+
+
+
+
+
+                                <input
+
+                                    value={destination}
+
+                                    onChange={(e) => setDestination(e.target.value)}
+
+                                    className="w-full border rounded-xl p-3"
+
+                                    placeholder="Destination"
+
+                                />
+
+
+
+
+
+
+
+                                <input
+
+                                    type="number"
+
+                                    value={quantity}
+
+                                    onChange={(e) => setQuantity(Number(e.target.value))}
+
+                                    className="w-full border rounded-xl p-3"
+
+                                    placeholder="Quantity"
+
+                                />
+
+
+
+
+
+
+
+
+                                <input
+
+                                    type="number"
+
+                                    value={offer}
+
+                                    onChange={(e) => setOffer(Number(e.target.value))}
+
+                                    className="w-full border rounded-xl p-3"
+
+                                    placeholder="Offer FCFA"
+
+                                />
+
+
+
+
+
+
+
+                                <input
+
+                                    value={phone}
+
+                                    onChange={(e) => setPhone(e.target.value)}
+
+                                    className="w-full border rounded-xl p-3"
+
+                                    placeholder="Receiver Phone"
+
+                                />
+
+
+
+
+
+
+
+                                <button
+
+                                    disabled={loading}
+
+                                    className="w-full bg-orange-600 text-white rounded-2xl py-4 font-black"
+
+                                >
+
+                                    {
+
+                                        loading
+
+                                            ?
+
+                                            "Posting..."
+
+                                            :
+
+                                            "Broadcast Shipment"
+
+                                    }
+
+
+                                </button>
+
+
+
+
+                            </form>
+
+
+                        )
+
+                }
+
+
+
+
+
+
+
+
+
+                {/* DRIVER MATCH DETAILS */}
+
+
+
+                <div className="bg-white rounded-3xl shadow p-5 mt-6">
+
+
+                    <h2 className="font-black text-lg mb-3">
+
+                        Driver Information
+
+                    </h2>
+
+
+
 
 
                     {
-                        posted ?
-
-
-                            (
-
-                                <div className="bg-white rounded-3xl shadow-xl p-8 text-center">
-
-
-                                    <h2 className="text-2xl font-black text-green-600">
-
-                                        Cargo Posted!
-
-                                    </h2>
+                        shipments.some(item => item.driver_id)
 
 
 
-
-                                    <p className="mt-3 text-slate-500">
-
-                                        Drivers can now see your shipment.
-
-                                    </p>
+                            ?
 
 
 
+                            shipments
+
+                                .filter(item => item.driver_id)
+
+                                .map(item => (
 
 
+                                    <div
 
-                                    <button
+                                        key={item.id}
 
-                                        onClick={() => setPosted(false)}
-
-                                        className="mt-6 w-full bg-slate-900 text-amber-400 rounded-2xl py-4 font-black"
+                                        className="border rounded-2xl p-4 mb-3"
 
                                     >
 
-                                        Post Another Shipment
 
-                                    </button>
 
+                                        <p className="font-bold">
+
+                                            Shipment:
+
+                                            {" "}
+
+                                            {item.item_type}
+
+                                        </p>
+
+
+
+
+
+                                        <p className="mt-2">
+
+                                            🚚 Driver:
+
+                                            {" "}
+
+                                            {
+                                                item.driver?.full_name ||
+                                                "Matched driver"
+                                            }
+
+                                        </p>
+
+
+
+
+
+                                        <p>
+
+                                            📞
+
+                                            {" "}
+
+                                            {
+                                                item.driver?.phone_number ||
+                                                "Hidden"
+                                            }
+
+                                        </p>
+
+
+
+
+
+                                        <p className="font-bold mt-2">
+
+                                            Status:
+
+                                            {" "}
+
+                                            {item.status}
+
+                                        </p>
+
+
+
+
+                                    </div>
+
+
+                                ))
+
+
+
+                            :
+
+
+
+                            <p className="text-sm text-slate-500">
+
+                                Waiting for driver acceptance.
+
+                            </p>
+
+
+                    }
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+                {/* DELIVERY TRACKING */}
+
+
+
+                <div className="bg-white rounded-3xl shadow p-5 mt-6">
+
+
+                    <h2 className="font-black text-lg mb-4">
+
+                        Delivery Tracking
+
+                    </h2>
+
+
+
+
+
+                    {
+                        shipments.map(item => (
+
+
+                            <div
+
+                                key={item.id}
+
+                                className="mb-5"
+
+                            >
+
+
+
+                                <p className="font-bold">
+
+                                    {item.origin}
+
+                                    {" → "}
+
+                                    {item.destination}
+
+                                </p>
+
+
+
+
+
+                                <div className="flex justify-between mt-3 text-xs">
+
+
+
+                                    <span
+
+                                        className={
+                                            item.status !== "OPEN"
+                                                ?
+                                                "font-black text-orange-600"
+                                                :
+                                                "text-slate-400"
+                                        }
+
+                                    >
+
+                                        MATCHED
+
+                                    </span>
+
+
+
+
+
+
+                                    <span
+
+                                        className={
+                                            [
+                                                "DEPARTED",
+                                                "ARRIVED",
+                                                "COMPLETED"
+                                            ].includes(item.status)
+                                                ?
+                                                "font-black text-orange-600"
+                                                :
+                                                "text-slate-400"
+                                        }
+
+                                    >
+
+                                        ON WAY
+
+                                    </span>
+
+
+
+
+
+
+                                    <span
+
+                                        className={
+                                            item.status === "COMPLETED"
+                                                ?
+                                                "font-black text-green-600"
+                                                :
+                                                "text-slate-400"
+                                        }
+
+                                    >
+
+                                        DONE
+
+                                    </span>
 
 
 
                                 </div>
 
+
+                            </div>
+
+
+                        ))
+
+                    }
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+                {/* HISTORY */}
+
+
+
+                <div className="mt-8">
+
+
+                    <h2 className="text-xl font-black mb-4">
+
+                        Shipment History
+
+                    </h2>
+
+
+
+
+
+                    {
+                        loadingShipments ?
+
+
+
+                            (
+
+                                <p>
+
+                                    Loading...
+
+                                </p>
 
                             )
 
@@ -950,500 +1453,17 @@ export default function ShipperPage() {
 
 
 
-                            (
-
-                                <form
-
-                                    onSubmit={handlePostCargo}
-
-                                    className="bg-white rounded-3xl shadow-xl p-6 space-y-5"
-
-                                >
-
-
-
-
-                                    <h2 className="text-xl font-black">
-
-                                        New Shipment
-
-                                    </h2>
-
-
-
-
-
-                                    <select
-
-                                        value={itemType}
-
-                                        onChange={(e) => setItemType(e.target.value)}
-
-                                        className="w-full border rounded-xl p-3"
-
-                                    >
-
-                                        <option>
-                                            Bags/Sacks
-                                        </option>
-
-                                        <option>
-                                            Crates/Boxes
-                                        </option>
-
-                                        <option>
-                                            Drums/Oil
-                                        </option>
-
-                                        <option>
-                                            Furniture/Bulky
-                                        </option>
-
-
-                                    </select>
-
-
-
-
-
-
-
-                                    <input
-
-                                        value={origin}
-
-                                        onChange={(e) => setOrigin(e.target.value)}
-
-                                        className="w-full border rounded-xl p-3"
-
-                                        placeholder="Origin"
-
-                                    />
-
-
-
-
-
-
-
-                                    <input
-
-                                        value={destination}
-
-                                        onChange={(e) => setDestination(e.target.value)}
-
-                                        className="w-full border rounded-xl p-3"
-
-                                        placeholder="Destination"
-
-                                    />
-
-
-
-
-
-
-
-                                    <input
-
-                                        type="number"
-
-                                        value={quantity}
-
-                                        onChange={(e) => setQuantity(Number(e.target.value))}
-
-                                        className="w-full border rounded-xl p-3"
-
-                                        placeholder="Quantity"
-
-                                    />
-
-
-
-
-
-
-
-
-                                    <input
-
-                                        type="number"
-
-                                        value={offer}
-
-                                        onChange={(e) => setOffer(Number(e.target.value))}
-
-                                        className="w-full border rounded-xl p-3"
-
-                                        placeholder="Offer FCFA"
-
-                                    />
-
-
-
-
-
-
-
-                                    <input
-
-                                        value={phone}
-
-                                        onChange={(e) => setPhone(e.target.value)}
-
-                                        className="w-full border rounded-xl p-3"
-
-                                        placeholder="Receiver Phone"
-
-                                    />
-
-
-
-
-
-
-
-                                    <button
-
-                                        disabled={loading}
-
-                                        className="w-full bg-orange-600 text-white rounded-2xl py-4 font-black"
-
-                                    >
-
-                                        {
-
-                                            loading
-
-                                                ?
-
-                                                "Posting..."
-
-                                                :
-
-                                                "Broadcast Shipment"
-
-                                        }
-
-
-                                    </button>
-
-
-
-
-                                </form>
-
-
-                            )
-
-                    }
-
-
-
-
-
-
-
-
-
-                    {/* DRIVER MATCH DETAILS */}
-
-
-
-                    <div className="bg-white rounded-3xl shadow p-5 mt-6">
-
-
-                        <h2 className="font-black text-lg mb-3">
-
-                            Driver Information
-
-                        </h2>
-
-
-
-
-
-                        {
-                            shipments.some(item => item.driver_id)
-
-
-
-                                ?
-
-
-
-                                shipments
-
-                                    .filter(item => item.driver_id)
-
-                                    .map(item => (
-
-
-                                        <div
-
-                                            key={item.id}
-
-                                            className="border rounded-2xl p-4 mb-3"
-
-                                        >
-
-
-
-                                            <p className="font-bold">
-
-                                                Shipment:
-
-                                                {" "}
-
-                                                {item.item_type}
-
-                                            </p>
-
-
-
-
-
-                                            <p className="mt-2">
-
-                                                🚚 Driver:
-
-                                                {" "}
-
-                                                {
-                                                    item.driver?.full_name ||
-                                                    "Matched driver"
-                                                }
-
-                                            </p>
-
-
-
-
-
-                                            <p>
-
-                                                📞
-
-                                                {" "}
-
-                                                {
-                                                    item.driver?.phone_number ||
-                                                    "Hidden"
-                                                }
-
-                                            </p>
-
-
-
-
-
-                                            <p className="font-bold mt-2">
-
-                                                Status:
-
-                                                {" "}
-
-                                                {item.status}
-
-                                            </p>
-
-
-
-
-                                        </div>
-
-
-                                    ))
-
-
-
-                                :
-
-
-
-                                <p className="text-sm text-slate-500">
-
-                                    Waiting for driver acceptance.
-
-                                </p>
-
-
-                        }
-
-
-                    </div>
-
-
-
-
-
-
-
-
-
-                    {/* DELIVERY TRACKING */}
-
-
-
-                    <div className="bg-white rounded-3xl shadow p-5 mt-6">
-
-
-                        <h2 className="font-black text-lg mb-4">
-
-                            Delivery Tracking
-
-                        </h2>
-
-
-
-
-
-                        {
-                            shipments.map(item => (
-
-
-                                <div
-
-                                    key={item.id}
-
-                                    className="mb-5"
-
-                                >
-
-
-
-                                    <p className="font-bold">
-
-                                        {item.origin}
-
-                                        {" → "}
-
-                                        {item.destination}
-
-                                    </p>
-
-
-
-
-
-                                    <div className="flex justify-between mt-3 text-xs">
-
-
-
-                                        <span
-
-                                            className={
-                                                item.status !== "OPEN"
-                                                    ?
-                                                    "font-black text-orange-600"
-                                                    :
-                                                    "text-slate-400"
-                                            }
-
-                                        >
-
-                                            MATCHED
-
-                                        </span>
-
-
-
-
-
-
-                                        <span
-
-                                            className={
-                                                [
-                                                    "DEPARTED",
-                                                    "ARRIVED",
-                                                    "COMPLETED"
-                                                ].includes(item.status)
-                                                    ?
-                                                    "font-black text-orange-600"
-                                                    :
-                                                    "text-slate-400"
-                                            }
-
-                                        >
-
-                                            ON WAY
-
-                                        </span>
-
-
-
-
-
-
-                                        <span
-
-                                            className={
-                                                item.status === "COMPLETED"
-                                                    ?
-                                                    "font-black text-green-600"
-                                                    :
-                                                    "text-slate-400"
-                                            }
-
-                                        >
-
-                                            DONE
-
-                                        </span>
-
-
-
-                                    </div>
-
-
-                                </div>
-
-
-                            ))
-
-                        }
-
-
-                    </div>
-
-
-
-
-
-
-
-
-
-                    {/* HISTORY */}
-
-
-
-                    <div className="mt-8">
-
-
-                        <h2 className="text-xl font-black mb-4">
-
-                            Shipment History
-
-                        </h2>
-
-
-
-
-
-                        {
-                            loadingShipments ?
+                            shipments.length === 0 ?
 
 
 
                                 (
 
-                                    <p>
+                                    <div className="bg-white rounded-3xl p-6 text-center">
 
-                                        Loading...
+                                        No shipments yet.
 
-                                    </p>
+                                    </div>
 
                                 )
 
@@ -1453,131 +1473,111 @@ export default function ShipperPage() {
 
 
 
-                                shipments.length === 0 ?
+                                shipments.map(item => (
 
 
+                                    <div
 
-                                    (
+                                        key={item.id}
 
-                                        <div className="bg-white rounded-3xl p-6 text-center">
+                                        className="bg-white rounded-3xl shadow p-5 mb-4"
 
-                                            No shipments yet.
-
-                                        </div>
-
-                                    )
+                                    >
 
 
+                                        <h3 className="font-black">
 
-                                    :
+                                            {item.item_type}
 
-
-
-                                    shipments.map(item => (
-
-
-                                        <div
-
-                                            key={item.id}
-
-                                            className="bg-white rounded-3xl shadow p-5 mb-4"
-
-                                        >
-
-
-                                            <h3 className="font-black">
-
-                                                {item.item_type}
-
-                                            </h3>
+                                        </h3>
 
 
 
 
-                                            <p>
+                                        <p>
 
-                                                📍 {item.origin}
+                                            📍 {item.origin}
 
-                                            </p>
-
-
-
-                                            <p>
-
-                                                🏁 {item.destination}
-
-                                            </p>
+                                        </p>
 
 
 
+                                        <p>
 
-                                            <p className="font-bold">
+                                            🏁 {item.destination}
 
-                                                Status:
+                                        </p>
 
-                                                {" "}
 
-                                                {item.status}
 
-                                            </p>
 
-                                            <div className="mt-4 border-t pt-4">
-                                                <h4 className="font-bold mb-2">Driver Bids</h4>
+                                        <p className="font-bold">
 
-                                                {bids
-                                                    .filter((bid) => bid.shipment_id === item.id)
-                                                    .map((bid) => (
-                                                        <div
-                                                            key={bid.id}
-                                                            className="border rounded-xl p-3 mb-2"
+                                            Status:
+
+                                            {" "}
+
+                                            {item.status}
+
+                                        </p>
+
+                                        <div className="mt-4 border-t pt-4">
+                                            <h4 className="font-bold mb-2">Driver Bids</h4>
+
+                                            {bids
+                                                .filter((bid) => bid.shipment_id === item.id)
+                                                .map((bid) => (
+                                                    <div
+                                                        key={bid.id}
+                                                        className="border rounded-xl p-3 mb-2"
+                                                    >
+                                                        <p><strong>Driver:</strong> {bid.driver?.full_name}</p>
+                                                        <p><strong>Offer:</strong> {bid.proposed_price} FCFA</p>
+                                                        <p><strong>ETA:</strong> {bid.eta}</p>
+
+                                                        {bid.note && (
+                                                            <p><strong>Note:</strong> {bid.note}</p>
+                                                        )}
+
+                                                        <button
+                                                            className="mt-3 bg-green-600 text-white px-4 py-2 rounded-lg font-bold"
+                                                            onClick={() => acceptBid(bid)}
                                                         >
-                                                            <p><strong>Driver:</strong> {bid.driver?.full_name}</p>
-                                                            <p><strong>Offer:</strong> {bid.proposed_price} FCFA</p>
-                                                            <p><strong>ETA:</strong> {bid.eta}</p>
+                                                            Accept Bid
+                                                        </button>
+                                                    </div>
+                                                ))}
 
-                                                            {bid.note && (
-                                                                <p><strong>Note:</strong> {bid.note}</p>
-                                                            )}
-
-                                                            <button
-                                                                className="mt-3 bg-green-600 text-white px-4 py-2 rounded-lg font-bold"
-                                                                onClick={() => acceptBid(bid)}
-                                                            >
-                                                                Accept Bid
-                                                            </button>
-                                                        </div>
-                                                    ))}
-
-                                                {bids.filter((bid) => bid.shipment_id === item.id).length === 0 && (
-                                                    <p className="text-slate-500 text-sm">
-                                                        No bids yet.
-                                                    </p>
-                                                )}
-                                            </div>
-
-
-
+                                            {bids.filter((bid) => bid.shipment_id === item.id).length === 0 && (
+                                                <p className="text-slate-500 text-sm">
+                                                    No bids yet.
+                                                </p>
+                                            )}
                                         </div>
 
 
-                                    ))
 
-                        }
-
-
-                    </div>
+                                    </div>
 
 
+                                ))
 
-                    <DeleteAccount user={user} />
+                    }
+
 
                 </div>
 
 
+
+                <DeleteAccount user={user} />
+
             </div>
 
 
-            );
+        </div>
+
+
+    );
 
 }
 
@@ -1589,35 +1589,35 @@ export default function ShipperPage() {
 
 
 
-            function SummaryCard({value, title}) {
+function SummaryCard({ value, title }) {
 
 
     return (
 
 
-            <div className="bg-white rounded-2xl p-4 text-center shadow">
+        <div className="bg-white rounded-2xl p-4 text-center shadow">
 
 
-                <p className="text-2xl font-black">
+            <p className="text-2xl font-black">
 
-                    {value}
+                {value}
 
-                </p>
-
-
+            </p>
 
 
-                <p className="text-xs text-slate-500">
-
-                    {title}
-
-                </p>
 
 
-            </div>
+            <p className="text-xs text-slate-500">
+
+                {title}
+
+            </p>
 
 
-            );
+        </div>
+
+
+    );
 
 
 }

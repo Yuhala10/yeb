@@ -49,11 +49,7 @@ export default function ShipperPage() {
 
 
 
-    // SUBSCRIPTION
 
-    const [momoTxid, setMomoTxid] = useState("");
-
-    const [subscriptionLoading, setSubscriptionLoading] = useState(false);
 
 
 
@@ -106,15 +102,46 @@ export default function ShipperPage() {
 
     }, []);
 
+    // REALTIME UPDATES
+    useEffect(() => {
+        if (!user?.id) return;
 
+        const shipmentChannel = supabase
+            .channel(`shipper-shipments-${user.id}`)
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "shipments",
+                    filter: `shipper_id=eq.${user.id}`,
+                },
+                () => {
+                    fetchShipments(user.id);
+                }
+            )
+            .subscribe();
 
+        const bidChannel = supabase
+            .channel(`shipper-bids-${user.id}`)
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "bids",
+                },
+                () => {
+                    fetchShipments(user.id);
+                }
+            )
+            .subscribe();
 
-
-
-
-
-
-
+        return () => {
+            supabase.removeChannel(shipmentChannel);
+            supabase.removeChannel(bidChannel);
+        };
+    }, [user]);
 
     async function fetchShipments(shipperId) {
 
@@ -198,104 +225,6 @@ export default function ShipperPage() {
     }
 
 
-
-
-
-
-
-    async function submitSubscription() {
-
-
-        if (!momoTxid.trim()) {
-
-
-            alert("Enter Mobile Money transaction ID");
-
-
-            return;
-
-
-        }
-
-
-
-
-
-        setSubscriptionLoading(true);
-
-
-
-
-
-
-        const { error } = await supabase
-
-            .from("subscriptions")
-
-            .insert([
-
-                {
-
-                    user_id: user.id,
-
-                    momo_txid: momoTxid,
-
-                    amount: 5000,
-
-                    status: "PENDING"
-
-                }
-
-            ]);
-
-
-
-
-
-
-
-        setSubscriptionLoading(false);
-
-
-
-
-
-
-        if (error) {
-
-
-            alert(error.message);
-
-
-            return;
-
-
-        }
-
-
-
-
-
-        setMomoTxid("");
-
-
-
-        alert(
-            "Subscription request sent. Waiting for approval."
-        );
-
-
-
-    }
-
-
-
-
-
-
-
-
-
     async function handlePostCargo(e) {
 
 
@@ -377,7 +306,59 @@ export default function ShipperPage() {
 
         setPosted(true);
 
+        // =========================================================
+        // NOTIFY DRIVERS THAT NEW CARGO IS AVAILABLE
+        // =========================================================
 
+        try {
+            const { data: drivers, error: driversError } =
+                await supabase
+                    .from("users")
+                    .select("id")
+                    .eq("role", "DRIVER");
+
+            if (driversError) {
+                console.log(
+                    "Could not load drivers for notification:",
+                    driversError
+                );
+            } else if (drivers && drivers.length > 0) {
+
+                await Promise.all(
+                    drivers.map(async (driver) => {
+
+                        try {
+                            await fetch("/api/send-notification", {
+                                method: "POST",
+
+                                headers: {
+                                    "Content-Type": "application/json",
+                                },
+
+                                body: JSON.stringify({
+                                    shipmentId: data.id,
+                                    eventType: "NEW_SHIPMENT",
+                                    targetUserId: driver.id,
+                                }),
+                            });
+
+                        } catch (notificationError) {
+                            console.log(
+                                "Driver notification error:",
+                                notificationError
+                            );
+                        }
+
+                    })
+                );
+            }
+
+        } catch (notificationError) {
+            console.log(
+                "New shipment notification error:",
+                notificationError
+            );
+        }
 
         fetchShipments(user.id);
 
@@ -409,45 +390,220 @@ export default function ShipperPage() {
 
 
 
+    // =========================================================
+    // SHIPPER ACCEPTS DRIVER'S PRICE
+    // =========================================================
+
     async function acceptBid(bid) {
-        // Update the shipment with the selected driver
+        if (!user) return;
+
+        const finalPrice = Number(
+            bid.counter_price ?? bid.proposed_price
+        );
+
+        if (!finalPrice || finalPrice <= 0) {
+            alert("Invalid price.");
+            return;
+        }
+
         const { error: shipmentError } = await supabase
             .from("shipments")
             .update({
                 driver_id: bid.driver_id,
                 driver_name: bid.driver?.full_name,
                 driver_phone: bid.driver?.phone_number,
+                agreed_price: finalPrice,
                 status: "MATCHED",
                 matched_at: new Date().toISOString(),
             })
-            .eq("id", bid.shipment_id);
+            .eq("id", bid.shipment_id)
+            .eq("shipper_id", user.id)
+            .eq("status", "OPEN");
 
         if (shipmentError) {
             alert(shipmentError.message);
             return;
         }
 
-        // Mark the accepted bid
-        await supabase
+        const { error: bidError } = await supabase
             .from("bids")
-            .update({ status: "ACCEPTED" })
-            .eq("id", bid.id);
+            .update({
+                proposed_price: finalPrice,
+                counter_price: null,
+                last_offer_by: "SHIPPER",
+                status: "ACCEPTED",
+            })
+            .eq("id", bid.id)
+            .eq("shipment_id", bid.shipment_id);
 
-        // Mark all other bids for this shipment as rejected
-        await supabase
+        if (bidError) {
+            alert(bidError.message);
+            return;
+        }
+
+        // Explicitly reject every other driver
+        const { error: rejectError } = await supabase
             .from("bids")
-            .update({ status: "REJECTED" })
+            .update({
+                status: "REJECTED",
+            })
             .eq("shipment_id", bid.shipment_id)
             .neq("id", bid.id);
 
-        alert("Driver selected successfully.");
+        if (rejectError) {
+            console.log(
+                "Other bids rejection error:",
+                rejectError
+            );
+        }
 
-        fetchShipments(user.id);
+        alert(
+            "Price agreed! You can now contact the driver."
+        );
+
+        await fetchShipments(user.id);
+
+        // =========================================================
+        // NOTIFY SELECTED DRIVER
+        // =========================================================
+
+        try {
+            await fetch("/api/send-notification", {
+                method: "POST",
+
+                headers: {
+                    "Content-Type": "application/json",
+                },
+
+                body: JSON.stringify({
+                    shipmentId: bid.shipment_id,
+                    eventType: "DRIVER_SELECTED",
+                    targetUserId: bid.driver_id,
+                }),
+            });
+        } catch (notificationError) {
+            console.log(
+                "Selected driver notification error:",
+                notificationError
+            );
+        }
+
+        // =========================================================
+        // NOTIFY OTHER DRIVERS
+        // =========================================================
+
+        try {
+            const { data: otherBids, error: otherBidsError } =
+                await supabase
+                    .from("bids")
+                    .select("driver_id")
+                    .eq("shipment_id", bid.shipment_id)
+                    .neq("id", bid.id);
+
+            if (otherBidsError) {
+                console.log(
+                    "Could not load other drivers:",
+                    otherBidsError
+                );
+            } else if (otherBids && otherBids.length > 0) {
+
+                await Promise.all(
+                    otherBids.map(async (otherBid) => {
+
+                        try {
+                            await fetch("/api/send-notification", {
+                                method: "POST",
+
+                                headers: {
+                                    "Content-Type": "application/json",
+                                },
+
+                                body: JSON.stringify({
+                                    shipmentId: bid.shipment_id,
+                                    eventType: "DRIVER_NOT_SELECTED",
+                                    targetUserId: otherBid.driver_id,
+                                }),
+                            });
+
+                        } catch (notificationError) {
+                            console.log(
+                                "Other driver notification error:",
+                                notificationError
+                            );
+                        }
+
+                    })
+                );
+            }
+
+        } catch (notificationError) {
+            console.log(
+                "Other driver notification error:",
+                notificationError
+            );
+        }
     }
 
+    // =========================================================
+    // SHIPPER SUGGESTS ANOTHER PRICE
+    // =========================================================
 
+    async function suggestAnotherPrice(bid, newPrice) {
+        if (!user) return;
 
+        const price = Number(newPrice);
 
+        if (!price || price <= 0) {
+            alert("Please enter a valid price.");
+            return;
+        }
+
+        const { error } = await supabase
+            .from("bids")
+            .update({
+                counter_price: price,
+                last_offer_by: "SHIPPER",
+                status: "COUNTERED",
+            })
+            .eq("id", bid.id)
+            .eq("shipment_id", bid.shipment_id);
+
+        if (error) {
+            alert(error.message);
+            return;
+        }
+
+        // =========================================================
+        // NOTIFY DRIVER THAT SHIPPER SUGGESTED ANOTHER PRICE
+        // =========================================================
+
+        try {
+            await fetch("/api/send-notification", {
+                method: "POST",
+
+                headers: {
+                    "Content-Type": "application/json",
+                },
+
+                body: JSON.stringify({
+                    shipmentId: bid.shipment_id,
+                    eventType: "COUNTER_OFFER",
+                    targetUserId: bid.driver_id,
+                }),
+            });
+        } catch (notificationError) {
+            console.log(
+                "Counter-price notification error:",
+                notificationError
+            );
+        }
+
+        alert(
+            "Your new price has been sent to the driver."
+        );
+
+        await fetchShipments(user.id);
+    }
     async function refreshShipmentStatus(id, status) {
 
 
@@ -748,109 +904,6 @@ export default function ShipperPage() {
 
 
                 <Notifications userId={user.id} />
-
-
-
-
-                {/* SUBSCRIPTION */}
-
-
-
-                <div className="bg-white rounded-3xl shadow-xl p-5 mb-6">
-
-
-
-                    <h2 className="font-black text-lg mb-3">
-
-
-                        Activate Subscription
-
-
-                    </h2>
-
-
-
-
-
-                    <p className="text-sm text-slate-500 mb-3">
-
-
-                        Pay 5000 FCFA and enter your Mobile Money transaction ID.
-
-
-                    </p>
-
-
-
-
-
-
-                    <input
-
-
-                        value={momoTxid}
-
-
-                        onChange={(e) => setMomoTxid(e.target.value)}
-
-
-                        placeholder="Mobile Money Transaction ID"
-
-
-                        className="w-full border rounded-xl p-3 mb-3"
-
-
-                    />
-
-
-
-
-
-
-
-                    <button
-
-
-                        onClick={submitSubscription}
-
-
-                        disabled={subscriptionLoading}
-
-
-                        className="w-full bg-orange-600 text-white rounded-xl py-3 font-black"
-
-
-                    >
-
-
-                        {
-
-                            subscriptionLoading
-
-                                ?
-
-                                "Sending..."
-
-                                :
-
-                                "Request Activation"
-
-                        }
-
-
-
-                    </button>
-
-
-
-
-                </div>
-
-
-
-
-
-
 
 
 
@@ -1522,68 +1575,42 @@ export default function ShipperPage() {
                                         </p>
 
                                         <div className="mt-4 border-t pt-4">
-                                            <h4 className="font-bold mb-2">Driver Bids</h4>
+
+                                            <h4 className="font-bold mb-2">
+                                                Driver Offers
+                                            </h4>
 
                                             {bids
-                                                .filter((bid) => bid.shipment_id === item.id)
+                                                .filter(
+                                                    (bid) =>
+                                                        bid.shipment_id === item.id
+                                                )
                                                 .map((bid) => (
-                                                    <div
+                                                    <DriverBidCard
                                                         key={bid.id}
-                                                        className="border rounded-xl p-3 mb-2"
-                                                    >
-                                                        <p><strong>Driver:</strong> {bid.driver?.full_name}</p>
-                                                        <p><strong>Offer:</strong> {bid.proposed_price} FCFA</p>
-                                                        <p><strong>ETA:</strong> {bid.eta}</p>
-
-                                                        {bid.note && (
-                                                            <p><strong>Note:</strong> {bid.note}</p>
-                                                        )}
-
-                                                        {bid.status === "PENDING" && (
-                                                            <button
-                                                                className="mt-3 bg-green-600 text-white px-4 py-2 rounded-lg font-bold"
-                                                                onClick={() => acceptBid(bid)}
-                                                            >
-                                                                Accept Bid
-                                                            </button>
-                                                        )}
-
-                                                        {bid.status === "ACCEPTED" && (
-                                                            <div className="mt-3 rounded-xl bg-green-100 border border-green-300 p-4">
-                                                                <p className="font-black text-green-700">
-                                                                    ✅ DRIVER SELECTED
-                                                                </p>
-
-                                                                <p className="mt-2">
-                                                                    📞 {bid.driver?.phone_number}
-                                                                </p>
-
-                                                                <p className="text-sm mt-2">
-                                                                    Please contact this driver to arrange cargo pickup.
-                                                                </p>
-                                                            </div>
-                                                        )}
-
-                                                        {bid.status === "REJECTED" && (
-                                                            <div className="mt-3 rounded-xl bg-red-100 border border-red-300 p-4">
-                                                                <p className="font-black text-red-700">
-                                                                    ❌ Bid Not Selected
-                                                                </p>
-                                                            </div>
-                                                        )}
-                                                    </div>
+                                                        bid={bid}
+                                                        item={item}
+                                                        onAccept={acceptBid}
+                                                        onSuggestAnotherPrice={
+                                                            suggestAnotherPrice
+                                                        }
+                                                    />
                                                 ))}
 
-                                            {bids.filter((bid) => bid.shipment_id === item.id).length === 0 && (
-                                                <p className="text-slate-500 text-sm">
-                                                    No bids yet.
-                                                </p>
-                                            )}
+                                            {bids.filter(
+                                                (bid) =>
+                                                    bid.shipment_id === item.id
+                                            ).length === 0 && (
+                                                    <p className="text-slate-500 text-sm">
+                                                        No driver offers yet.
+                                                    </p>
+                                                )}
+
                                         </div>
 
-
-
                                     </div>
+
+
 
 
                                 ))
@@ -1597,10 +1624,10 @@ export default function ShipperPage() {
 
                 <DeleteAccount user={user} />
 
-            </div>
+            </div >
 
 
-        </div>
+        </div >
 
 
     );
@@ -1608,7 +1635,185 @@ export default function ShipperPage() {
 }
 
 
+function DriverBidCard({
+    bid,
+    item,
+    onAccept,
+    onSuggestAnotherPrice,
+}) {
+    const [newPrice, setNewPrice] = useState("");
 
+    const submitCounterPrice = () => {
+        if (!newPrice || Number(newPrice) <= 0) {
+            alert("Please enter a valid price.");
+            return;
+        }
+
+        onSuggestAnotherPrice(
+            bid,
+            newPrice
+        );
+
+        setNewPrice("");
+    };
+
+    return (
+        <div className="border rounded-xl p-3 mb-3">
+
+            <p>
+                <strong>Driver:</strong>{" "}
+                {bid.driver?.full_name ||
+                    "Driver"}
+            </p>
+
+            <p className="mt-1">
+                <strong>Driver's price:</strong>{" "}
+                {bid.proposed_price} FCFA
+            </p>
+
+            {bid.counter_price !== null &&
+                bid.counter_price !== undefined && (
+                    <p className="mt-1 font-black text-orange-600">
+                        Latest price:{" "}
+                        {bid.counter_price} FCFA
+                    </p>
+                )}
+
+            {bid.eta && (
+                <p className="mt-1">
+                    <strong>Arrival time:</strong>{" "}
+                    {bid.eta}
+                </p>
+            )}
+
+            {bid.note && (
+                <p className="mt-1">
+                    <strong>Message:</strong>{" "}
+                    {bid.note}
+                </p>
+            )}
+
+
+            {/* DRIVER'S PRICE IS WAITING */}
+            {bid.status === "PENDING" &&
+                bid.last_offer_by === "DRIVER" && (
+                    <>
+                        <button
+                            className="mt-3 w-full bg-green-600 text-white px-4 py-3 rounded-xl font-bold"
+                            onClick={() =>
+                                onAccept(bid)
+                            }
+                        >
+                            ACCEPT THIS PRICE
+                        </button>
+
+                        <div className="mt-3">
+
+                            <p className="text-sm font-bold mb-2">
+                                Or suggest another price:
+                            </p>
+
+                            <input
+                                type="number"
+                                min="1"
+                                placeholder="Enter your price"
+                                value={newPrice}
+                                onChange={(e) =>
+                                    setNewPrice(
+                                        e.target.value
+                                    )
+                                }
+                                className="w-full border rounded-xl px-4 py-3"
+                            />
+
+                            <button
+                                className="mt-2 w-full bg-slate-900 text-amber-400 px-4 py-3 rounded-xl font-bold"
+                                onClick={
+                                    submitCounterPrice
+                                }
+                            >
+                                SUGGEST ANOTHER PRICE
+                            </button>
+
+                        </div>
+                    </>
+                )}
+
+
+            {/* SHIPPER HAS ALREADY SENT A COUNTER */}
+            {bid.status === "COUNTERED" &&
+                bid.last_offer_by === "SHIPPER" && (
+                    <div className="mt-3 bg-blue-50 border border-blue-300 rounded-xl p-4">
+
+                        <p className="font-black text-blue-700">
+                            📤 Waiting for driver's response
+                        </p>
+
+                        <p className="mt-2">
+                            Your suggested price:
+                        </p>
+
+                        <p className="text-xl font-black text-blue-700">
+                            {bid.counter_price} FCFA
+                        </p>
+
+                    </div>
+                )}
+
+
+            {/* AGREED */}
+            {bid.status === "ACCEPTED" &&
+                item.status === "MATCHED" && (
+                    <div className="mt-3 bg-green-100 border border-green-300 rounded-xl p-4">
+
+                        <p className="font-black text-green-700">
+                            🤝 PRICE AGREED
+                        </p>
+
+                        <p className="mt-2 font-black">
+                            Agreed price:{" "}
+                            {item.agreed_price ||
+                                bid.proposed_price}{" "}
+                            FCFA
+                        </p>
+
+                        <p className="mt-2 text-sm">
+                            The driver has been selected.
+                        </p>
+
+                        {bid.driver?.phone_number && (
+                            <p className="mt-3 font-black">
+                                📞{" "}
+                                {bid.driver.phone_number}
+                            </p>
+                        )}
+
+                        <p className="text-sm mt-2">
+                            You can contact the driver to arrange cargo pickup.
+                        </p>
+
+                    </div>
+                )}
+
+
+            {/* OTHER DRIVER WAS NOT SELECTED */}
+            {bid.status === "REJECTED" && (
+                <div className="mt-3 bg-red-100 border border-red-300 rounded-xl p-4">
+
+                    <p className="font-black text-red-700">
+                        ❌ This driver was not selected
+                    </p>
+
+                    <p className="text-sm mt-2">
+                        Another driver was selected for this delivery.
+                    </p>
+
+                </div>
+            )}
+
+        </div>
+    );
+}
 
 
 

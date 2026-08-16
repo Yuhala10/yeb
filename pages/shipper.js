@@ -36,7 +36,7 @@ export default function ShipperPage() {
         useState(false);
 
     const [cargo, setCargo] = useState({
-        itemType: "",
+        itemType: "Bags/Sacks",
         origin: "",
         destination: "",
         quantity: "",
@@ -254,6 +254,23 @@ export default function ShipperPage() {
 
         if (!user) return;
 
+        const allowedItemTypes = [
+            "Bags/Sacks",
+            "Crates/Boxes",
+            "Drums/Oil",
+            "Furniture/Bulky",
+        ];
+
+        if (!allowedItemTypes.includes(cargo.itemType)) {
+            alert(
+                language === "fr"
+                    ? "Veuillez sélectionner une catégorie de cargaison valide."
+                    : "Please select a valid cargo category."
+            );
+
+            return;
+        }
+
         const itemType =
             cargo.itemType.trim();
 
@@ -341,7 +358,7 @@ export default function ShipperPage() {
             }
 
             setCargo({
-                itemType: "",
+                itemType: "Bags/Sacks",
                 origin: "",
                 destination: "",
                 quantity: "",
@@ -1557,26 +1574,33 @@ export default function ShipperPage() {
                                                 )}
                                             </label>
 
-                                            <input
-                                                value={
-                                                    cargo.itemType
-                                                }
-                                                onChange={(
-                                                    event
-                                                ) =>
+                                            <select
+                                                value={cargo.itemType}
+                                                onChange={(event) =>
                                                     updateCargo(
                                                         "itemType",
-                                                        event
-                                                            .target
-                                                            .value
+                                                        event.target.value
                                                     )
                                                 }
                                                 className="tayeb-input"
-                                                placeholder="Example: bags, boxes, food..."
-                                                disabled={
-                                                    posting
-                                                }
-                                            />
+                                                disabled={posting}
+                                            >
+                                                <option value="Bags/Sacks">
+                                                    Bags / Sacks
+                                                </option>
+
+                                                <option value="Crates/Boxes">
+                                                    Crates / Boxes
+                                                </option>
+
+                                                <option value="Drums/Oil">
+                                                    Drums / Oil
+                                                </option>
+
+                                                <option value="Furniture/Bulky">
+                                                    Furniture / Bulky
+                                                </option>
+                                            </select>
 
                                         </div>
 

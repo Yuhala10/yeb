@@ -1,12 +1,12 @@
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { useEffect } from "react";
 
 import BrandLogo from "../components/BrandLogo";
 import { useLanguage } from "../lib/LanguageContext";
 
 export default function Home() {
     const router = useRouter();
+
     const {
         language,
         setLanguage,
@@ -16,59 +16,20 @@ export default function Home() {
         language === "fr";
 
     /*
-     * If somebody is already logged in,
-     * send them directly to the right dashboard.
+     * ============================================================
+     * PUBLIC LANDING PAGE
+     * ============================================================
+     *
+     * IMPORTANT:
+     * The public Tayeb URL must ALWAYS open this landing page.
+     *
+     * We intentionally do NOT redirect users based on localStorage
+     * here. A previous tayebUser session must never hide the public
+     * landing page.
+     *
+     * Users are sent to their dashboard after they explicitly log
+     * in through the authentication flow.
      */
-    useEffect(() => {
-        try {
-            const savedUser =
-                localStorage.getItem(
-                    "tayebUser"
-                );
-
-            if (!savedUser) {
-                return;
-            }
-
-            const user =
-                JSON.parse(
-                    savedUser
-                );
-
-            if (
-                user?.role ===
-                "DRIVER"
-            ) {
-                router.replace(
-                    "/driver"
-                );
-            }
-
-            if (
-                user?.role ===
-                "SHIPPER"
-            ) {
-                router.replace(
-                    "/shipper"
-                );
-            }
-
-            if (
-                user?.role ===
-                "ADMIN"
-            ) {
-                router.replace(
-                    "/admin"
-                );
-            }
-        } catch (error) {
-            console.log(
-                "Saved user check:",
-                error
-            );
-        }
-    }, [router]);
-
 
     const text = {
         eyebrow: isFrench
@@ -168,10 +129,7 @@ export default function Home() {
             : "Log in",
     };
 
-
-    function goToLogin(
-        role
-    ) {
+    function goToLogin(role) {
         localStorage.setItem(
             "selectedRole",
             role
@@ -181,7 +139,6 @@ export default function Home() {
             `/login?role=${role}`
         );
     }
-
 
     return (
         <>
@@ -211,7 +168,6 @@ export default function Home() {
 
             </Head>
 
-
             <main className="tayeb-home">
 
                 {/* =================================================
@@ -228,7 +184,6 @@ export default function Home() {
                         />
 
                     </div>
-
 
                     <div
                         style={{
@@ -283,7 +238,6 @@ export default function Home() {
 
                         </div>
 
-
                         <button
                             type="button"
                             className="tayeb-home-login"
@@ -323,16 +277,13 @@ export default function Home() {
                             {text.eyebrow}
                         </div>
 
-
                         <h1>
                             {text.title}
                         </h1>
 
-
                         <p>
                             {text.description}
                         </p>
-
 
                         {/* MAIN ACTIONS */}
 
@@ -366,7 +317,6 @@ export default function Home() {
 
                             </button>
 
-
                             <button
                                 type="button"
                                 className="tayeb-home-action tayeb-home-action-secondary"
@@ -395,12 +345,12 @@ export default function Home() {
 
                         </div>
 
-
                         {/* SMALL TRUST MESSAGE */}
 
                         <div
                             className="tayeb-home-free-note"
                         >
+
                             <span>
                                 ✓
                             </span>
@@ -410,6 +360,7 @@ export default function Home() {
                                     text.freeText
                                 }
                             </span>
+
                         </div>
 
                     </div>
@@ -439,7 +390,6 @@ export default function Home() {
                                     Cargo
                                 </span>
                             </div>
-
 
                             <div
                                 className="tayeb-mini-route"
@@ -471,7 +421,6 @@ export default function Home() {
 
                             </div>
 
-
                             <div
                                 className="tayeb-mini-offer"
                             >
@@ -494,10 +443,10 @@ export default function Home() {
 
                         </div>
 
-
                         <div
                             className="tayeb-floating-card tayeb-floating-card-one"
                         >
+
                             <span>
                                 🚚
                             </span>
@@ -511,12 +460,13 @@ export default function Home() {
                                     Ready to move
                                 </strong>
                             </div>
-                        </div>
 
+                        </div>
 
                         <div
                             className="tayeb-floating-card tayeb-floating-card-two"
                         >
+
                             <span>
                                 ✓
                             </span>
@@ -530,6 +480,7 @@ export default function Home() {
                                     Delivery agreed
                                 </strong>
                             </div>
+
                         </div>
 
                     </div>
@@ -560,7 +511,6 @@ export default function Home() {
                         </h2>
 
                     </div>
-
 
                     <div
                         className="tayeb-home-role-grid"
@@ -669,7 +619,6 @@ export default function Home() {
                         </p>
 
                     </div>
-
 
                     <div
                         className="tayeb-home-steps"
@@ -795,7 +744,6 @@ export default function Home() {
 
                     </div>
 
-
                     <div
                         className="tayeb-home-actions tayeb-home-actions-final"
                     >
@@ -810,14 +758,15 @@ export default function Home() {
                             }
                         >
                             📦
+
                             <strong>
                                 {
                                     text.sendCargo
                                 }
                             </strong>
+
                             →
                         </button>
-
 
                         <button
                             type="button"
@@ -829,11 +778,13 @@ export default function Home() {
                             }
                         >
                             🚚
+
                             <strong>
                                 {
                                     text.driveEarn
                                 }
                             </strong>
+
                             →
                         </button>
 

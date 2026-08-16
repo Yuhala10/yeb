@@ -575,11 +575,11 @@ export default function LoginPage() {
                 <div>
 
                     <h1 className="text-3xl font-black text-center">
-                        {t.welcome}
+                        {t("login.welcome")}
                     </h1>
 
                     <p className="text-center text-slate-500 text-sm mt-2">
-                        {t.loginCreate}
+                        {t("login.subtitle")}
                     </p>
 
                 </div>
@@ -589,7 +589,7 @@ export default function LoginPage() {
                 <input
                     type="text"
                     placeholder={
-                        t.fullName
+                        t("login.fullName")
                     }
                     required={
                         !isAdminPhone
@@ -611,7 +611,7 @@ export default function LoginPage() {
                 <input
                     type="text"
                     placeholder={
-                        t.phone
+                        t("login.phoneNumber")
                     }
                     required
                     value={phone}
@@ -629,7 +629,9 @@ export default function LoginPage() {
                     <input
                         type="password"
                         placeholder={
-                            t.adminPin
+                            language === "fr"
+                                ? "Code PIN administrateur"
+                                : "Admin PIN"
                         }
                         required
                         value={adminPin}
@@ -665,7 +667,7 @@ export default function LoginPage() {
                                     : "bg-slate-200"
                                 }`}
                         >
-                            {t.shipper}
+                            {t("login.shipper")}
                         </button>
 
                         <button
@@ -686,7 +688,7 @@ export default function LoginPage() {
                                     : "bg-slate-200"
                                 }`}
                         >
-                            {t.driver}
+                            {t("login.driver")}
                         </button>
 
                     </div>
@@ -701,7 +703,7 @@ export default function LoginPage() {
                             <input
                                 type="text"
                                 placeholder={
-                                    t.vehicleType
+                                    t("common.vehicleType")
                                 }
                                 required
                                 value={
@@ -720,7 +722,7 @@ export default function LoginPage() {
                             <input
                                 type="text"
                                 placeholder={
-                                    t.plateNumber
+                                    t("common.plateNumber")
                                 }
                                 required
                                 value={
@@ -746,10 +748,14 @@ export default function LoginPage() {
                     className="w-full bg-slate-900 text-amber-400 py-4 rounded-2xl font-black hover:scale-[1.02] transition disabled:opacity-60"
                 >
                     {loading
-                        ? t.pleaseWait
+                        ? t("login.loggingIn")
                         : isAdminPhone
-                            ? t.adminLogin
-                            : t.continue}
+                            ? (
+                                language === "fr"
+                                    ? "Connexion administrateur"
+                                    : "Admin Login"
+                            )
+                            : t("login.continue")}
                 </button>
 
             </form>

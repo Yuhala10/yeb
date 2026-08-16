@@ -42,71 +42,59 @@ export default function LoginPage() {
         }
     }, []);
 
-    const cleanPhone = phone.trim();
+    const cleanPhone =
+        phone.trim();
 
     const isAdminPhone =
         cleanPhone === ADMIN_PHONE;
 
-    async function handleAdminLogin() {
-        try {
-            const response = await fetch(
-                "/api/admin-login",
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type":
-                            "application/json",
-                    },
-                    body: JSON.stringify({
-                        phone: cleanPhone,
-                        pin: adminPin,
-                    }),
-                }
-            );
+    /*
+     * ============================================================
+     * CREATE SECURE SESSION
+     * ============================================================
+     */
 
-            const result =
-                await response.json();
+    async function createSession(payload) {
+        const response = await fetch(
+            "/api/session/login",
+            {
+                method: "POST",
 
-            if (!response.ok) {
-                alert(
-                    result?.error ||
-                    "Unable to log in as administrator."
-                );
+                headers: {
+                    "Content-Type":
+                        "application/json",
+                },
 
-                return false;
+                body: JSON.stringify(
+                    payload
+                ),
             }
+        );
 
-            const adminUser = {
-                id: "admin",
-                full_name:
-                    "Platform Administrator",
-                phone_number:
-                    ADMIN_PHONE,
-                role: "ADMIN",
-            };
+        let result = null;
 
-            localStorage.setItem(
-                "tayebUser",
-                JSON.stringify(adminUser)
-            );
-
-            return true;
-
-        } catch (error) {
-            console.error(
-                "Admin login error:",
-                error
-            );
-
-            alert(
-                language === "fr"
-                    ? "Impossible de se connecter en tant qu'administrateur."
-                    : "Unable to log in as administrator."
-            );
-
-            return false;
+        try {
+            result =
+                await response.json();
+        } catch {
+            result = null;
         }
+
+        if (!response.ok) {
+            throw new Error(
+                result?.error ||
+                "Unable to create secure session."
+            );
+        }
+
+        return result;
     }
+
+    /*
+     * ============================================================
+     * LOGIN
+     * ============================================================
+     */
 
     async function handleLogin(e) {
         e.preventDefault();
@@ -116,18 +104,51 @@ export default function LoginPage() {
         setLoading(true);
 
         try {
-            // =====================================================
-            // ADMIN LOGIN
-            // =====================================================
+            /*
+             * ====================================================
+             * ADMIN LOGIN
+             * ====================================================
+             */
 
             if (isAdminPhone) {
-                const success =
-                    await handleAdminLogin();
+                if (!adminPin.trim()) {
+                    alert(
+                        language === "fr"
+                            ? "Veuillez entrer le code PIN administrateur."
+                            : "Please enter the admin PIN."
+                    );
 
-                if (!success) {
                     setLoading(false);
                     return;
                 }
+
+                const session =
+                    await createSession({
+                        isAdmin: true,
+                        phone: cleanPhone,
+                        adminPin,
+                    });
+
+                const adminUser =
+                    session?.user;
+
+                if (!adminUser) {
+                    throw new Error(
+                        "Administrator account could not be created."
+                    );
+                }
+
+                localStorage.setItem(
+                    "tayebUser",
+                    JSON.stringify(
+                        adminUser
+                    )
+                );
+
+                localStorage.setItem(
+                    "selectedRole",
+                    "ADMIN"
+                );
 
                 setLoading(false);
 
@@ -136,9 +157,11 @@ export default function LoginPage() {
                 return;
             }
 
-            // =====================================================
-            // NORMAL USER VALIDATION
-            // =====================================================
+            /*
+             * ====================================================
+             * NORMAL USER VALIDATION
+             * ====================================================
+             */
 
             if (!name.trim()) {
                 alert(
@@ -162,9 +185,11 @@ export default function LoginPage() {
                 return;
             }
 
-            // =====================================================
-            // DRIVER VALIDATION
-            // =====================================================
+            /*
+             * ====================================================
+             * DRIVER VALIDATION
+             * ====================================================
+             */
 
             if (role === "DRIVER") {
                 if (!vehicleType.trim()) {
@@ -190,9 +215,11 @@ export default function LoginPage() {
                 }
             }
 
-            // =====================================================
-            // FIND EXISTING USER
-            // =====================================================
+            /*
+             * ====================================================
+             * FIND EXISTING USER
+             * ====================================================
+             */
 
             const {
                 data: existingUser,
@@ -212,24 +239,31 @@ export default function LoginPage() {
                     findError
                 );
 
-                alert(findError.message);
+                alert(
+                    findError.message
+                );
 
                 setLoading(false);
                 return;
             }
 
-            let user = existingUser;
+            let user =
+                existingUser;
 
-            // =====================================================
-            // CREATE NEW USER
-            // =====================================================
+            /*
+             * ====================================================
+             * CREATE NEW USER
+             * ====================================================
+             */
 
             if (!user) {
                 const newUserData = {
                     full_name:
                         name.trim(),
+
                     phone_number:
                         cleanPhone,
+
                     role,
                 };
 
@@ -269,11 +303,15 @@ export default function LoginPage() {
                 user = newUser;
             }
 
-            // =====================================================
-            // UPDATE ROLE
-            // =====================================================
+            /*
+             * ====================================================
+             * UPDATE ROLE
+             * ====================================================
+             */
 
-            if (user.role !== role) {
+            if (
+                user.role !== role
+            ) {
                 const {
                     data: updatedUser,
                     error: roleError,
@@ -282,7 +320,10 @@ export default function LoginPage() {
                     .update({
                         role,
                     })
-                    .eq("id", user.id)
+                    .eq(
+                        "id",
+                        user.id
+                    )
                     .select()
                     .single();
 
@@ -301,13 +342,16 @@ export default function LoginPage() {
                 }
 
                 if (updatedUser) {
-                    user = updatedUser;
+                    user =
+                        updatedUser;
                 }
             }
 
-            // =====================================================
-            // UPDATE DRIVER INFORMATION
-            // =====================================================
+            /*
+             * ====================================================
+             * UPDATE DRIVER INFORMATION
+             * ====================================================
+             */
 
             if (role === "DRIVER") {
                 const {
@@ -318,12 +362,17 @@ export default function LoginPage() {
                     .update({
                         full_name:
                             name.trim(),
+
                         vehicle_type:
                             vehicleType.trim(),
+
                         plate_number:
                             plateNumber.trim(),
                     })
-                    .eq("id", user.id)
+                    .eq(
+                        "id",
+                        user.id
+                    )
                     .select()
                     .single();
 
@@ -342,13 +391,16 @@ export default function LoginPage() {
                 }
 
                 if (updatedDriver) {
-                    user = updatedDriver;
+                    user =
+                        updatedDriver;
                 }
             }
 
-            // =====================================================
-            // UPDATE SHIPPER NAME
-            // =====================================================
+            /*
+             * ====================================================
+             * UPDATE SHIPPER INFORMATION
+             * ====================================================
+             */
 
             if (role === "SHIPPER") {
                 const {
@@ -360,7 +412,10 @@ export default function LoginPage() {
                         full_name:
                             name.trim(),
                     })
-                    .eq("id", user.id)
+                    .eq(
+                        "id",
+                        user.id
+                    )
                     .select()
                     .single();
 
@@ -373,34 +428,68 @@ export default function LoginPage() {
                 }
             }
 
-            // =====================================================
-            // SAVE TAYEB SESSION
-            // =====================================================
+            /*
+             * ====================================================
+             * CREATE SECURE SERVER SESSION
+             * ====================================================
+             */
+
+            const session =
+                await createSession({
+                    userId: user.id,
+                    phone:
+                        user.phone_number,
+                });
+
+            /*
+             * Use the server-verified
+             * user returned from the
+             * session endpoint.
+             */
+
+            const verifiedUser =
+                session?.user || user;
+
+            /*
+             * ====================================================
+             * SAVE LOCAL COMPATIBILITY SESSION
+             * ====================================================
+             */
 
             localStorage.setItem(
                 "tayebUser",
-                JSON.stringify(user)
+                JSON.stringify(
+                    verifiedUser
+                )
             );
 
             localStorage.setItem(
                 "selectedRole",
-                user.role
+                verifiedUser.role
             );
 
             setLoading(false);
 
-            // =====================================================
-            // ROUTING
-            // =====================================================
+            /*
+             * ====================================================
+             * ROUTING
+             * ====================================================
+             */
 
             if (
-                user.role === "DRIVER"
+                verifiedUser.role ===
+                "DRIVER"
             ) {
-                router.push("/driver");
+                router.push(
+                    "/driver"
+                );
+
                 return;
             }
 
-            router.push("/shipper");
+            router.push(
+                "/shipper"
+            );
 
         } catch (error) {
             console.error(
@@ -409,9 +498,12 @@ export default function LoginPage() {
             );
 
             alert(
-                language === "fr"
-                    ? "Une erreur est survenue. Veuillez réessayer."
-                    : "Something went wrong. Please try again."
+                error?.message ||
+                (
+                    language === "fr"
+                        ? "Une erreur est survenue. Veuillez réessayer."
+                        : "Something went wrong. Please try again."
+                )
             );
 
             setLoading(false);
@@ -447,11 +539,14 @@ export default function LoginPage() {
                     <button
                         type="button"
                         onClick={() =>
-                            changeLanguage("en")
+                            changeLanguage(
+                                "en"
+                            )
                         }
-                        className={`px-3 py-1 rounded-l-lg text-sm ${language === "en"
-                            ? "bg-slate-900 text-white"
-                            : "bg-slate-200"
+                        className={`px-3 py-1 rounded-l-lg text-sm ${language ===
+                                "en"
+                                ? "bg-slate-900 text-white"
+                                : "bg-slate-200"
                             }`}
                     >
                         English
@@ -460,11 +555,14 @@ export default function LoginPage() {
                     <button
                         type="button"
                         onClick={() =>
-                            changeLanguage("fr")
+                            changeLanguage(
+                                "fr"
+                            )
                         }
-                        className={`px-3 py-1 rounded-r-lg text-sm ${language === "fr"
-                            ? "bg-slate-900 text-white"
-                            : "bg-slate-200"
+                        className={`px-3 py-1 rounded-r-lg text-sm ${language ===
+                                "fr"
+                                ? "bg-slate-900 text-white"
+                                : "bg-slate-200"
                             }`}
                     >
                         Français
@@ -490,13 +588,21 @@ export default function LoginPage() {
 
                 <input
                     type="text"
-                    placeholder={t.fullName}
-                    required={!isAdminPhone}
+                    placeholder={
+                        t.fullName
+                    }
+                    required={
+                        !isAdminPhone
+                    }
                     value={name}
                     onChange={(e) =>
-                        setName(e.target.value)
+                        setName(
+                            e.target.value
+                        )
                     }
-                    disabled={isAdminPhone}
+                    disabled={
+                        isAdminPhone
+                    }
                     className="w-full border rounded-xl px-4 py-3 disabled:bg-gray-100"
                 />
 
@@ -504,11 +610,15 @@ export default function LoginPage() {
 
                 <input
                     type="text"
-                    placeholder={t.phone}
+                    placeholder={
+                        t.phone
+                    }
                     required
                     value={phone}
                     onChange={(e) =>
-                        setPhone(e.target.value)
+                        setPhone(
+                            e.target.value
+                        )
                     }
                     className="w-full border rounded-xl px-4 py-3"
                 />
@@ -518,7 +628,9 @@ export default function LoginPage() {
                 {isAdminPhone && (
                     <input
                         type="password"
-                        placeholder={t.adminPin}
+                        placeholder={
+                            t.adminPin
+                        }
                         required
                         value={adminPin}
                         onChange={(e) =>
@@ -547,9 +659,10 @@ export default function LoginPage() {
                                     "SHIPPER"
                                 );
                             }}
-                            className={`py-3 rounded-xl font-bold ${role === "SHIPPER"
-                                ? "bg-orange-600 text-white"
-                                : "bg-slate-200"
+                            className={`py-3 rounded-xl font-bold ${role ===
+                                    "SHIPPER"
+                                    ? "bg-orange-600 text-white"
+                                    : "bg-slate-200"
                                 }`}
                         >
                             {t.shipper}
@@ -567,9 +680,10 @@ export default function LoginPage() {
                                     "DRIVER"
                                 );
                             }}
-                            className={`py-3 rounded-xl font-bold ${role === "DRIVER"
-                                ? "bg-orange-600 text-white"
-                                : "bg-slate-200"
+                            className={`py-3 rounded-xl font-bold ${role ===
+                                    "DRIVER"
+                                    ? "bg-orange-600 text-white"
+                                    : "bg-slate-200"
                                 }`}
                         >
                             {t.driver}
@@ -581,7 +695,8 @@ export default function LoginPage() {
                 {/* DRIVER INFORMATION */}
 
                 {!isAdminPhone &&
-                    role === "DRIVER" && (
+                    role ===
+                    "DRIVER" && (
                         <>
                             <input
                                 type="text"
@@ -592,7 +707,9 @@ export default function LoginPage() {
                                 value={
                                     vehicleType
                                 }
-                                onChange={(e) =>
+                                onChange={(
+                                    e
+                                ) =>
                                     setVehicleType(
                                         e.target.value
                                     )
@@ -609,7 +726,9 @@ export default function LoginPage() {
                                 value={
                                     plateNumber
                                 }
-                                onChange={(e) =>
+                                onChange={(
+                                    e
+                                ) =>
                                     setPlateNumber(
                                         e.target.value
                                     )

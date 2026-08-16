@@ -1,1812 +1,3118 @@
-import { useState, useEffect } from "react";
+import Head from "next/head";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
+
 import supabase from "../lib/supabaseClient";
-import { getCurrentUser } from "../lib/getCurrentUser";
-import { logout } from "../lib/logout";
-import { useLanguage } from "../lib/LanguageContext";
 import BrandLogo from "../components/BrandLogo";
 import Notifications from "../components/Notifications";
-import DeleteAccount from "../components/Account/DeleteAccount";
-
+import { useLanguage } from "../lib/LanguageContext";
 
 export default function ShipperPage() {
-
-
     const router = useRouter();
 
-
-    const { language, changeLanguage, t } = useLanguage();
-
-
+    const {
+        t,
+        language,
+        setLanguage,
+    } = useLanguage();
 
     const [user, setUser] = useState(null);
-
     const [shipments, setShipments] = useState([]);
-
-
-
-    const [itemType, setItemType] = useState("Bags/Sacks");
-
-    const [origin, setOrigin] = useState("Douala (Akwa Market)");
-
-    const [destination, setDestination] = useState("Yaoundé (Mvan Park)");
-
-    const [quantity, setQuantity] = useState(3);
-
-    const [offer, setOffer] = useState(12000);
-
-    const [phone, setPhone] = useState("");
-
-
-
-    const [loading, setLoading] = useState(false);
-
-    const [posted, setPosted] = useState(false);
-
-    const [loadingShipments, setLoadingShipments] = useState(true);
     const [bids, setBids] = useState([]);
 
+    const [loading, setLoading] = useState(true);
+    const [posting, setPosting] = useState(false);
 
+    const [showPostForm, setShowPostForm] =
+        useState(false);
 
+    const [selectedBid, setSelectedBid] =
+        useState(null);
 
+    const [counterPrice, setCounterPrice] =
+        useState("");
 
+    const [counterLoading, setCounterLoading] =
+        useState(false);
 
+    const [cargo, setCargo] = useState({
+        itemType: "",
+        origin: "",
+        destination: "",
+        quantity: "",
+        price: "",
+        receiverPhone: "",
+    });
 
-
-
-
-
+    /* =========================================================
+       LOAD USER
+    ========================================================= */
 
     useEffect(() => {
-
-
-        const currentUser = getCurrentUser();
-
-
-
-        if (!currentUser) {
-
-            router.push("/login");
-
+        if (typeof window === "undefined") {
             return;
-
         }
 
+        const storedUser =
+            localStorage.getItem(
+                "tayebUser"
+            );
 
-
-
-
-        if (currentUser.role !== "SHIPPER") {
-
-            router.push("/");
-
+        if (!storedUser) {
+            router.replace("/login");
             return;
-
         }
 
+        try {
+            const parsedUser =
+                JSON.parse(storedUser);
 
-
-
-
-
-        setUser(currentUser);
-        console.log("Logged in user:", currentUser);
-
-        setPhone(currentUser.phone_number || "");
-
-
-
-        fetchShipments(currentUser.id);
-
-
-
-    }, []);
-
-    // REALTIME UPDATES
-    useEffect(() => {
-        if (!user?.id) return;
-
-        const shipmentChannel = supabase
-            .channel(`shipper-shipments-${user.id}`)
-            .on(
-                "postgres_changes",
-                {
-                    event: "*",
-                    schema: "public",
-                    table: "shipments",
-                    filter: `shipper_id=eq.${user.id}`,
-                },
-                () => {
-                    fetchShipments(user.id);
-                }
-            )
-            .subscribe();
-
-        const bidChannel = supabase
-            .channel(`shipper-bids-${user.id}`)
-            .on(
-                "postgres_changes",
-                {
-                    event: "*",
-                    schema: "public",
-                    table: "bids",
-                },
-                () => {
-                    fetchShipments(user.id);
-                }
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(shipmentChannel);
-            supabase.removeChannel(bidChannel);
-        };
-    }, [user]);
-
-    async function fetchShipments(shipperId) {
-
-
-
-        setLoadingShipments(true);
-
-        console.log("Fetching shipments for:", shipperId);
-
-        const { data, error } = await supabase
-
-            .from("shipments")
-
-            .select(`
-                *,
-                driver:driver_id (
-                    full_name,
-                    phone_number
-                )
-            `)
-
-            .eq("shipper_id", shipperId)
-
-            .order("created_at", {
-
-                ascending: false
-
-
-            });
-
-        console.log("Shipments returned:", data);
-
-
-
-
-
-
-        if (error) {
-            alert(error.message);
-        } else {
-
-            setShipments(data || []);
-
-            const shipmentIds = (data || []).map((s) => s.id);
-
-            if (shipmentIds.length > 0) {
-                const { data: bidsData, error: bidsError } = await supabase
-                    .from("bids")
-                    .select(`
-        *,
-        driver:driver_id (
-            id,
-            full_name,
-            phone_number
-        )
-    `)
-                    .in("shipment_id", shipmentIds)
-                    .order("created_at", { ascending: true });
-
-                if (bidsError) {
-                    console.log(bidsError);
-                }
-
-                setBids(bidsData || []);
-            } else {
-                setBids([]);
+            if (
+                !parsedUser?.id ||
+                parsedUser.role !== "SHIPPER"
+            ) {
+                router.replace("/login");
+                return;
             }
 
+            setUser(parsedUser);
 
-        }
-
-
-
-
-
-
-        setLoadingShipments(false);
-
-
-
-    }
-
-
-    async function handlePostCargo(e) {
-
-
-        e.preventDefault();
-
-
-
-        setLoading(true);
-
-
-
-
-
-
-        const { data, error } = await supabase
-
-            .from("shipments")
-
-            .insert([
-
-                {
-
-                    shipper_id: user.id,
-
-                    shipper_name: user.full_name,
-
-                    shipper_phone: user.phone_number,
-
-                    item_type: itemType,
-
-                    origin,
-
-                    destination,
-
-                    quantity,
-
-                    initial_offer: offer,
-
-                    receiver_phone: phone,
-
-                    status: "OPEN"
-
-                }
-
-            ])
-
-            .select()
-
-            .single();
-
-
-
-
-
-
-
-        setLoading(false);
-
-
-
-
-
-
-        if (error) {
-
-
-            alert(error.message);
-
-
-            return;
-
-
-        }
-
-
-
-
-
-
-        setPosted(true);
-
-        // =========================================================
-        // NOTIFY DRIVERS THAT NEW CARGO IS AVAILABLE
-        // =========================================================
-
-        try {
-            const { data: drivers, error: driversError } =
-                await supabase
-                    .from("users")
-                    .select("id")
-                    .eq("role", "DRIVER");
-
-            if (driversError) {
-                console.log(
-                    "Could not load drivers for notification:",
-                    driversError
-                );
-            } else if (drivers && drivers.length > 0) {
-
-                await Promise.all(
-                    drivers.map(async (driver) => {
-
-                        try {
-                            await fetch("/api/send-notification", {
-                                method: "POST",
-
-                                headers: {
-                                    "Content-Type": "application/json",
-                                },
-
-                                body: JSON.stringify({
-                                    shipmentId: data.id,
-                                    eventType: "NEW_SHIPMENT",
-                                    targetUserId: driver.id,
-                                }),
-                            });
-
-                        } catch (notificationError) {
-                            console.log(
-                                "Driver notification error:",
-                                notificationError
-                            );
-                        }
-
-                    })
-                );
-            }
-
-        } catch (notificationError) {
-            console.log(
-                "New shipment notification error:",
-                notificationError
-            );
-        }
-
-        fetchShipments(user.id);
-
-
-
-    } if (!user) return null;
-
-
-
-
-
-
-    const activeShipments = shipments.filter(
-
-        item => item.status !== "COMPLETED"
-
-    );
-
-
-
-
-
-    const completedShipments = shipments.filter(
-
-        item => item.status === "COMPLETED"
-
-    );
-
-
-
-
-    // =========================================================
-    // SHIPPER ACCEPTS DRIVER'S PRICE
-    // =========================================================
-
-    async function acceptBid(bid) {
-        if (!user) return;
-
-        const finalPrice = Number(
-            bid.counter_price ?? bid.proposed_price
-        );
-
-        if (!finalPrice || finalPrice <= 0) {
-            alert("Invalid price.");
-            return;
-        }
-
-        const { error: shipmentError } = await supabase
-            .from("shipments")
-            .update({
-                driver_id: bid.driver_id,
-                driver_name: bid.driver?.full_name,
-                driver_phone: bid.driver?.phone_number,
-                agreed_price: finalPrice,
-                status: "MATCHED",
-                matched_at: new Date().toISOString(),
-            })
-            .eq("id", bid.shipment_id)
-            .eq("shipper_id", user.id)
-            .eq("status", "OPEN");
-
-        if (shipmentError) {
-            alert(shipmentError.message);
-            return;
-        }
-
-        const { error: bidError } = await supabase
-            .from("bids")
-            .update({
-                proposed_price: finalPrice,
-                counter_price: null,
-                last_offer_by: "SHIPPER",
-                status: "ACCEPTED",
-            })
-            .eq("id", bid.id)
-            .eq("shipment_id", bid.shipment_id);
-
-        if (bidError) {
-            alert(bidError.message);
-            return;
-        }
-
-        // Explicitly reject every other driver
-        const { error: rejectError } = await supabase
-            .from("bids")
-            .update({
-                status: "REJECTED",
-            })
-            .eq("shipment_id", bid.shipment_id)
-            .neq("id", bid.id);
-
-        if (rejectError) {
-            console.log(
-                "Other bids rejection error:",
-                rejectError
-            );
-        }
-
-        alert(
-            "Price agreed! You can now contact the driver."
-        );
-
-        await fetchShipments(user.id);
-
-        // =========================================================
-        // NOTIFY SELECTED DRIVER
-        // =========================================================
-
-        try {
-            await fetch("/api/send-notification", {
-                method: "POST",
-
-                headers: {
-                    "Content-Type": "application/json",
-                },
-
-                body: JSON.stringify({
-                    shipmentId: bid.shipment_id,
-                    eventType: "DRIVER_SELECTED",
-                    targetUserId: bid.driver_id,
-                }),
-            });
-        } catch (notificationError) {
-            console.log(
-                "Selected driver notification error:",
-                notificationError
-            );
-        }
-
-        // =========================================================
-        // NOTIFY OTHER DRIVERS
-        // =========================================================
-
-        try {
-            const { data: otherBids, error: otherBidsError } =
-                await supabase
-                    .from("bids")
-                    .select("driver_id")
-                    .eq("shipment_id", bid.shipment_id)
-                    .neq("id", bid.id);
-
-            if (otherBidsError) {
-                console.log(
-                    "Could not load other drivers:",
-                    otherBidsError
-                );
-            } else if (otherBids && otherBids.length > 0) {
-
-                await Promise.all(
-                    otherBids.map(async (otherBid) => {
-
-                        try {
-                            await fetch("/api/send-notification", {
-                                method: "POST",
-
-                                headers: {
-                                    "Content-Type": "application/json",
-                                },
-
-                                body: JSON.stringify({
-                                    shipmentId: bid.shipment_id,
-                                    eventType: "DRIVER_NOT_SELECTED",
-                                    targetUserId: otherBid.driver_id,
-                                }),
-                            });
-
-                        } catch (notificationError) {
-                            console.log(
-                                "Other driver notification error:",
-                                notificationError
-                            );
-                        }
-
-                    })
-                );
-            }
-
-        } catch (notificationError) {
-            console.log(
-                "Other driver notification error:",
-                notificationError
-            );
-        }
-    }
-
-    // =========================================================
-    // SHIPPER SUGGESTS ANOTHER PRICE
-    // =========================================================
-
-    async function suggestAnotherPrice(bid, newPrice) {
-        if (!user) return;
-
-        const price = Number(newPrice);
-
-        if (!price || price <= 0) {
-            alert("Please enter a valid price.");
-            return;
-        }
-
-        const { error } = await supabase
-            .from("bids")
-            .update({
-                counter_price: price,
-                last_offer_by: "SHIPPER",
-                status: "COUNTERED",
-            })
-            .eq("id", bid.id)
-            .eq("shipment_id", bid.shipment_id);
-
-        if (error) {
-            alert(error.message);
-            return;
-        }
-
-        // =========================================================
-        // NOTIFY DRIVER THAT SHIPPER SUGGESTED ANOTHER PRICE
-        // =========================================================
-
-        try {
-            await fetch("/api/send-notification", {
-                method: "POST",
-
-                headers: {
-                    "Content-Type": "application/json",
-                },
-
-                body: JSON.stringify({
-                    shipmentId: bid.shipment_id,
-                    eventType: "COUNTER_OFFER",
-                    targetUserId: bid.driver_id,
-                }),
-            });
-        } catch (notificationError) {
-            console.log(
-                "Counter-price notification error:",
-                notificationError
-            );
-        }
-
-        alert(
-            "Your new price has been sent to the driver."
-        );
-
-        await fetchShipments(user.id);
-    }
-    async function refreshShipmentStatus(id, status) {
-
-
-        const updates = {
-
-            status
-
-        };
-
-
-
-
-
-        if (status === "MATCHED") {
-
-            updates.matched_at = new Date().toISOString();
-
-        }
-
-
-
-        if (status === "DEPARTED") {
-
-            updates.departed_at = new Date().toISOString();
-
-        }
-
-
-
-        if (status === "ARRIVED") {
-
-            updates.arrived_at = new Date().toISOString();
-
-        }
-
-
-
-        if (status === "COMPLETED") {
-
-            updates.completed_at = new Date().toISOString();
-
-        }
-
-
-
-
-
-
-
-        const { error } = await supabase
-
-            .from("shipments")
-
-            .update(updates)
-
-            .eq("id", id);
-
-
-
-
-
-
-        if (error) {
-
-            alert(error.message);
-
-            return;
-
-        }
-
-
-
-
-
-
-        try {
-
-
-            await fetch("/api/send-notification", {
-
-
-                method: "POST",
-
-
-                headers: {
-
-                    "Content-Type": "application/json"
-
-                },
-
-
-                body: JSON.stringify({
-
-                    shipmentId: id,
-
-                    eventType: status
-
-                })
-
-
-            });
-
-
-
+            loadShipments(parsedUser.id);
         } catch (error) {
-
-
-            console.log(
-                "Notification error:",
+            console.error(
+                "Could not read Tayeb user:",
                 error
             );
 
-
+            router.replace("/login");
         }
+    }, [router]);
 
 
+    /* =========================================================
+       LOAD SHIPMENTS + BIDS
+    ========================================================= */
 
+    async function loadShipments(shipperId) {
+        setLoading(true);
 
+        try {
+            const {
+                data: shipmentData,
+                error: shipmentError,
+            } = await supabase
+                .from("shipments")
+                .select(`
+                    *,
+                    driver:driver_id (
+                        id,
+                        full_name,
+                        phone_number,
+                        profile_photo,
+                        vehicle_type,
+                        vehicle_number,
+                        plate_number,
+                        rating,
+                        total_completed_shipments,
+                        is_available
+                    )
+                `)
+                .eq(
+                    "shipper_id",
+                    shipperId
+                )
+                .order("created_at", {
+                    ascending: false,
+                });
 
+            if (shipmentError) {
+                throw shipmentError;
+            }
 
-        fetchShipments(user.id);
+            const safeShipments =
+                shipmentData || [];
 
+            setShipments(
+                safeShipments
+            );
 
+            const ids =
+                safeShipments.map(
+                    (item) => item.id
+                );
 
+            if (ids.length === 0) {
+                setBids([]);
+                return;
+            }
+
+            const {
+                data: bidData,
+                error: bidError,
+            } = await supabase
+                .from("bids")
+                .select(`
+                    *,
+                    driver:driver_id (
+                        id,
+                        full_name,
+                        phone_number,
+                        profile_photo,
+                        vehicle_type,
+                        vehicle_number,
+                        plate_number,
+                        rating,
+                        total_completed_shipments,
+                        is_available
+                    )
+                `)
+                .in(
+                    "shipment_id",
+                    ids
+                )
+                .order("created_at", {
+                    ascending: true,
+                });
+
+            if (bidError) {
+                throw bidError;
+            }
+
+            setBids(
+                bidData || []
+            );
+        } catch (error) {
+            console.error(
+                "Tayeb shipment loading error:",
+                error
+            );
+
+            alert(
+                error?.message ||
+                t(
+                    "errors.somethingWrong"
+                )
+            );
+        } finally {
+            setLoading(false);
+        }
     }
 
 
+    /* =========================================================
+       PRICE CLEANING
+    ========================================================= */
+
+    function cleanPrice(value) {
+        return String(value || "")
+            .replace(/[^\d]/g, "");
+    }
 
 
+    function formatPrice(value) {
+        const number =
+            Number(value);
+
+        if (
+            !Number.isFinite(number)
+        ) {
+            return "0";
+        }
+
+        return number.toLocaleString(
+            "en-US"
+        );
+    }
 
 
+    /* =========================================================
+       FORM CHANGE
+    ========================================================= */
 
+    function updateCargo(
+        field,
+        value
+    ) {
+        setCargo((current) => ({
+            ...current,
+            [field]:
+                field === "price"
+                    ? cleanPrice(value)
+                    : value,
+        }));
+    }
+
+
+    /* =========================================================
+       POST CARGO
+    ========================================================= */
+
+    async function handlePostCargo(
+        event
+    ) {
+        event.preventDefault();
+
+        if (!user) return;
+
+        const itemType =
+            cargo.itemType.trim();
+
+        const origin =
+            cargo.origin.trim();
+
+        const destination =
+            cargo.destination.trim();
+
+        const quantity =
+            Number(cargo.quantity);
+
+        const price =
+            Number(
+                cleanPrice(
+                    cargo.price
+                )
+            );
+
+        const receiverPhone =
+            cargo.receiverPhone.trim();
+
+        if (
+            !itemType ||
+            !origin ||
+            !destination ||
+            !quantity ||
+            quantity <= 0 ||
+            !price ||
+            price <= 0
+        ) {
+            alert(
+                t(
+                    "errors.required"
+                )
+            );
+
+            return;
+        }
+
+        setPosting(true);
+
+        try {
+            const {
+                data,
+                error,
+            } = await supabase
+                .from("shipments")
+                .insert([
+                    {
+                        shipper_id:
+                            user.id,
+
+                        shipper_name:
+                            user.full_name,
+
+                        shipper_phone:
+                            user.phone_number,
+
+                        item_type:
+                            itemType,
+
+                        origin,
+
+                        destination,
+
+                        quantity,
+
+                        initial_offer:
+                            price,
+
+                        receiver_phone:
+                            receiverPhone ||
+                            null,
+
+                        status:
+                            "OPEN",
+                    },
+                ])
+                .select("*")
+                .single();
+
+            if (error) {
+                throw error;
+            }
+
+            setCargo({
+                itemType: "",
+                origin: "",
+                destination: "",
+                quantity: "",
+                price: "",
+                receiverPhone: "",
+            });
+
+            setShowPostForm(false);
+
+            await loadShipments(
+                user.id
+            );
+
+            alert(
+                t(
+                    "shipper.shipmentPosted"
+                )
+            );
+
+            /*
+             * Tell available drivers that
+             * new cargo is available.
+             *
+             * The notification API can later
+             * be connected to the matching
+             * system for location-based delivery.
+             */
+            if (data?.id) {
+                try {
+                    await fetch(
+                        "/api/send-notification",
+                        {
+                            method: "POST",
+
+                            headers: {
+                                "Content-Type":
+                                    "application/json",
+                            },
+
+                            body: JSON.stringify({
+                                shipmentId:
+                                    data.id,
+
+                                eventType:
+                                    "NEW_SHIPMENT",
+                            }),
+                        }
+                    );
+                } catch (
+                notificationError
+                ) {
+                    console.log(
+                        "New shipment notification error:",
+                        notificationError
+                    );
+                }
+            }
+        } catch (error) {
+            console.error(
+                "Post cargo error:",
+                error
+            );
+
+            alert(
+                error?.message ||
+                t(
+                    "errors.somethingWrong"
+                )
+            );
+        } finally {
+            setPosting(false);
+        }
+    }
+
+
+    /* =========================================================
+       ACCEPT DRIVER OFFER
+    ========================================================= */
+
+    async function acceptBid(
+        bid
+    ) {
+        if (!user || !bid) {
+            return;
+        }
+
+        const finalPrice =
+            Number(
+                bid.counter_price ??
+                bid.proposed_price
+            );
+
+        if (
+            !finalPrice ||
+            finalPrice <= 0
+        ) {
+            alert(
+                t(
+                    "errors.invalidPrice"
+                )
+            );
+
+            return;
+        }
+
+        try {
+            const {
+                error:
+                shipmentError,
+            } = await supabase
+                .from("shipments")
+                .update({
+                    driver_id:
+                        bid.driver_id,
+
+                    driver_name:
+                        bid.driver?.full_name ||
+                        null,
+
+                    driver_phone:
+                        bid.driver?.phone_number ||
+                        null,
+
+                    agreed_price:
+                        finalPrice,
+
+                    status:
+                        "MATCHED",
+
+                    matched_at:
+                        new Date().toISOString(),
+                })
+                .eq(
+                    "id",
+                    bid.shipment_id
+                )
+                .eq(
+                    "shipper_id",
+                    user.id
+                )
+                .eq(
+                    "status",
+                    "OPEN"
+                );
+
+            if (shipmentError) {
+                throw shipmentError;
+            }
+
+            const {
+                error: bidError,
+            } = await supabase
+                .from("bids")
+                .update({
+                    proposed_price:
+                        finalPrice,
+
+                    counter_price:
+                        null,
+
+                    last_offer_by:
+                        "SHIPPER",
+
+                    status:
+                        "ACCEPTED",
+                })
+                .eq(
+                    "id",
+                    bid.id
+                )
+                .eq(
+                    "shipment_id",
+                    bid.shipment_id
+                );
+
+            if (bidError) {
+                throw bidError;
+            }
+
+            /*
+             * Reject the other offers.
+             */
+
+            const {
+                error:
+                rejectError,
+            } = await supabase
+                .from("bids")
+                .update({
+                    status:
+                        "REJECTED",
+                })
+                .eq(
+                    "shipment_id",
+                    bid.shipment_id
+                )
+                .neq(
+                    "id",
+                    bid.id
+                );
+
+            if (rejectError) {
+                console.log(
+                    "Other bids rejection error:",
+                    rejectError
+                );
+            }
+
+
+            /*
+             * Tell the selected driver.
+             */
+
+            try {
+                await fetch(
+                    "/api/send-notification",
+                    {
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json",
+                        },
+
+                        body: JSON.stringify({
+                            shipmentId:
+                                bid.shipment_id,
+
+                            eventType:
+                                "DRIVER_SELECTED",
+
+                            targetUserId:
+                                bid.driver_id,
+                        }),
+                    }
+                );
+            } catch (
+            notificationError
+            ) {
+                console.log(
+                    "Driver selected notification error:",
+                    notificationError
+                );
+            }
+
+
+            /*
+             * Tell the other drivers
+             * they were not selected.
+             */
+
+            try {
+                const {
+                    data:
+                    otherBids,
+                } = await supabase
+                    .from("bids")
+                    .select(
+                        "driver_id"
+                    )
+                    .eq(
+                        "shipment_id",
+                        bid.shipment_id
+                    )
+                    .neq(
+                        "id",
+                        bid.id
+                    );
+
+                if (
+                    otherBids &&
+                    otherBids.length
+                ) {
+                    await Promise.all(
+                        otherBids.map(
+                            async (
+                                otherBid
+                            ) => {
+                                try {
+                                    await fetch(
+                                        "/api/send-notification",
+                                        {
+                                            method:
+                                                "POST",
+
+                                            headers:
+                                            {
+                                                "Content-Type":
+                                                    "application/json",
+                                            },
+
+                                            body:
+                                                JSON.stringify(
+                                                    {
+                                                        shipmentId:
+                                                            bid.shipment_id,
+
+                                                        eventType:
+                                                            "DRIVER_NOT_SELECTED",
+
+                                                        targetUserId:
+                                                            otherBid.driver_id,
+                                                    }
+                                                ),
+                                        }
+                                    );
+                                } catch (
+                                notificationError
+                                ) {
+                                    console.log(
+                                        "Other driver notification error:",
+                                        notificationError
+                                    );
+                                }
+                            }
+                        )
+                    );
+                }
+            } catch (
+            notificationError
+            ) {
+                console.log(
+                    "Could not notify other drivers:",
+                    notificationError
+                );
+            }
+
+            await loadShipments(
+                user.id
+            );
+
+            setSelectedBid(
+                null
+            );
+
+            alert(
+                t(
+                    "shipper.offerAccepted"
+                )
+            );
+        } catch (error) {
+            console.error(
+                "Accept bid error:",
+                error
+            );
+
+            alert(
+                error?.message ||
+                t(
+                    "errors.somethingWrong"
+                )
+            );
+        }
+    }
+
+
+    /* =========================================================
+       SUGGEST ANOTHER PRICE
+    ========================================================= */
+
+    async function suggestAnotherPrice(
+        bid
+    ) {
+        if (!user || !bid) {
+            return;
+        }
+
+        const price =
+            Number(
+                cleanPrice(
+                    counterPrice
+                )
+            );
+
+        if (
+            !price ||
+            price <= 0
+        ) {
+            alert(
+                t(
+                    "errors.invalidPrice"
+                )
+            );
+
+            return;
+        }
+
+        setCounterLoading(true);
+
+        try {
+            const {
+                error,
+            } = await supabase
+                .from("bids")
+                .update({
+                    counter_price:
+                        price,
+
+                    last_offer_by:
+                        "SHIPPER",
+
+                    status:
+                        "COUNTERED",
+                })
+                .eq(
+                    "id",
+                    bid.id
+                )
+                .eq(
+                    "shipment_id",
+                    bid.shipment_id
+                );
+
+            if (error) {
+                throw error;
+            }
+
+
+            /*
+             * Notify the driver.
+             */
+
+            try {
+                await fetch(
+                    "/api/send-notification",
+                    {
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json",
+                        },
+
+                        body: JSON.stringify({
+                            shipmentId:
+                                bid.shipment_id,
+
+                            eventType:
+                                "COUNTER_OFFER",
+
+                            targetUserId:
+                                bid.driver_id,
+                        }),
+                    }
+                );
+            } catch (
+            notificationError
+            ) {
+                console.log(
+                    "Counter-price notification error:",
+                    notificationError
+                );
+            }
+
+            setCounterPrice("");
+
+            setSelectedBid(
+                null
+            );
+
+            await loadShipments(
+                user.id
+            );
+
+            alert(
+                t(
+                    "shipper.counterSent"
+                )
+            );
+        } catch (error) {
+            console.error(
+                "Counter offer error:",
+                error
+            );
+
+            alert(
+                error?.message ||
+                t(
+                    "errors.somethingWrong"
+                )
+            );
+        } finally {
+            setCounterLoading(
+                false
+            );
+        }
+    }
+
+
+    /* =========================================================
+       UPDATE DELIVERY STATUS
+    ========================================================= */
+
+    async function updateShipmentStatus(
+        shipment,
+        status
+    ) {
+        if (
+            !user ||
+            !shipment?.id
+        ) {
+            return;
+        }
+
+        const updates = {
+            status,
+        };
+
+        const now =
+            new Date().toISOString();
+
+        if (
+            status === "MATCHED"
+        ) {
+            updates.matched_at =
+                now;
+        }
+
+        if (
+            status === "DEPARTED"
+        ) {
+            updates.departed_at =
+                now;
+        }
+
+        if (
+            status === "ARRIVED"
+        ) {
+            updates.arrived_at =
+                now;
+        }
+
+        if (
+            status === "COMPLETED"
+        ) {
+            updates.completed_at =
+                now;
+        }
+
+        try {
+            const {
+                error,
+            } = await supabase
+                .from("shipments")
+                .update(updates)
+                .eq(
+                    "id",
+                    shipment.id
+                )
+                .eq(
+                    "shipper_id",
+                    user.id
+                );
+
+            if (error) {
+                throw error;
+            }
+
+            await loadShipments(
+                user.id
+            );
+        } catch (error) {
+            console.error(
+                "Shipment status error:",
+                error
+            );
+
+            alert(
+                error?.message ||
+                t(
+                    "errors.somethingWrong"
+                )
+            );
+        }
+    }
+
+
+    /* =========================================================
+       LOGOUT
+    ========================================================= */
+
+    function handleLogout() {
+        localStorage.removeItem(
+            "tayebUser"
+        );
+
+        localStorage.removeItem(
+            "selectedRole"
+        );
+
+        router.push(
+            "/login"
+        );
+    }
+
+
+    /* =========================================================
+       GROUP DATA
+    ========================================================= */
+
+    const activeShipments =
+        useMemo(
+            () =>
+                shipments.filter(
+                    (shipment) =>
+                        shipment.status !==
+                        "COMPLETED" &&
+                        shipment.status !==
+                        "CANCELLED"
+                ),
+            [shipments]
+        );
+
+    const completedShipments =
+        useMemo(
+            () =>
+                shipments.filter(
+                    (shipment) =>
+                        shipment.status ===
+                        "COMPLETED"
+                ),
+            [shipments]
+        );
+
+
+    function shipmentBids(
+        shipmentId
+    ) {
+        return bids.filter(
+            (bid) =>
+                bid.shipment_id ===
+                shipmentId
+        );
+    }
+
+
+    /* =========================================================
+       STATUS TEXT
+    ========================================================= */
+
+    function statusText(
+        status
+    ) {
+        const keyMap = {
+            OPEN:
+                "status.open",
+
+            PENDING:
+                "status.pending",
+
+            COUNTERED:
+                "status.countered",
+
+            ACCEPTED:
+                "status.accepted",
+
+            MATCHED:
+                "status.matched",
+
+            DEPARTED:
+                "status.departed",
+
+            ARRIVED:
+                "status.arrived",
+
+            COMPLETED:
+                "status.completed",
+
+            CANCELLED:
+                "status.cancelled",
+        };
+
+        return t(
+            keyMap[status] ||
+            "common.status"
+        );
+    }
+
+
+    function statusClass(
+        status
+    ) {
+        if (
+            status ===
+            "COMPLETED"
+        ) {
+            return "tayeb-badge tayeb-badge-success";
+        }
+
+        if (
+            status ===
+            "CANCELLED"
+        ) {
+            return "tayeb-badge tayeb-badge-danger";
+        }
+
+        if (
+            status ===
+            "MATCHED" ||
+            status ===
+            "DEPARTED" ||
+            status ===
+            "ARRIVED"
+        ) {
+            return "tayeb-badge tayeb-badge-orange";
+        }
+
+        return "tayeb-badge tayeb-badge-gray";
+    }
+
+
+    /* =========================================================
+       LOADING
+    ========================================================= */
+
+    if (
+        !user ||
+        loading
+    ) {
+        return (
+            <main
+                style={{
+                    minHeight:
+                        "100vh",
+                    display:
+                        "grid",
+                    placeItems:
+                        "center",
+                    background:
+                        "#fff",
+                }}
+            >
+                <div
+                    style={{
+                        textAlign:
+                            "center",
+                    }}
+                >
+                    <BrandLogo
+                        width={130}
+                        height={48}
+                    />
+
+                    <div
+                        style={{
+                            marginTop:
+                                "25px",
+                        }}
+                    >
+                        <span className="tayeb-spinner tayeb-spinner-orange" />
+                    </div>
+
+                    <p
+                        style={{
+                            marginTop:
+                                "15px",
+                            color:
+                                "#6b7280",
+                            fontSize:
+                                "12px",
+                        }}
+                    >
+                        {t(
+                            "common.loading"
+                        )}
+                    </p>
+                </div>
+            </main>
+        );
+    }
 
 
     return (
+        <>
+            <Head>
+                <title>
+                    Tayeb —{" "}
+                    {t(
+                        "shipper.dashboard"
+                    )}
+                </title>
+
+                <meta
+                    name="description"
+                    content={t(
+                        "shipper.dashboard"
+                    )}
+                />
+            </Head>
 
 
-        <div className="min-h-screen bg-slate-50 pb-10">
+            <main className="tayeb-app">
 
+                {/* =================================================
+                    TOP BAR
+                ================================================= */}
 
-            <div className="max-w-md mx-auto p-5">
+                <header className="tayeb-topbar">
 
+                    <div className="tayeb-topbar-left">
 
+                        <BrandLogo
+                            width={105}
+                            height={40}
+                        />
 
-
-
-
-
-                {/* LANGUAGE */}
-
-
-
-                <div className="flex justify-end mb-4">
-
-
-
-                    <button
-
-                        onClick={() => changeLanguage("en")}
-
-                        className={`px-3 py-1 rounded-l-lg text-sm ${language === "en"
-                            ? "bg-slate-900 text-white"
-                            : "bg-slate-200"
-                            }`}
-
-                    >
-
-                        EN
-
-                    </button>
-
-
-
-
-
-
-                    <button
-
-                        onClick={() => changeLanguage("fr")}
-
-                        className={`px-3 py-1 rounded-r-lg text-sm ${language === "fr"
-                            ? "bg-slate-900 text-white"
-                            : "bg-slate-200"
-                            }`}
-
-                    >
-
-                        FR
-
-                    </button>
-
-
-
-                </div>
-
-
-
-
-
-
-
-
-
-                {/* HEADER */}
-
-
-
-                <div className="bg-white rounded-3xl shadow-xl p-5 mb-6">
-
-
-
-                    <div className="flex justify-center mb-5">
-
-
-                        <BrandLogo size="120" />
-
+                        <div
+                            style={{
+                                display:
+                                    "none",
+                            }}
+                            className="shipper-desktop-title"
+                        >
+                            <strong>
+                                {t(
+                                    "shipper.dashboard"
+                                )}
+                            </strong>
+                        </div>
 
                     </div>
 
 
+                    <div className="tayeb-topbar-right">
 
+                        {/* LANGUAGE */}
 
+                        <div
+                            style={{
+                                display:
+                                    "flex",
+                                alignItems:
+                                    "center",
+                                gap:
+                                    "3px",
+                                padding:
+                                    "4px",
+                                border:
+                                    "1px solid #e5e7eb",
+                                borderRadius:
+                                    "12px",
+                                background:
+                                    "white",
+                            }}
+                        >
 
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setLanguage(
+                                        "en"
+                                    )
+                                }
+                                style={{
+                                    border: 0,
+                                    borderRadius:
+                                        "8px",
+                                    padding:
+                                        "6px 8px",
+                                    background:
+                                        language ===
+                                            "en"
+                                            ? "#fff7ed"
+                                            : "transparent",
+                                    color:
+                                        language ===
+                                            "en"
+                                            ? "#f97316"
+                                            : "#6b7280",
+                                    fontSize:
+                                        "9px",
+                                    fontWeight:
+                                        900,
+                                    cursor:
+                                        "pointer",
+                                }}
+                            >
+                                EN
+                            </button>
 
-                    <div className="flex justify-between items-center">
-
-
-
-                        <div>
-
-
-                            <h1 className="text-2xl font-black">
-
-
-                                {t.welcome},
-
-
-                            </h1>
-
-
-
-
-
-                            <p className="text-orange-600 font-bold">
-
-
-                                {user.full_name}
-
-
-                            </p>
-
-
-
-
-
-                            <p className="text-sm text-slate-500">
-
-
-                                Shipper
-
-
-                            </p>
-
-
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setLanguage(
+                                        "fr"
+                                    )
+                                }
+                                style={{
+                                    border: 0,
+                                    borderRadius:
+                                        "8px",
+                                    padding:
+                                        "6px 8px",
+                                    background:
+                                        language ===
+                                            "fr"
+                                            ? "#fff7ed"
+                                            : "transparent",
+                                    color:
+                                        language ===
+                                            "fr"
+                                            ? "#f97316"
+                                            : "#6b7280",
+                                    fontSize:
+                                        "9px",
+                                    fontWeight:
+                                        900,
+                                    cursor:
+                                        "pointer",
+                                }}
+                            >
+                                FR
+                            </button>
 
                         </div>
 
 
+                        {/* NOTIFICATIONS */}
+
+                        <Notifications
+                            userId={
+                                user.id
+                            }
+                        />
 
 
+                        {/* USER */}
+
+                        <div
+                            className="tayeb-avatar"
+                            title={
+                                user.full_name
+                            }
+                        >
+                            {user.full_name
+                                ?.charAt(
+                                    0
+                                )
+                                ?.toUpperCase() ||
+                                "T"}
+                        </div>
+
+                    </div>
+
+                </header>
+
+
+                {/* =================================================
+                    MAIN CONTENT
+                ================================================= */}
+
+                <div className="tayeb-dashboard">
+
+                    {/* WELCOME */}
+
+                    <div
+                        style={{
+                            display:
+                                "flex",
+                            alignItems:
+                                "flex-end",
+                            justifyContent:
+                                "space-between",
+                            gap:
+                                "20px",
+                            flexWrap:
+                                "wrap",
+                            marginBottom:
+                                "28px",
+                        }}
+                    >
+
+                        <div>
+
+                            <span className="tayeb-section-label">
+                                TAYEB
+                            </span>
+
+                            <h1
+                                style={{
+                                    color:
+                                        "#111827",
+                                    fontSize:
+                                        "clamp(30px, 5vw, 46px)",
+                                    lineHeight:
+                                        1,
+                                    letterSpacing:
+                                        "-0.05em",
+                                    fontWeight:
+                                        900,
+                                }}
+                            >
+                                {t(
+                                    "shipper.greeting"
+                                )}
+                                ,{" "}
+                                <span
+                                    style={{
+                                        color:
+                                            "#f97316",
+                                    }}
+                                >
+                                    {
+                                        user.full_name
+                                    }
+                                </span>
+                            </h1>
+
+                            <p
+                                style={{
+                                    marginTop:
+                                        "10px",
+                                    color:
+                                        "#6b7280",
+                                    fontSize:
+                                        "13px",
+                                }}
+                            >
+                                {t(
+                                    "shipper.dashboard"
+                                )}
+                            </p>
+
+                        </div>
 
 
                         <button
-
-
-                            onClick={() => logout(router)}
-
-
-                            className="bg-red-500 text-white px-4 py-2 rounded-xl font-bold"
-
-
+                            type="button"
+                            onClick={
+                                handleLogout
+                            }
+                            className="tayeb-button tayeb-button-secondary"
                         >
-
-                            Logout
-
-
+                            {t(
+                                "common.logout"
+                            )}
                         </button>
-
-
 
                     </div>
 
 
-
-                </div>
-
-
-
-
-                <Notifications userId={user.id} />
-
-
-
-                {/* SUMMARY */}
-
-
-
-                <div className="grid grid-cols-3 gap-3 mb-6">
-
-
-                    <SummaryCard
-
-                        value={shipments.length}
-
-                        title="Posted"
-
-                    />
-
-
-
-                    <SummaryCard
-
-                        value={activeShipments.length}
-
-                        title="Active"
-
-                    />
-
-
-
-                    <SummaryCard
-
-                        value={completedShipments.length}
-
-                        title="Done"
-
-                    />
-
-                </div>
-
-
-                {/* POST SUCCESS */}
-
-
-                {
-                    posted ?
-
-
-                        (
-
-                            <div className="bg-white rounded-3xl shadow-xl p-8 text-center">
-
-
-                                <h2 className="text-2xl font-black text-green-600">
-
-                                    Cargo Posted!
-
-                                </h2>
-
-
-
-
-                                <p className="mt-3 text-slate-500">
-
-                                    Drivers can now see your shipment.
-
-                                </p>
-
-
-
-
-
-
-                                <button
-
-                                    onClick={() => setPosted(false)}
-
-                                    className="mt-6 w-full bg-slate-900 text-amber-400 rounded-2xl py-4 font-black"
-
-                                >
-
-                                    Post Another Shipment
-
-                                </button>
-
-
-
-
-                            </div>
-
-
-                        )
-
-
-
-                        :
-
-
-
-                        (
-
-                            <form
-
-                                onSubmit={handlePostCargo}
-
-                                className="bg-white rounded-3xl shadow-xl p-6 space-y-5"
-
-                            >
-
-
-
-
-                                <h2 className="text-xl font-black">
-
-                                    New Shipment
-
-                                </h2>
-
-
-
-
-
-                                <select
-
-                                    value={itemType}
-
-                                    onChange={(e) => setItemType(e.target.value)}
-
-                                    className="w-full border rounded-xl p-3"
-
-                                >
-
-                                    <option>
-                                        Bags/Sacks
-                                    </option>
-
-                                    <option>
-                                        Crates/Boxes
-                                    </option>
-
-                                    <option>
-                                        Drums/Oil
-                                    </option>
-
-                                    <option>
-                                        Furniture/Bulky
-                                    </option>
-
-
-                                </select>
-
-
-
-
-
-
-
-                                <input
-
-                                    value={origin}
-
-                                    onChange={(e) => setOrigin(e.target.value)}
-
-                                    className="w-full border rounded-xl p-3"
-
-                                    placeholder="Origin"
-
-                                />
-
-
-
-
-
-
-
-                                <input
-
-                                    value={destination}
-
-                                    onChange={(e) => setDestination(e.target.value)}
-
-                                    className="w-full border rounded-xl p-3"
-
-                                    placeholder="Destination"
-
-                                />
-
-
-
-
-
-
-
-                                <input
-
-                                    type="number"
-
-                                    value={quantity}
-
-                                    onChange={(e) => setQuantity(Number(e.target.value))}
-
-                                    className="w-full border rounded-xl p-3"
-
-                                    placeholder="Quantity"
-
-                                />
-
-
-
-
-
-
-
-
-                                <input
-
-                                    type="number"
-
-                                    value={offer}
-
-                                    onChange={(e) => setOffer(Number(e.target.value))}
-
-                                    className="w-full border rounded-xl p-3"
-
-                                    placeholder="Offer FCFA"
-
-                                />
-
-
-
-
-
-
-
-                                <input
-
-                                    value={phone}
-
-                                    onChange={(e) => setPhone(e.target.value)}
-
-                                    className="w-full border rounded-xl p-3"
-
-                                    placeholder="Receiver Phone"
-
-                                />
-
-
-
-
-
-
-
-                                <button
-
-                                    disabled={loading}
-
-                                    className="w-full bg-orange-600 text-white rounded-2xl py-4 font-black"
-
-                                >
-
-                                    {
-
-                                        loading
-
-                                            ?
-
-                                            "Posting..."
-
-                                            :
-
-                                            "Broadcast Shipment"
-
-                                    }
-
-
-                                </button>
-
-
-
-
-                            </form>
-
-
-                        )
-
-                }
-
-
-
-
-
-
-
-
-
-                {/* DRIVER MATCH DETAILS */}
-
-
-
-                <div className="bg-white rounded-3xl shadow p-5 mt-6">
-
-
-                    <h2 className="font-black text-lg mb-3">
-
-                        Driver Information
-
-                    </h2>
-
-
-
-
-
-                    {
-                        shipments.some(item => item.driver_id)
-
-
-
-                            ?
-
-
-
-                            shipments
-
-                                .filter(item => item.driver_id)
-
-                                .map(item => (
-
-
-                                    <div
-
-                                        key={item.id}
-
-                                        className="border rounded-2xl p-4 mb-3"
-
-                                    >
-
-
-
-                                        <p className="font-bold">
-
-                                            Shipment:
-
-                                            {" "}
-
-                                            {item.item_type}
-
-                                        </p>
-
-
-
-
-
-                                        <p className="mt-2">
-
-                                            🚚 Driver:
-
-                                            {" "}
-
-                                            {
-                                                item.driver?.full_name ||
-                                                "Matched driver"
-                                            }
-
-                                        </p>
-
-
-
-
-
-                                        <p>
-
-                                            📞
-
-                                            {" "}
-
-                                            {
-                                                item.driver?.phone_number ||
-                                                "Hidden"
-                                            }
-
-                                        </p>
-
-
-
-
-
-                                        <p className="font-bold mt-2">
-
-                                            Status:
-
-                                            {" "}
-
-                                            {item.status}
-
-                                        </p>
-
-
-
-
-                                    </div>
-
-
-                                ))
-
-
-
-                            :
-
-
-
-                            <p className="text-sm text-slate-500">
-
-                                Waiting for driver acceptance.
-
-                            </p>
-
-
-                    }
-
-
-                </div>
-
-
-
-
-
-
-
-
-
-                {/* DELIVERY TRACKING */}
-
-
-
-                <div className="bg-white rounded-3xl shadow p-5 mt-6">
-
-
-                    <h2 className="font-black text-lg mb-4">
-
-                        Delivery Tracking
-
-                    </h2>
-
-
-
-
-
-                    {
-                        shipments.map(item => (
-
+                    {/* =================================================
+                        SUMMARY
+                    ================================================= */}
+
+                    <div
+                        className="tayeb-dashboard-grid"
+                        style={{
+                            marginBottom:
+                                "22px",
+                        }}
+                    >
+
+                        <StatCard
+                            value={
+                                shipments.length
+                            }
+                            label={
+                                t(
+                                    "shipper.myShipments"
+                                )
+                            }
+                            icon="📦"
+                        />
+
+                        <StatCard
+                            value={
+                                activeShipments.length
+                            }
+                            label={
+                                t(
+                                    "shipper.activeShipments"
+                                )
+                            }
+                            icon="🚚"
+                        />
+
+                        <StatCard
+                            value={
+                                completedShipments.length
+                            }
+                            label={
+                                t(
+                                    "shipper.completedShipments"
+                                )
+                            }
+                            icon="✓"
+                        />
+
+                        <StatCard
+                            value={
+                                bids.filter(
+                                    (bid) =>
+                                        bid.status ===
+                                        "PENDING"
+                                ).length
+                            }
+                            label={
+                                t(
+                                    "shipper.driverOffers"
+                                )
+                            }
+                            icon="💰"
+                        />
+
+                    </div>
+
+
+                    {/* =================================================
+                        SEND CARGO BUTTON
+                    ================================================= */}
+
+                    <div
+                        style={{
+                            marginBottom:
+                                "22px",
+                        }}
+                    >
+
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setShowPostForm(
+                                    (current) =>
+                                        !current
+                                )
+                            }
+                            className="tayeb-button tayeb-button-primary"
+                            style={{
+                                minHeight:
+                                    "54px",
+                                padding:
+                                    "0 24px",
+                            }}
+                        >
+                            📦{" "}
+                            {t(
+                                "shipper.sendCargo"
+                            )}
+                            <span>
+                                {showPostForm
+                                    ? "−"
+                                    : "+"}
+                            </span>
+                        </button>
+
+                    </div>
+
+
+                    {/* =================================================
+                        POST CARGO FORM
+                    ================================================= */}
+
+                    {showPostForm && (
+                        <section
+                            className="tayeb-card tayeb-fade-in"
+                            style={{
+                                padding:
+                                    "25px",
+                                marginBottom:
+                                    "28px",
+                            }}
+                        >
 
                             <div
-
-                                key={item.id}
-
-                                className="mb-5"
-
+                                style={{
+                                    marginBottom:
+                                        "22px",
+                                }}
                             >
 
+                                <span className="tayeb-section-label">
+                                    {t(
+                                        "shipper.postCargo"
+                                    )}
+                                </span>
 
-
-                                <p className="font-bold">
-
-                                    {item.origin}
-
-                                    {" → "}
-
-                                    {item.destination}
-
-                                </p>
-
-
-
-
-
-                                <div className="flex justify-between mt-3 text-xs">
-
-
-
-                                    <span
-
-                                        className={
-                                            item.status !== "OPEN"
-                                                ?
-                                                "font-black text-orange-600"
-                                                :
-                                                "text-slate-400"
-                                        }
-
-                                    >
-
-                                        MATCHED
-
-                                    </span>
-
-
-
-
-
-
-                                    <span
-
-                                        className={
-                                            [
-                                                "DEPARTED",
-                                                "ARRIVED",
-                                                "COMPLETED"
-                                            ].includes(item.status)
-                                                ?
-                                                "font-black text-orange-600"
-                                                :
-                                                "text-slate-400"
-                                        }
-
-                                    >
-
-                                        ON WAY
-
-                                    </span>
-
-
-
-
-
-
-                                    <span
-
-                                        className={
-                                            item.status === "COMPLETED"
-                                                ?
-                                                "font-black text-green-600"
-                                                :
-                                                "text-slate-400"
-                                        }
-
-                                    >
-
-                                        DONE
-
-                                    </span>
-
-
-
-                                </div>
-
+                                <h2
+                                    style={{
+                                        color:
+                                            "#111827",
+                                        fontSize:
+                                            "25px",
+                                        fontWeight:
+                                            900,
+                                    }}
+                                >
+                                    {t(
+                                        "shipper.cargoDetails"
+                                    )}
+                                </h2>
 
                             </div>
 
 
-                        ))
-
-                    }
-
-
-                </div>
-
-
-
-
-
-
-
-
-
-                {/* HISTORY */}
-
-
-
-                <div className="mt-8">
-
-
-                    <h2 className="text-xl font-black mb-4">
-
-                        Shipment History
-
-                    </h2>
-
-
-
-
-
-                    {
-                        loadingShipments ?
-
-
-
-                            (
-
-                                <p>
-
-                                    Loading...
-
-                                </p>
-
-                            )
-
-
-
-                            :
-
-
-
-                            shipments.length === 0 ?
-
-
-
-                                (
-
-                                    <div className="bg-white rounded-3xl p-6 text-center">
-
-                                        No shipments yet.
-
-                                    </div>
-
-                                )
-
-
-
-                                :
-
-
-
-                                shipments.map(item => (
-
-
-                                    <div
-
-                                        key={item.id}
-
-                                        className="bg-white rounded-3xl shadow p-5 mb-4"
-
-                                    >
-
-
-                                        <h3 className="font-black">
-
-                                            {item.item_type}
-
-                                        </h3>
-
-
-
-
-                                        <p>
-
-                                            📍 {item.origin}
-
-                                        </p>
-
-
-
-                                        <p>
-
-                                            🏁 {item.destination}
-
-                                        </p>
-
-
-
-
-                                        <p className="font-bold">
-
-                                            Status:
-
-                                            {" "}
-
-                                            {item.status}
-
-                                        </p>
-
-                                        <div className="mt-4 border-t pt-4">
-
-                                            <h4 className="font-bold mb-2">
-                                                Driver Offers
-                                            </h4>
-
-                                            {bids
-                                                .filter(
-                                                    (bid) =>
-                                                        bid.shipment_id === item.id
-                                                )
-                                                .map((bid) => (
-                                                    <DriverBidCard
-                                                        key={bid.id}
-                                                        bid={bid}
-                                                        item={item}
-                                                        onAccept={acceptBid}
-                                                        onSuggestAnotherPrice={
-                                                            suggestAnotherPrice
-                                                        }
-                                                    />
-                                                ))}
-
-                                            {bids.filter(
-                                                (bid) =>
-                                                    bid.shipment_id === item.id
-                                            ).length === 0 && (
-                                                    <p className="text-slate-500 text-sm">
-                                                        No driver offers yet.
-                                                    </p>
+                            <form
+                                onSubmit={
+                                    handlePostCargo
+                                }
+                            >
+
+                                <div
+                                    className="tayeb-dashboard-grid"
+                                >
+
+                                    <div className="tayeb-span-6">
+
+                                        <div className="tayeb-form-group">
+
+                                            <label className="tayeb-label">
+                                                {t(
+                                                    "shipper.whatAreYouSending"
                                                 )}
+                                            </label>
+
+                                            <input
+                                                value={
+                                                    cargo.itemType
+                                                }
+                                                onChange={(
+                                                    event
+                                                ) =>
+                                                    updateCargo(
+                                                        "itemType",
+                                                        event
+                                                            .target
+                                                            .value
+                                                    )
+                                                }
+                                                className="tayeb-input"
+                                                placeholder="Example: bags, boxes, food..."
+                                                disabled={
+                                                    posting
+                                                }
+                                            />
 
                                         </div>
 
                                     </div>
 
 
+                                    <div className="tayeb-span-6">
+
+                                        <div className="tayeb-form-group">
+
+                                            <label className="tayeb-label">
+                                                {t(
+                                                    "common.quantity"
+                                                )}
+                                            </label>
+
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                value={
+                                                    cargo.quantity
+                                                }
+                                                onChange={(
+                                                    event
+                                                ) =>
+                                                    updateCargo(
+                                                        "quantity",
+                                                        event
+                                                            .target
+                                                            .value
+                                                    )
+                                                }
+                                                className="tayeb-input"
+                                                placeholder="Example: 3"
+                                                disabled={
+                                                    posting
+                                                }
+                                            />
+
+                                        </div>
+
+                                    </div>
 
 
-                                ))
+                                    <div className="tayeb-span-6">
 
-                    }
+                                        <div className="tayeb-form-group">
 
+                                            <label className="tayeb-label">
+                                                {t(
+                                                    "shipper.pickupLocation"
+                                                )}
+                                            </label>
 
-                </div>
+                                            <input
+                                                value={
+                                                    cargo.origin
+                                                }
+                                                onChange={(
+                                                    event
+                                                ) =>
+                                                    updateCargo(
+                                                        "origin",
+                                                        event
+                                                            .target
+                                                            .value
+                                                    )
+                                                }
+                                                className="tayeb-input"
+                                                placeholder="Example: Akwa"
+                                                disabled={
+                                                    posting
+                                                }
+                                            />
 
+                                        </div>
 
-
-                <DeleteAccount user={user} />
-
-            </div >
-
-
-        </div >
-
-
-    );
-
-}
-
-
-function DriverBidCard({
-    bid,
-    item,
-    onAccept,
-    onSuggestAnotherPrice,
-}) {
-    const [newPrice, setNewPrice] = useState("");
-
-    const submitCounterPrice = () => {
-        if (!newPrice || Number(newPrice) <= 0) {
-            alert("Please enter a valid price.");
-            return;
-        }
-
-        onSuggestAnotherPrice(
-            bid,
-            newPrice
-        );
-
-        setNewPrice("");
-    };
-
-    return (
-        <div className="border rounded-xl p-3 mb-3">
-
-            <p>
-                <strong>Driver:</strong>{" "}
-                {bid.driver?.full_name ||
-                    "Driver"}
-            </p>
-
-            <p className="mt-1">
-                <strong>Driver's price:</strong>{" "}
-                {bid.proposed_price} FCFA
-            </p>
-
-            {bid.counter_price !== null &&
-                bid.counter_price !== undefined && (
-                    <p className="mt-1 font-black text-orange-600">
-                        Latest price:{" "}
-                        {bid.counter_price} FCFA
-                    </p>
-                )}
-
-            {bid.eta && (
-                <p className="mt-1">
-                    <strong>Arrival time:</strong>{" "}
-                    {bid.eta}
-                </p>
-            )}
-
-            {bid.note && (
-                <p className="mt-1">
-                    <strong>Message:</strong>{" "}
-                    {bid.note}
-                </p>
-            )}
+                                    </div>
 
 
-            {/* DRIVER'S PRICE IS WAITING */}
-            {bid.status === "PENDING" &&
-                bid.last_offer_by === "DRIVER" && (
-                    <>
-                        <button
-                            className="mt-3 w-full bg-green-600 text-white px-4 py-3 rounded-xl font-bold"
-                            onClick={() =>
-                                onAccept(bid)
-                            }
+                                    <div className="tayeb-span-6">
+
+                                        <div className="tayeb-form-group">
+
+                                            <label className="tayeb-label">
+                                                {t(
+                                                    "shipper.deliveryLocation"
+                                                )}
+                                            </label>
+
+                                            <input
+                                                value={
+                                                    cargo.destination
+                                                }
+                                                onChange={(
+                                                    event
+                                                ) =>
+                                                    updateCargo(
+                                                        "destination",
+                                                        event
+                                                            .target
+                                                            .value
+                                                    )
+                                                }
+                                                className="tayeb-input"
+                                                placeholder="Example: Mvan"
+                                                disabled={
+                                                    posting
+                                                }
+                                            />
+
+                                        </div>
+
+                                    </div>
+
+
+                                    <div className="tayeb-span-6">
+
+                                        <div className="tayeb-form-group">
+
+                                            <label className="tayeb-label">
+                                                {t(
+                                                    "shipper.yourPrice"
+                                                )}
+                                            </label>
+
+                                            <input
+                                                inputMode="numeric"
+                                                value={
+                                                    cargo.price
+                                                }
+                                                onChange={(
+                                                    event
+                                                ) =>
+                                                    updateCargo(
+                                                        "price",
+                                                        event
+                                                            .target
+                                                            .value
+                                                    )
+                                                }
+                                                className="tayeb-input"
+                                                placeholder="Example: 25000"
+                                                disabled={
+                                                    posting
+                                                }
+                                            />
+
+                                            <small
+                                                style={{
+                                                    color:
+                                                        "#9ca3af",
+                                                    fontSize:
+                                                        "10px",
+                                                }}
+                                            >
+                                                {t(
+                                                    "shipper.priceHint"
+                                                )}
+                                            </small>
+
+                                        </div>
+
+                                    </div>
+
+
+                                    <div className="tayeb-span-6">
+
+                                        <div className="tayeb-form-group">
+
+                                            <label className="tayeb-label">
+                                                {t(
+                                                    "common.phone"
+                                                )}{" "}
+                                                <span
+                                                    style={{
+                                                        color:
+                                                            "#9ca3af",
+                                                    }}
+                                                >
+                                                    (
+                                                    {t(
+                                                        "driver.optional"
+                                                    )}
+                                                    )
+                                                </span>
+                                            </label>
+
+                                            <input
+                                                type="tel"
+                                                value={
+                                                    cargo.receiverPhone
+                                                }
+                                                onChange={(
+                                                    event
+                                                ) =>
+                                                    updateCargo(
+                                                        "receiverPhone",
+                                                        event
+                                                            .target
+                                                            .value
+                                                    )
+                                                }
+                                                className="tayeb-input"
+                                                placeholder="Receiver phone"
+                                                disabled={
+                                                    posting
+                                                }
+                                            />
+
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+
+                                <button
+                                    type="submit"
+                                    disabled={
+                                        posting
+                                    }
+                                    className="tayeb-button tayeb-button-primary tayeb-button-full"
+                                    style={{
+                                        marginTop:
+                                            "5px",
+                                    }}
+                                >
+
+                                    {posting ? (
+                                        <>
+                                            <span className="tayeb-spinner" />
+
+                                            {t(
+                                                "common.loading"
+                                            )}
+                                        </>
+                                    ) : (
+                                        <>
+                                            {t(
+                                                "shipper.sendCargo"
+                                            )}
+                                            →
+                                        </>
+                                    )}
+
+                                </button>
+
+                            </form>
+
+                        </section>
+                    )}
+
+
+                    {/* =================================================
+                        ACTIVE SHIPMENTS
+                    ================================================= */}
+
+                    <section>
+
+                        <div
+                            style={{
+                                display:
+                                    "flex",
+                                alignItems:
+                                    "center",
+                                justifyContent:
+                                    "space-between",
+                                gap:
+                                    "15px",
+                                marginBottom:
+                                    "15px",
+                            }}
                         >
-                            ACCEPT THIS PRICE
-                        </button>
 
-                        <div className="mt-3">
+                            <div>
 
-                            <p className="text-sm font-bold mb-2">
-                                Or suggest another price:
-                            </p>
+                                <span className="tayeb-section-label">
+                                    TAYEB
+                                </span>
 
-                            <input
-                                type="number"
-                                min="1"
-                                placeholder="Enter your price"
-                                value={newPrice}
-                                onChange={(e) =>
-                                    setNewPrice(
-                                        e.target.value
-                                    )
-                                }
-                                className="w-full border rounded-xl px-4 py-3"
-                            />
+                                <h2
+                                    style={{
+                                        fontSize:
+                                            "22px",
+                                        fontWeight:
+                                            900,
+                                        color:
+                                            "#111827",
+                                    }}
+                                >
+                                    {t(
+                                        "shipper.activeShipments"
+                                    )}
+                                </h2>
 
-                            <button
-                                className="mt-2 w-full bg-slate-900 text-amber-400 px-4 py-3 rounded-xl font-bold"
-                                onClick={
-                                    submitCounterPrice
-                                }
-                            >
-                                SUGGEST ANOTHER PRICE
-                            </button>
+                            </div>
 
                         </div>
-                    </>
-                )}
 
 
-            {/* SHIPPER HAS ALREADY SENT A COUNTER */}
-            {bid.status === "COUNTERED" &&
-                bid.last_offer_by === "SHIPPER" && (
-                    <div className="mt-3 bg-blue-50 border border-blue-300 rounded-xl p-4">
+                        {activeShipments.length ===
+                            0 ? (
+                            <div className="tayeb-empty">
 
-                        <p className="font-black text-blue-700">
-                            📤 Waiting for driver's response
-                        </p>
+                                <div className="tayeb-empty-icon">
+                                    📦
+                                </div>
 
-                        <p className="mt-2">
-                            Your suggested price:
-                        </p>
+                                <h3>
+                                    {t(
+                                        "shipper.noOffers"
+                                    )}
+                                </h3>
 
-                        <p className="text-xl font-black text-blue-700">
-                            {bid.counter_price} FCFA
-                        </p>
+                                <p>
+                                    {t(
+                                        "shipper.waitingForOffers"
+                                    )}
+                                </p>
 
-                    </div>
-                )}
+                            </div>
+                        ) : (
+                            <div
+                                style={{
+                                    display:
+                                        "grid",
+                                    gap:
+                                        "18px",
+                                }}
+                            >
 
+                                {activeShipments.map(
+                                    (
+                                        shipment
+                                    ) => (
+                                        <ShipmentSection
+                                            key={
+                                                shipment.id
+                                            }
+                                            shipment={
+                                                shipment
+                                            }
+                                            bids={shipmentBids(
+                                                shipment.id
+                                            )}
+                                            statusText={
+                                                statusText
+                                            }
+                                            statusClass={
+                                                statusClass
+                                            }
+                                            formatPrice={
+                                                formatPrice
+                                            }
+                                            selectedBid={
+                                                selectedBid
+                                            }
+                                            setSelectedBid={
+                                                setSelectedBid
+                                            }
+                                            counterPrice={
+                                                counterPrice
+                                            }
+                                            setCounterPrice={
+                                                setCounterPrice
+                                            }
+                                            counterLoading={
+                                                counterLoading
+                                            }
+                                            suggestAnotherPrice={
+                                                suggestAnotherPrice
+                                            }
+                                            acceptBid={
+                                                acceptBid
+                                            }
+                                            updateShipmentStatus={
+                                                updateShipmentStatus
+                                            }
+                                            t={
+                                                t
+                                            }
+                                        />
+                                    )
+                                )}
 
-            {/* AGREED */}
-            {bid.status === "ACCEPTED" &&
-                item.status === "MATCHED" && (
-                    <div className="mt-3 bg-green-100 border border-green-300 rounded-xl p-4">
-
-                        <p className="font-black text-green-700">
-                            🤝 PRICE AGREED
-                        </p>
-
-                        <p className="mt-2 font-black">
-                            Agreed price:{" "}
-                            {item.agreed_price ||
-                                bid.proposed_price}{" "}
-                            FCFA
-                        </p>
-
-                        <p className="mt-2 text-sm">
-                            The driver has been selected.
-                        </p>
-
-                        {bid.driver?.phone_number && (
-                            <p className="mt-3 font-black">
-                                📞{" "}
-                                {bid.driver.phone_number}
-                            </p>
+                            </div>
                         )}
 
-                        <p className="text-sm mt-2">
-                            You can contact the driver to arrange cargo pickup.
+                    </section>
+
+
+                    {/* =================================================
+                        HISTORY
+                    ================================================= */}
+
+                    <section
+                        style={{
+                            marginTop:
+                                "40px",
+                        }}
+                    >
+
+                        <span className="tayeb-section-label">
+                            TAYEB
+                        </span>
+
+                        <h2
+                            style={{
+                                fontSize:
+                                    "22px",
+                                fontWeight:
+                                    900,
+                                color:
+                                    "#111827",
+                                marginBottom:
+                                    "15px",
+                            }}
+                        >
+                            {t(
+                                "shipper.shipmentHistory"
+                            )}
+                        </h2>
+
+
+                        {completedShipments.length ===
+                            0 ? (
+                            <div
+                                style={{
+                                    padding:
+                                        "20px",
+                                    border:
+                                        "1px solid #e5e7eb",
+                                    borderRadius:
+                                        "20px",
+                                    background:
+                                        "white",
+                                    color:
+                                        "#9ca3af",
+                                    fontSize:
+                                        "12px",
+                                }}
+                            >
+                                {t(
+                                    "common.noResults"
+                                )}
+                            </div>
+                        ) : (
+                            <div
+                                style={{
+                                    display:
+                                        "grid",
+                                    gap:
+                                        "14px",
+                                }}
+                            >
+
+                                {completedShipments.map(
+                                    (
+                                        shipment
+                                    ) => (
+                                        <div
+                                            key={
+                                                shipment.id
+                                            }
+                                            className="tayeb-card"
+                                            style={{
+                                                padding:
+                                                    "18px",
+                                            }}
+                                        >
+
+                                            <div
+                                                style={{
+                                                    display:
+                                                        "flex",
+                                                    justifyContent:
+                                                        "space-between",
+                                                    gap:
+                                                        "15px",
+                                                    alignItems:
+                                                        "flex-start",
+                                                }}
+                                            >
+
+                                                <div>
+
+                                                    <strong
+                                                        style={{
+                                                            display:
+                                                                "block",
+                                                            color:
+                                                                "#111827",
+                                                            fontSize:
+                                                                "14px",
+                                                        }}
+                                                    >
+                                                        {
+                                                            shipment.item_type
+                                                        }
+                                                    </strong>
+
+                                                    <p
+                                                        style={{
+                                                            marginTop:
+                                                                "5px",
+                                                            color:
+                                                                "#6b7280",
+                                                            fontSize:
+                                                                "11px",
+                                                        }}
+                                                    >
+                                                        {
+                                                            shipment.origin
+                                                        }{" "}
+                                                        →
+                                                        {" "}
+                                                        {
+                                                            shipment.destination
+                                                        }
+                                                    </p>
+
+                                                </div>
+
+                                                <span className="tayeb-badge tayeb-badge-success">
+                                                    {t(
+                                                        "status.completed"
+                                                    )}
+                                                </span>
+
+                                            </div>
+
+                                        </div>
+                                    )
+                                )}
+
+                            </div>
+                        )}
+
+                    </section>
+
+
+                    {/* =================================================
+                        FOOTER
+                    ================================================= */}
+
+                    <footer
+                        style={{
+                            marginTop:
+                                "50px",
+                            paddingTop:
+                                "25px",
+                            borderTop:
+                                "1px solid #e5e7eb",
+                            textAlign:
+                                "center",
+                        }}
+                    >
+
+                        <BrandLogo
+                            width={95}
+                            height={36}
+                        />
+
+                        <p
+                            style={{
+                                marginTop:
+                                    "10px",
+                                color:
+                                    "#9ca3af",
+                                fontSize:
+                                    "9px",
+                                fontWeight:
+                                    700,
+                            }}
+                        >
+                            {t(
+                                "common.tagline"
+                            )}
                         </p>
+
+                    </footer>
+
+                </div>
+
+            </main>
+        </>
+    );
+}
+
+
+/* =========================================================
+   STAT CARD
+========================================================= */
+
+function StatCard({
+    value,
+    label,
+    icon,
+}) {
+    return (
+        <div className="tayeb-span-3">
+
+            <div className="tayeb-stat-card">
+
+                <div className="tayeb-stat-card-top">
+
+                    <div className="tayeb-stat-icon">
+                        {icon}
+                    </div>
+
+                </div>
+
+                <div className="tayeb-stat-label">
+                    {label}
+                </div>
+
+                <div className="tayeb-stat-value">
+                    {value}
+                </div>
+
+            </div>
+
+        </div>
+    );
+}
+
+
+/* =========================================================
+   SHIPMENT SECTION
+========================================================= */
+
+function ShipmentSection({
+    shipment,
+    bids,
+    statusText,
+    statusClass,
+    formatPrice,
+    selectedBid,
+    setSelectedBid,
+    counterPrice,
+    setCounterPrice,
+    counterLoading,
+    suggestAnotherPrice,
+    acceptBid,
+    updateShipmentStatus,
+    t,
+}) {
+    const matched =
+        shipment.driver;
+
+    return (
+        <article className="tayeb-shipment-card">
+
+            {/* =====================================================
+                SHIPMENT HEADER
+            ===================================================== */}
+
+            <div
+                style={{
+                    display:
+                        "flex",
+                    justifyContent:
+                        "space-between",
+                    alignItems:
+                        "flex-start",
+                    gap:
+                        "15px",
+                }}
+            >
+
+                <div>
+
+                    <span
+                        style={{
+                            display:
+                                "block",
+                            color:
+                                "#9ca3af",
+                            fontSize:
+                                "9px",
+                            fontWeight:
+                                800,
+                            textTransform:
+                                "uppercase",
+                            marginBottom:
+                                "5px",
+                        }}
+                    >
+                        {t(
+                            "common.cargo"
+                        )}
+                    </span>
+
+                    <h3
+                        style={{
+                            color:
+                                "#111827",
+                            fontSize:
+                                "17px",
+                            fontWeight:
+                                900,
+                        }}
+                    >
+                        {
+                            shipment.item_type
+                        }
+                    </h3>
+
+                </div>
+
+                <span
+                    className={statusClass(
+                        shipment.status
+                    )}
+                >
+                    {statusText(
+                        shipment.status
+                    )}
+                </span>
+
+            </div>
+
+
+            {/* =====================================================
+                ROUTE
+            ===================================================== */}
+
+            <div
+                className="tayeb-route"
+                style={{
+                    marginTop:
+                        "22px",
+                }}
+            >
+
+                <div className="tayeb-route-point">
+
+                    <span className="tayeb-route-label">
+                        {t(
+                            "shipper.pickupLocation"
+                        )}
+                    </span>
+
+                    <div className="tayeb-route-city">
+                        {
+                            shipment.origin
+                        }
+                    </div>
+
+                </div>
+
+                <div className="tayeb-route-arrow">
+                    →
+                </div>
+
+                <div className="tayeb-route-point">
+
+                    <span className="tayeb-route-label">
+                        {t(
+                            "shipper.deliveryLocation"
+                        )}
+                    </span>
+
+                    <div className="tayeb-route-city">
+                        {
+                            shipment.destination
+                        }
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            {/* =====================================================
+                BASIC DETAILS
+            ===================================================== */}
+
+            <div
+                style={{
+                    display:
+                        "flex",
+                    flexWrap:
+                        "wrap",
+                    gap:
+                        "8px",
+                    marginTop:
+                        "17px",
+                }}
+            >
+
+                <span className="tayeb-badge tayeb-badge-gray">
+                    {t(
+                        "common.quantity"
+                    )}:{" "}
+                    {
+                        shipment.quantity
+                    }
+                </span>
+
+                <span className="tayeb-badge tayeb-badge-orange">
+                    {formatPrice(
+                        shipment.agreed_price ??
+                        shipment.initial_offer
+                    )}{" "}
+                    FCFA
+                </span>
+
+            </div>
+
+
+            {/* =====================================================
+                MATCHED DRIVER
+            ===================================================== */}
+
+            {matched && (
+                <div
+                    style={{
+                        marginTop:
+                            "20px",
+                        padding:
+                            "18px",
+                        background:
+                            "#fff7ed",
+                        border:
+                            "1px solid #fed7aa",
+                        borderRadius:
+                            "20px",
+                    }}
+                >
+
+                    <div
+                        style={{
+                            display:
+                                "flex",
+                            alignItems:
+                                "center",
+                            gap:
+                                "12px",
+                        }}
+                    >
+
+                        <div className="tayeb-avatar">
+                            {matched.full_name
+                                ?.charAt(
+                                    0
+                                )
+                                ?.toUpperCase() ||
+                                "D"}
+                        </div>
+
+                        <div
+                            style={{
+                                flex:
+                                    1,
+                                minWidth:
+                                    0,
+                            }}
+                        >
+
+                            <strong
+                                style={{
+                                    display:
+                                        "block",
+                                    color:
+                                        "#111827",
+                                    fontSize:
+                                        "13px",
+                                }}
+                            >
+                                {
+                                    matched.full_name
+                                }
+                            </strong>
+
+                            <span
+                                style={{
+                                    display:
+                                        "block",
+                                    marginTop:
+                                        "3px",
+                                    color:
+                                        "#6b7280",
+                                    fontSize:
+                                        "10px",
+                                }}
+                            >
+                                {matched.rating
+                                    ? `★ ${matched.rating}`
+                                    : "★ —"}
+                                {" · "}
+                                {
+                                    matched.vehicle_type ||
+                                    t(
+                                        "common.vehicle"
+                                    )
+                                }
+                            </span>
+
+                        </div>
+
+                        <span className="tayeb-badge tayeb-badge-success">
+                            {t(
+                                "common.verified"
+                            )}
+                        </span>
+
+                    </div>
+
+
+                    <div
+                        style={{
+                            display:
+                                "grid",
+                            gridTemplateColumns:
+                                "repeat(2, 1fr)",
+                            gap:
+                                "8px",
+                            marginTop:
+                                "15px",
+                        }}
+                    >
+
+                        <InfoBox
+                            label={
+                                t(
+                                    "common.phone"
+                                )
+                            }
+                            value={
+                                matched.phone_number ||
+                                shipment.driver_phone ||
+                                "—"
+                            }
+                        />
+
+                        <InfoBox
+                            label={
+                                t(
+                                    "common.completed"
+                                )
+                            }
+                            value={
+                                matched.total_completed_shipments ??
+                                "0"
+                            }
+                        />
+
+                    </div>
+
+                </div>
+            )}
+
+
+            {/* =====================================================
+                DELIVERY STATUS BUTTONS
+            ===================================================== */}
+
+            {shipment.status ===
+                "MATCHED" && (
+                    <div
+                        style={{
+                            display:
+                                "flex",
+                            gap:
+                                "8px",
+                            marginTop:
+                                "15px",
+                        }}
+                    >
+
+                        <button
+                            type="button"
+                            onClick={() =>
+                                updateShipmentStatus(
+                                    shipment,
+                                    "DEPARTED"
+                                )
+                            }
+                            className="tayeb-button tayeb-button-primary"
+                            style={{
+                                flex:
+                                    1,
+                            }}
+                        >
+                            🚚{" "}
+                            {t(
+                                "driver.startDelivery"
+                            )}
+                        </button>
 
                     </div>
                 )}
 
+            {shipment.status ===
+                "DEPARTED" && (
+                    <div
+                        style={{
+                            marginTop:
+                                "15px",
+                            padding:
+                                "13px",
+                            borderRadius:
+                                "14px",
+                            background:
+                                "#fff7ed",
+                            color:
+                                "#c2410c",
+                            fontSize:
+                                "11px",
+                            fontWeight:
+                                800,
+                        }}
+                    >
+                        🚚{" "}
+                        {t(
+                            "status.departed"
+                        )}
+                    </div>
+                )}
 
-            {/* OTHER DRIVER WAS NOT SELECTED */}
-            {bid.status === "REJECTED" && (
-                <div className="mt-3 bg-red-100 border border-red-300 rounded-xl p-4">
+            {shipment.status ===
+                "ARRIVED" && (
+                    <div
+                        style={{
+                            marginTop:
+                                "15px",
+                            padding:
+                                "13px",
+                            borderRadius:
+                                "14px",
+                            background:
+                                "#f0fdf4",
+                            color:
+                                "#166534",
+                            fontSize:
+                                "11px",
+                            fontWeight:
+                                800,
+                        }}
+                    >
+                        ✓{" "}
+                        {t(
+                            "status.arrived"
+                        )}
+                    </div>
+                )}
 
-                    <p className="font-black text-red-700">
-                        ❌ This driver was not selected
-                    </p>
 
-                    <p className="text-sm mt-2">
-                        Another driver was selected for this delivery.
-                    </p>
+            {/* =====================================================
+                DRIVER OFFERS
+            ===================================================== */}
+
+            {!matched &&
+                shipment.status ===
+                "OPEN" && (
+                    <div
+                        style={{
+                            marginTop:
+                                "24px",
+                        }}
+                    >
+
+                        <div
+                            style={{
+                                display:
+                                    "flex",
+                                justifyContent:
+                                    "space-between",
+                                alignItems:
+                                    "center",
+                                gap:
+                                    "10px",
+                                marginBottom:
+                                    "12px",
+                            }}
+                        >
+
+                            <h4
+                                style={{
+                                    color:
+                                        "#111827",
+                                    fontSize:
+                                        "15px",
+                                    fontWeight:
+                                        900,
+                                }}
+                            >
+                                {t(
+                                    "shipper.driverOffers"
+                                )}
+                            </h4>
+
+                            <span className="tayeb-badge tayeb-badge-orange">
+                                {
+                                    bids.length
+                                }
+                            </span>
+
+                        </div>
+
+
+                        {bids.length ===
+                            0 ? (
+                            <div
+                                style={{
+                                    padding:
+                                        "18px",
+                                    border:
+                                        "1px dashed #d1d5db",
+                                    borderRadius:
+                                        "17px",
+                                    background:
+                                        "#fafafa",
+                                    color:
+                                        "#9ca3af",
+                                    fontSize:
+                                        "11px",
+                                    textAlign:
+                                        "center",
+                                }}
+                            >
+                                {t(
+                                    "shipper.waitingForOffers"
+                                )}
+                            </div>
+                        ) : (
+                            <div
+                                style={{
+                                    display:
+                                        "grid",
+                                    gap:
+                                        "12px",
+                                }}
+                            >
+
+                                {bids
+                                    .filter(
+                                        (
+                                            bid
+                                        ) =>
+                                            bid.status !==
+                                            "REJECTED"
+                                    )
+                                    .map(
+                                        (
+                                            bid
+                                        ) => (
+                                            <BidCard
+                                                key={
+                                                    bid.id
+                                                }
+                                                bid={
+                                                    bid
+                                                }
+                                                formatPrice={
+                                                    formatPrice
+                                                }
+                                                selectedBid={
+                                                    selectedBid
+                                                }
+                                                setSelectedBid={
+                                                    setSelectedBid
+                                                }
+                                                counterPrice={
+                                                    counterPrice
+                                                }
+                                                setCounterPrice={
+                                                    setCounterPrice
+                                                }
+                                                counterLoading={
+                                                    counterLoading
+                                                }
+                                                suggestAnotherPrice={
+                                                    suggestAnotherPrice
+                                                }
+                                                acceptBid={
+                                                    acceptBid
+                                                }
+                                                t={
+                                                    t
+                                                }
+                                            />
+                                        )
+                                    )}
+
+                            </div>
+                        )}
+
+                    </div>
+                )}
+
+        </article>
+    );
+}
+
+
+/* =========================================================
+   BID CARD
+========================================================= */
+
+function BidCard({
+    bid,
+    formatPrice,
+    selectedBid,
+    setSelectedBid,
+    counterPrice,
+    setCounterPrice,
+    counterLoading,
+    suggestAnotherPrice,
+    acceptBid,
+    t,
+}) {
+    const driver =
+        bid.driver;
+
+    const price =
+        bid.counter_price ??
+        bid.proposed_price;
+
+    const isSelected =
+        selectedBid?.id ===
+        bid.id;
+
+
+    return (
+        <div
+            className="tayeb-offer-card"
+            style={{
+                borderColor:
+                    isSelected
+                        ? "#fed7aa"
+                        : "#e5e7eb",
+                background:
+                    isSelected
+                        ? "#fffaf5"
+                        : "white",
+            }}
+        >
+
+            <div className="tayeb-offer-header">
+
+                <div className="tayeb-offer-user">
+
+                    <div className="tayeb-avatar">
+                        {driver?.full_name
+                            ?.charAt(
+                                0
+                            )
+                            ?.toUpperCase() ||
+                            "D"}
+                    </div>
+
+                    <div className="tayeb-offer-user-info">
+
+                        <div className="tayeb-offer-user-name">
+                            {
+                                driver?.full_name ||
+                                t(
+                                    "common.driver"
+                                )
+                            }
+                        </div>
+
+                        <div className="tayeb-offer-user-meta">
+                            {driver?.rating
+                                ? `★ ${driver.rating}`
+                                : "★ —"}
+                            {" · "}
+                            {
+                                driver?.vehicle_type ||
+                                t(
+                                    "common.vehicle"
+                                )
+                            }
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <div className="tayeb-price">
+
+                    {formatPrice(
+                        price
+                    )}
+
+                    <small>
+                        FCFA
+                    </small>
+
+                </div>
+
+            </div>
+
+
+            {/* DETAILS */}
+
+            <div
+                style={{
+                    display:
+                        "grid",
+                    gridTemplateColumns:
+                        "repeat(2, 1fr)",
+                    gap:
+                        "8px",
+                    marginTop:
+                        "15px",
+                }}
+            >
+
+                <InfoBox
+                    label={
+                        t(
+                            "driver.arrivalTime"
+                        )
+                    }
+                    value={
+                        bid.eta ||
+                        "—"
+                    }
+                />
+
+                <InfoBox
+                    label={
+                        t(
+                            "common.completed"
+                        )
+                    }
+                    value={
+                        driver?.total_completed_shipments ??
+                        "0"
+                    }
+                />
+
+            </div>
+
+
+            {bid.note && (
+                <div
+                    style={{
+                        marginTop:
+                            "10px",
+                        padding:
+                            "11px",
+                        borderRadius:
+                            "12px",
+                        background:
+                            "#f9fafb",
+                        color:
+                            "#6b7280",
+                        fontSize:
+                            "10px",
+                    }}
+                >
+                    {bid.note}
+                </div>
+            )}
+
+
+            {/* ACTIONS */}
+
+            {bid.status ===
+                "COUNTERED" &&
+                bid.last_offer_by ===
+                "SHIPPER" && (
+                    <div
+                        style={{
+                            marginTop:
+                                "12px",
+                            padding:
+                                "10px",
+                            borderRadius:
+                                "12px",
+                            background:
+                                "#fff7ed",
+                            color:
+                                "#c2410c",
+                            fontSize:
+                                "10px",
+                            fontWeight:
+                                800,
+                        }}
+                    >
+                        {t(
+                            "status.countered"
+                        )}
+                    </div>
+                )}
+
+
+            <div
+                style={{
+                    display:
+                        "grid",
+                    gridTemplateColumns:
+                        "1fr 1fr",
+                    gap:
+                        "8px",
+                    marginTop:
+                        "15px",
+                }}
+            >
+
+                <button
+                    type="button"
+                    onClick={() =>
+                        acceptBid(
+                            bid
+                        )
+                    }
+                    className="tayeb-button tayeb-button-success"
+                    disabled={
+                        bid.status ===
+                        "COUNTERED"
+                        &&
+                        bid.last_offer_by ===
+                        "SHIPPER"
+                    }
+                >
+                    ✓{" "}
+                    {t(
+                        "shipper.acceptOffer"
+                    )}
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => {
+                        setSelectedBid(
+                            isSelected
+                                ? null
+                                : bid
+                        );
+
+                        setCounterPrice(
+                            ""
+                        );
+                    }}
+                    className="tayeb-button tayeb-button-light"
+                >
+                    {t(
+                        "shipper.suggestPrice"
+                    )}
+                </button>
+
+            </div>
+
+
+            {/* COUNTER PRICE */}
+
+            {isSelected && (
+                <div
+                    className="tayeb-fade-in"
+                    style={{
+                        marginTop:
+                            "12px",
+                        padding:
+                            "15px",
+                        borderRadius:
+                            "17px",
+                        background:
+                            "#fff7ed",
+                        border:
+                            "1px solid #fed7aa",
+                    }}
+                >
+
+                    <label className="tayeb-label">
+                        {t(
+                            "shipper.suggestedPrice"
+                        )}
+                    </label>
+
+                    <input
+                        inputMode="numeric"
+                        value={
+                            counterPrice
+                        }
+                        onChange={(
+                            event
+                        ) =>
+                            setCounterPrice(
+                                event
+                                    .target
+                                    .value
+                                    .replace(
+                                        /[^\d]/g,
+                                        ""
+                                    )
+                            )
+                        }
+                        className="tayeb-input"
+                        style={{
+                            marginTop:
+                                "8px",
+                        }}
+                        placeholder="Example: 20000"
+                        disabled={
+                            counterLoading
+                        }
+                    />
+
+                    <button
+                        type="button"
+                        onClick={() =>
+                            suggestAnotherPrice(
+                                bid
+                            )
+                        }
+                        disabled={
+                            counterLoading
+                        }
+                        className="tayeb-button tayeb-button-primary tayeb-button-full"
+                        style={{
+                            marginTop:
+                                "9px",
+                        }}
+                    >
+
+                        {counterLoading ? (
+                            <>
+                                <span className="tayeb-spinner" />
+                                {t(
+                                    "common.loading"
+                                )}
+                            </>
+                        ) : (
+                            t(
+                                "shipper.sendPrice"
+                            )
+                        )}
+
+                    </button>
 
                 </div>
             )}
@@ -1816,39 +3122,58 @@ function DriverBidCard({
 }
 
 
+/* =========================================================
+   INFO BOX
+========================================================= */
 
-
-
-
-function SummaryCard({ value, title }) {
-
-
+function InfoBox({
+    label,
+    value,
+}) {
     return (
+        <div
+            style={{
+                padding:
+                    "10px",
+                borderRadius:
+                    "12px",
+                background:
+                    "#f9fafb",
+            }}
+        >
 
+            <span
+                style={{
+                    display:
+                        "block",
+                    color:
+                        "#9ca3af",
+                    fontSize:
+                        "8px",
+                    fontWeight:
+                        800,
+                    textTransform:
+                        "uppercase",
+                    marginBottom:
+                        "3px",
+                }}
+            >
+                {label}
+            </span>
 
-        <div className="bg-white rounded-2xl p-4 text-center shadow">
-
-
-            <p className="text-2xl font-black">
-
+            <strong
+                style={{
+                    display:
+                        "block",
+                    color:
+                        "#374151",
+                    fontSize:
+                        "10px",
+                }}
+            >
                 {value}
-
-            </p>
-
-
-
-
-            <p className="text-xs text-slate-500">
-
-                {title}
-
-            </p>
-
+            </strong>
 
         </div>
-
-
     );
-
-
 }

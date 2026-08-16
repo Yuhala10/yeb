@@ -1,27 +1,1561 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap");
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* =========================================================
+   TAYEB — GLOBAL DESIGN SYSTEM
+   Main colors:
+   WHITE + ORANGE
+========================================================= */
+
+:root {
+  --tayeb-orange: #f97316;
+  --tayeb-orange-dark: #ea580c;
+  --tayeb-orange-light: #fff7ed;
+  --tayeb-orange-soft: #ffedd5;
+
+  --tayeb-white: #ffffff;
+
+  --tayeb-black: #111827;
+  --tayeb-text: #1f2937;
+  --tayeb-muted: #6b7280;
+  --tayeb-light-text: #9ca3af;
+
+  --tayeb-border: #e5e7eb;
+  --tayeb-background: #f8fafc;
+
+  --tayeb-green: #16a34a;
+  --tayeb-green-light: #f0fdf4;
+
+  --tayeb-red: #dc2626;
+  --tayeb-red-light: #fef2f2;
+
+  --tayeb-shadow:
+    0 10px 30px rgba(17, 24, 39, 0.06);
+
+  --tayeb-shadow-large:
+    0 20px 60px rgba(17, 24, 39, 0.10);
+
+  --tayeb-radius:
+    22px;
+
+  --tayeb-radius-small:
+    14px;
+}
+
+
+/* =========================================================
+   RESET
+========================================================= */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
 
 body {
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  background-color: #F8FAFC;
-  color: #0B0F17;
+  font-family:
+    "Inter",
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+
+  background:
+    var(--tayeb-background);
+
+  color:
+    var(--tayeb-text);
+
+  -webkit-font-smoothing:
+    antialiased;
+
+  text-rendering:
+    optimizeLegibility;
 }
 
-.btn-bounce {
-  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+button,
+input,
+textarea,
+select {
+  font: inherit;
 }
 
-.btn-bounce:active {
-  transform: scale(0.96);
+button {
+  -webkit-tap-highlight-color:
+    transparent;
 }
 
-.hover-card-rise {
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+a {
+  color:
+    inherit;
+
+  text-decoration:
+    none;
 }
 
-.hover-card-rise:hover {
-  transform: translateY(-4px);
+img {
+  max-width:
+    100%;
+
+  display:
+    block;
+}
+
+
+/* =========================================================
+   SELECTION
+========================================================= */
+
+::selection {
+  background:
+    var(--tayeb-orange);
+
+  color:
+    white;
+}
+
+
+/* =========================================================
+   SCROLLBAR
+========================================================= */
+
+::-webkit-scrollbar {
+  width:
+    7px;
+
+  height:
+    7px;
+}
+
+::-webkit-scrollbar-track {
+  background:
+    #f3f4f6;
+}
+
+::-webkit-scrollbar-thumb {
+  background:
+    #d1d5db;
+
+  border-radius:
+    999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background:
+    var(--tayeb-orange);
+}
+
+
+/* =========================================================
+   MAIN APP
+========================================================= */
+
+.tayeb-app {
+  min-height:
+    100vh;
+
+  background:
+    var(--tayeb-background);
+}
+
+
+/* =========================================================
+   TOP BAR
+========================================================= */
+
+.tayeb-topbar {
+  position:
+    sticky;
+
+  top:
+    0;
+
+  z-index:
+    100;
+
+  width:
+    100%;
+
+  min-height:
+    70px;
+
+  display:
+    flex;
+
+  align-items:
+    center;
+
+  justify-content:
+    space-between;
+
+  gap:
+    15px;
+
+  padding:
+    12px clamp(16px, 4vw, 55px);
+
+  background:
+    rgba(255, 255, 255, 0.96);
+
+  border-bottom:
+    1px solid var(--tayeb-border);
+
+  backdrop-filter:
+    blur(18px);
+
+  -webkit-backdrop-filter:
+    blur(18px);
+}
+
+.tayeb-topbar-left {
+  display:
+    flex;
+
+  align-items:
+    center;
+
+  gap:
+    15px;
+
+  min-width:
+    0;
+}
+
+.tayeb-topbar-right {
+  display:
+    flex;
+
+  align-items:
+    center;
+
+  justify-content:
+    flex-end;
+
+  gap:
+    10px;
+}
+
+
+/* =========================================================
+   DASHBOARD CONTAINER
+========================================================= */
+
+.tayeb-dashboard {
+  width:
+    min(1180px, 100%);
+
+  margin:
+    0 auto;
+
+  padding:
+    40px clamp(16px, 4vw, 30px) 70px;
+}
+
+
+/* =========================================================
+   CARDS
+========================================================= */
+
+.tayeb-card {
+  background:
+    var(--tayeb-white);
+
+  border:
+    1px solid var(--tayeb-border);
+
+  border-radius:
+    var(--tayeb-radius);
+
+  box-shadow:
+    var(--tayeb-shadow);
+}
+
+.tayeb-card:hover {
+  box-shadow:
+    0 14px 38px rgba(17, 24, 39, 0.08);
+}
+
+
+/* =========================================================
+   SHIPMENT CARD
+========================================================= */
+
+.tayeb-shipment-card {
+  background:
+    white;
+
+  border:
+    1px solid var(--tayeb-border);
+
+  border-radius:
+    24px;
+
+  padding:
+    clamp(18px, 3vw, 25px);
+
+  box-shadow:
+    var(--tayeb-shadow);
+
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.tayeb-shipment-card:hover {
+  transform:
+    translateY(-2px);
+
+  box-shadow:
+    var(--tayeb-shadow-large);
+
+  border-color:
+    #fed7aa;
+}
+
+
+/* =========================================================
+   OFFER CARD
+========================================================= */
+
+.tayeb-offer-card {
+  border:
+    1px solid var(--tayeb-border);
+
+  border-radius:
+    18px;
+
+  padding:
+    16px;
+
+  transition:
+    0.2s ease;
+
+  box-shadow:
+    0 5px 18px rgba(17, 24, 39, 0.03);
+}
+
+.tayeb-offer-card:hover {
+  border-color:
+    #fed7aa;
+
+  box-shadow:
+    0 10px 25px rgba(17, 24, 39, 0.06);
+}
+
+.tayeb-offer-header {
+  display:
+    flex;
+
+  justify-content:
+    space-between;
+
+  align-items:
+    center;
+
+  gap:
+    12px;
+}
+
+.tayeb-offer-user {
+  display:
+    flex;
+
+  align-items:
+    center;
+
+  gap:
+    10px;
+
+  min-width:
+    0;
+}
+
+.tayeb-offer-user-info {
+  min-width:
+    0;
+}
+
+.tayeb-offer-user-name {
+  color:
+    var(--tayeb-black);
+
+  font-size:
+    12px;
+
+  font-weight:
+    800;
+
+  overflow:
+    hidden;
+
+  text-overflow:
+    ellipsis;
+
+  white-space:
+    nowrap;
+}
+
+.tayeb-offer-user-meta {
+  margin-top:
+    3px;
+
+  color:
+    var(--tayeb-muted);
+
+  font-size:
+    9px;
+}
+
+.tayeb-price {
+  color:
+    var(--tayeb-orange-dark);
+
+  font-size:
+    19px;
+
+  font-weight:
+    900;
+
+  white-space:
+    nowrap;
+}
+
+.tayeb-price small {
+  margin-left:
+    3px;
+
+  font-size:
+    8px;
+
+  font-weight:
+    800;
+}
+
+
+/* =========================================================
+   AVATAR
+========================================================= */
+
+.tayeb-avatar {
+  width:
+    42px;
+
+  height:
+    42px;
+
+  flex:
+    0 0 42px;
+
+  display:
+    grid;
+
+  place-items:
+    center;
+
+  border-radius:
+    14px;
+
+  background:
+    var(--tayeb-orange-light);
+
+  color:
+    var(--tayeb-orange-dark);
+
+  font-size:
+    14px;
+
+  font-weight:
+    900;
+
+  border:
+    1px solid #fed7aa;
+}
+
+
+/* =========================================================
+   SECTION LABEL
+========================================================= */
+
+.tayeb-section-label {
+  display:
+    inline-block;
+
+  margin-bottom:
+    7px;
+
+  color:
+    var(--tayeb-orange);
+
+  font-size:
+    9px;
+
+  font-weight:
+    900;
+
+  letter-spacing:
+    0.16em;
+
+  text-transform:
+    uppercase;
+}
+
+
+/* =========================================================
+   BUTTONS
+========================================================= */
+
+.tayeb-button {
+  min-height:
+    44px;
+
+  display:
+    inline-flex;
+
+  align-items:
+    center;
+
+  justify-content:
+    center;
+
+  gap:
+    7px;
+
+  padding:
+    0 17px;
+
+  border:
+    0;
+
+  border-radius:
+    13px;
+
+  font-size:
+    11px;
+
+  font-weight:
+    800;
+
+  cursor:
+    pointer;
+
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease,
+    opacity 0.15s ease;
+
+  white-space:
+    nowrap;
+}
+
+.tayeb-button:hover:not(:disabled) {
+  transform:
+    translateY(-1px);
+}
+
+.tayeb-button:active:not(:disabled) {
+  transform:
+    translateY(0);
+}
+
+.tayeb-button:disabled {
+  opacity:
+    0.55;
+
+  cursor:
+    not-allowed;
+}
+
+.tayeb-button-primary {
+  background:
+    var(--tayeb-orange);
+
+  color:
+    white;
+
+  box-shadow:
+    0 7px 18px rgba(249, 115, 22, 0.22);
+}
+
+.tayeb-button-primary:hover:not(:disabled) {
+  background:
+    var(--tayeb-orange-dark);
+
+  box-shadow:
+    0 10px 24px rgba(249, 115, 22, 0.28);
+}
+
+.tayeb-button-secondary {
+  background:
+    white;
+
+  color:
+    var(--tayeb-text);
+
+  border:
+    1px solid var(--tayeb-border);
+}
+
+.tayeb-button-secondary:hover:not(:disabled) {
+  border-color:
+    #fed7aa;
+
+  color:
+    var(--tayeb-orange-dark);
+}
+
+.tayeb-button-light {
+  background:
+    #f9fafb;
+
+  color:
+    var(--tayeb-text);
+
+  border:
+    1px solid var(--tayeb-border);
+}
+
+.tayeb-button-light:hover:not(:disabled) {
+  background:
+    var(--tayeb-orange-light);
+
+  border-color:
+    #fed7aa;
+
+  color:
+    var(--tayeb-orange-dark);
+}
+
+.tayeb-button-success {
+  background:
+    var(--tayeb-green);
+
+  color:
+    white;
+
+  box-shadow:
+    0 7px 18px rgba(22, 163, 74, 0.18);
+}
+
+.tayeb-button-success:hover:not(:disabled) {
+  background:
+    #15803d;
+}
+
+.tayeb-button-full {
+  width:
+    100%;
+}
+
+
+/* =========================================================
+   FORM
+========================================================= */
+
+.tayeb-form-group {
+  margin-bottom:
+    17px;
+}
+
+.tayeb-label {
+  display:
+    block;
+
+  margin-bottom:
+    7px;
+
+  color:
+    var(--tayeb-text);
+
+  font-size:
+    10px;
+
+  font-weight:
+    800;
+}
+
+.tayeb-input {
+  width:
+    100%;
+
+  min-height:
+    48px;
+
+  padding:
+    12px 14px;
+
+  background:
+    white;
+
+  border:
+    1px solid #dfe3e8;
+
+  border-radius:
+    13px;
+
+  outline:
+    none;
+
+  color:
+    var(--tayeb-black);
+
+  font-size:
+    12px;
+
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+.tayeb-input::placeholder {
+  color:
+    #b0b6bf;
+}
+
+.tayeb-input:focus {
+  border-color:
+    var(--tayeb-orange);
+
+  box-shadow:
+    0 0 0 4px rgba(249, 115, 22, 0.10);
+
+  background:
+    #fffdfa;
+}
+
+textarea.tayeb-input {
+  min-height:
+    100px;
+}
+
+
+/* =========================================================
+   DASHBOARD GRID
+========================================================= */
+
+.tayeb-dashboard-grid {
+  display:
+    grid;
+
+  grid-template-columns:
+    repeat(12, minmax(0, 1fr));
+
+  gap:
+    15px;
+}
+
+.tayeb-span-3 {
+  grid-column:
+    span 3;
+}
+
+.tayeb-span-6 {
+  grid-column:
+    span 6;
+}
+
+.tayeb-span-12 {
+  grid-column:
+    span 12;
+}
+
+
+/* =========================================================
+   STAT CARDS
+========================================================= */
+
+.tayeb-stat-card {
+  min-height:
+    140px;
+
+  padding:
+    18px;
+
+  background:
+    white;
+
+  border:
+    1px solid var(--tayeb-border);
+
+  border-radius:
+    20px;
+
+  box-shadow:
+    var(--tayeb-shadow);
+
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.tayeb-stat-card:hover {
+  transform:
+    translateY(-2px);
+
+  border-color:
+    #fed7aa;
+}
+
+.tayeb-stat-card-top {
+  display:
+    flex;
+
+  justify-content:
+    space-between;
+
+  align-items:
+    center;
+}
+
+.tayeb-stat-icon {
+  width:
+    39px;
+
+  height:
+    39px;
+
+  display:
+    grid;
+
+  place-items:
+    center;
+
+  border-radius:
+    12px;
+
+  background:
+    var(--tayeb-orange-light);
+
+  font-size:
+    17px;
+}
+
+.tayeb-stat-label {
+  margin-top:
+    18px;
+
+  color:
+    var(--tayeb-muted);
+
+  font-size:
+    9px;
+
+  font-weight:
+    700;
+}
+
+.tayeb-stat-value {
+  margin-top:
+    3px;
+
+  color:
+    var(--tayeb-black);
+
+  font-size:
+    25px;
+
+  line-height:
+    1;
+
+  font-weight:
+    900;
+}
+
+
+/* =========================================================
+   ROUTE
+========================================================= */
+
+.tayeb-route {
+  display:
+    flex;
+
+  align-items:
+    center;
+
+  gap:
+    12px;
+
+  padding:
+    15px;
+
+  background:
+    #fafafa;
+
+  border:
+    1px solid #f0f0f0;
+
+  border-radius:
+    17px;
+}
+
+.tayeb-route-point {
+  flex:
+    1;
+
+  min-width:
+    0;
+}
+
+.tayeb-route-label {
+  display:
+    block;
+
+  margin-bottom:
+    5px;
+
+  color:
+    #9ca3af;
+
+  font-size:
+    8px;
+
+  font-weight:
+    800;
+
+  text-transform:
+    uppercase;
+
+  letter-spacing:
+    0.06em;
+}
+
+.tayeb-route-city {
+  color:
+    var(--tayeb-black);
+
+  font-size:
+    12px;
+
+  font-weight:
+    800;
+
+  overflow:
+    hidden;
+
+  text-overflow:
+    ellipsis;
+
+  white-space:
+    nowrap;
+}
+
+.tayeb-route-arrow {
+  color:
+    var(--tayeb-orange);
+
+  font-size:
+    20px;
+
+  font-weight:
+    900;
+
+  flex:
+    0 0 auto;
+}
+
+
+/* =========================================================
+   BADGES
+========================================================= */
+
+.tayeb-badge {
+  display:
+    inline-flex;
+
+  align-items:
+    center;
+
+  justify-content:
+    center;
+
+  min-height:
+    26px;
+
+  padding:
+    0 9px;
+
+  border-radius:
+    999px;
+
+  font-size:
+    8px;
+
+  font-weight:
+    800;
+
+  white-space:
+    nowrap;
+}
+
+.tayeb-badge-orange {
+  background:
+    var(--tayeb-orange-light);
+
+  color:
+    var(--tayeb-orange-dark);
+
+  border:
+    1px solid #fed7aa;
+}
+
+.tayeb-badge-gray {
+  background:
+    #f3f4f6;
+
+  color:
+    #6b7280;
+
+  border:
+    1px solid #e5e7eb;
+}
+
+.tayeb-badge-success {
+  background:
+    var(--tayeb-green-light);
+
+  color:
+    var(--tayeb-green);
+
+  border:
+    1px solid #bbf7d0;
+}
+
+.tayeb-badge-danger {
+  background:
+    var(--tayeb-red-light);
+
+  color:
+    var(--tayeb-red);
+
+  border:
+    1px solid #fecaca;
+}
+
+
+/* =========================================================
+   EMPTY STATE
+========================================================= */
+
+.tayeb-empty {
+  min-height:
+    220px;
+
+  display:
+    flex;
+
+  flex-direction:
+    column;
+
+  align-items:
+    center;
+
+  justify-content:
+    center;
+
+  padding:
+    30px;
+
+  background:
+    white;
+
+  border:
+    1px dashed #d1d5db;
+
+  border-radius:
+    22px;
+
+  text-align:
+    center;
+}
+
+.tayeb-empty-icon {
+  width:
+    58px;
+
+  height:
+    58px;
+
+  display:
+    grid;
+
+  place-items:
+    center;
+
+  margin-bottom:
+    13px;
+
+  border-radius:
+    18px;
+
+  background:
+    var(--tayeb-orange-light);
+
+  font-size:
+    25px;
+}
+
+.tayeb-empty h3 {
+  margin:
+    0;
+
+  color:
+    var(--tayeb-black);
+
+  font-size:
+    14px;
+
+  font-weight:
+    900;
+}
+
+.tayeb-empty p {
+  margin:
+    7px 0 0;
+
+  max-width:
+    350px;
+
+  color:
+    var(--tayeb-muted);
+
+  font-size:
+    10px;
+
+  line-height:
+    1.6;
+}
+
+
+/* =========================================================
+   SPINNER
+========================================================= */
+
+.tayeb-spinner {
+  width:
+    16px;
+
+  height:
+    16px;
+
+  display:
+    inline-block;
+
+  border:
+    2px solid rgba(255, 255, 255, 0.4);
+
+  border-top-color:
+    white;
+
+  border-radius:
+    50%;
+
+  animation:
+    tayeb-spin 0.7s linear infinite;
+}
+
+.tayeb-spinner-orange {
+  width:
+    28px;
+
+  height:
+    28px;
+
+  border:
+    3px solid #fed7aa;
+
+  border-top-color:
+    var(--tayeb-orange);
+}
+
+@keyframes tayeb-spin {
+  to {
+    transform:
+      rotate(360deg);
+  }
+}
+
+
+/* =========================================================
+   FADE ANIMATION
+========================================================= */
+
+.tayeb-fade-in {
+  animation:
+    tayeb-fade-in 0.22s ease both;
+}
+
+@keyframes tayeb-fade-in {
+  from {
+    opacity:
+      0;
+
+    transform:
+      translateY(6px);
+  }
+
+  to {
+    opacity:
+      1;
+
+    transform:
+      translateY(0);
+  }
+}
+
+
+/* =========================================================
+   NOTIFICATION AREA
+========================================================= */
+
+.tayeb-notification-wrapper {
+  position:
+    relative;
+}
+
+.tayeb-notification-button {
+  width:
+    40px;
+
+  height:
+    40px;
+
+  display:
+    grid;
+
+  place-items:
+    center;
+
+  border:
+    1px solid var(--tayeb-border);
+
+  border-radius:
+    13px;
+
+  background:
+    white;
+
+  color:
+    var(--tayeb-text);
+
+  cursor:
+    pointer;
+
+  transition:
+    0.15s ease;
+}
+
+.tayeb-notification-button:hover {
+  color:
+    var(--tayeb-orange);
+
+  border-color:
+    #fed7aa;
+
+  background:
+    var(--tayeb-orange-light);
+}
+
+.tayeb-notification-dot {
+  position:
+    absolute;
+
+  top:
+    -2px;
+
+  right:
+    -2px;
+
+  min-width:
+    17px;
+
+  height:
+    17px;
+
+  padding:
+    0 4px;
+
+  display:
+    grid;
+
+  place-items:
+    center;
+
+  background:
+    var(--tayeb-orange);
+
+  color:
+    white;
+
+  border:
+    2px solid white;
+
+  border-radius:
+    999px;
+
+  font-size:
+    7px;
+
+  font-weight:
+    900;
+}
+
+
+/* =========================================================
+   MOBILE
+========================================================= */
+
+@media (max-width: 900px) {
+
+  .tayeb-span-3 {
+    grid-column:
+      span 6;
+  }
+
+  .tayeb-span-6 {
+    grid-column:
+      span 12;
+  }
+
+  .tayeb-dashboard {
+    padding-top:
+      30px;
+  }
+}
+
+
+@media (max-width: 620px) {
+
+  .tayeb-topbar {
+    min-height:
+      62px;
+
+    padding:
+      9px 13px;
+  }
+
+  .tayeb-topbar-right {
+    gap:
+      6px;
+  }
+
+  .tayeb-dashboard {
+    padding:
+      25px 13px 50px;
+  }
+
+  .tayeb-dashboard-grid {
+    gap:
+      10px;
+  }
+
+  .tayeb-span-3 {
+    grid-column:
+      span 6;
+  }
+
+  .tayeb-stat-card {
+    min-height:
+      115px;
+
+    padding:
+      14px;
+  }
+
+  .tayeb-stat-value {
+    font-size:
+      21px;
+  }
+
+  .tayeb-stat-label {
+    margin-top:
+      13px;
+
+    font-size:
+      8px;
+  }
+
+  .tayeb-stat-icon {
+    width:
+      34px;
+
+    height:
+      34px;
+
+    font-size:
+      15px;
+  }
+
+  .tayeb-shipment-card {
+    padding:
+      16px;
+
+    border-radius:
+      20px;
+  }
+
+  .tayeb-route {
+    gap:
+      7px;
+
+    padding:
+      12px;
+  }
+
+  .tayeb-route-arrow {
+    font-size:
+      16px;
+  }
+
+  .tayeb-route-city {
+    font-size:
+      10px;
+  }
+
+  .tayeb-route-label {
+    font-size:
+      7px;
+  }
+
+  .tayeb-button {
+    min-height:
+      42px;
+
+    padding:
+      0 12px;
+
+    font-size:
+      9px;
+  }
+
+  .tayeb-offer-header {
+    align-items:
+      flex-start;
+  }
+
+  .tayeb-price {
+    font-size:
+      16px;
+  }
+
+  .tayeb-avatar {
+    width:
+      38px;
+
+    height:
+      38px;
+
+    flex-basis:
+      38px;
+  }
+}
+
+
+@media (max-width: 430px) {
+
+  .tayeb-span-3 {
+    grid-column:
+      span 12;
+  }
+
+  .tayeb-topbar {
+    gap:
+      8px;
+  }
+
+  .tayeb-topbar img {
+    max-width:
+      88px;
+  }
+
+  .tayeb-dashboard {
+    padding:
+      22px 11px 45px;
+  }
+
+  .tayeb-stat-card {
+    min-height:
+      105px;
+  }
+
+  .tayeb-route {
+    padding:
+      10px;
+  }
+
+  .tayeb-route-arrow {
+    font-size:
+      14px;
+  }
+}
+
+
+/* =========================================================
+   SAFE AREA — PHONE / PWA
+========================================================= */
+
+@supports (padding: env(safe-area-inset-top)) {
+
+  .tayeb-topbar {
+    padding-top:
+      calc(10px + env(safe-area-inset-top));
+  }
+
+  .tayeb-dashboard {
+    padding-bottom:
+      calc(60px + env(safe-area-inset-bottom));
+  }
+}
+
+
+/* =========================================================
+   ACCESSIBILITY
+========================================================= */
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+a:focus-visible {
+  outline:
+    3px solid rgba(249, 115, 22, 0.25);
+
+  outline-offset:
+    2px;
+}
+
+
+/* =========================================================
+   REDUCED MOTION
+========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior:
+      auto !important;
+
+    animation-duration:
+      0.01ms !important;
+
+    animation-iteration-count:
+      1 !important;
+
+    transition-duration:
+      0.01ms !important;
+  }
 }

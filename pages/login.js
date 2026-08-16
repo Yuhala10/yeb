@@ -450,8 +450,8 @@ export default function LoginPage() {
                             changeLanguage("en")
                         }
                         className={`px-3 py-1 rounded-l-lg text-sm ${language === "en"
-                                ? "bg-slate-900 text-white"
-                                : "bg-slate-200"
+                            ? "bg-slate-900 text-white"
+                            : "bg-slate-200"
                             }`}
                     >
                         English
@@ -463,8 +463,8 @@ export default function LoginPage() {
                             changeLanguage("fr")
                         }
                         className={`px-3 py-1 rounded-r-lg text-sm ${language === "fr"
-                                ? "bg-slate-900 text-white"
-                                : "bg-slate-200"
+                            ? "bg-slate-900 text-white"
+                            : "bg-slate-200"
                             }`}
                     >
                         Français
@@ -548,8 +548,8 @@ export default function LoginPage() {
                                 );
                             }}
                             className={`py-3 rounded-xl font-bold ${role === "SHIPPER"
-                                    ? "bg-orange-600 text-white"
-                                    : "bg-slate-200"
+                                ? "bg-orange-600 text-white"
+                                : "bg-slate-200"
                                 }`}
                         >
                             {t.shipper}
@@ -568,8 +568,8 @@ export default function LoginPage() {
                                 );
                             }}
                             className={`py-3 rounded-xl font-bold ${role === "DRIVER"
-                                    ? "bg-orange-600 text-white"
-                                    : "bg-slate-200"
+                                ? "bg-orange-600 text-white"
+                                : "bg-slate-200"
                                 }`}
                         >
                             {t.driver}

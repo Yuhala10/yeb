@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 
 import supabase from "../lib/supabaseClient";
-import { getCurrentUser } from "../lib/getCurrentUser";
 import { useLanguage } from "../lib/LanguageContext";
 import BrandLogo from "../components/BrandLogo";
 import Notifications from "../components/Notifications";
@@ -63,27 +62,103 @@ export default function DriverPage() {
     ========================================================= */
 
     useEffect(() => {
-        const currentUser =
-            getCurrentUser();
-
-        if (!currentUser) {
-            router.replace("/login");
+        if (typeof window === "undefined") {
             return;
         }
 
-        if (
-            currentUser.role !==
-            "DRIVER"
-        ) {
-            router.replace("/");
-            return;
+        async function restoreSession() {
+            try {
+                const response = await fetch(
+                    "/api/session/me",
+                    {
+                        method: "GET",
+                        credentials: "include",
+                    }
+                );
+
+                if (!response.ok) {
+                    localStorage.removeItem(
+                        "tayebUser"
+                    );
+
+                    localStorage.removeItem(
+                        "selectedRole"
+                    );
+
+                    router.replace("/login");
+                    return;
+                }
+
+                const result =
+                    await response.json();
+
+                if (
+                    !result.authenticated ||
+                    !result.user ||
+                    !result.user.id ||
+                    result.user.role !== "DRIVER"
+                ) {
+                    localStorage.removeItem(
+                        "tayebUser"
+                    );
+
+                    localStorage.removeItem(
+                        "selectedRole"
+                    );
+
+                    router.replace("/login");
+                    return;
+                }
+
+                /*
+                 * Server session is the
+                 * authentication authority.
+                 */
+
+                setUser(result.user);
+
+                /*
+                 * Keep localStorage as a
+                 * compatibility cache for
+                 * the existing Driver code.
+                 */
+
+                localStorage.setItem(
+                    "tayebUser",
+                    JSON.stringify(
+                        result.user
+                    )
+                );
+
+                localStorage.setItem(
+                    "selectedRole",
+                    result.user.role
+                );
+
+                loadDriverData(
+                    result.user
+                );
+
+            } catch (error) {
+                console.error(
+                    "Could not restore Tayeb session:",
+                    error
+                );
+
+                localStorage.removeItem(
+                    "tayebUser"
+                );
+
+                localStorage.removeItem(
+                    "selectedRole"
+                );
+
+                router.replace("/login");
+            }
         }
 
-        setUser(currentUser);
+        restoreSession();
 
-        loadDriverData(
-            currentUser
-        );
     }, [router]);
 
 
@@ -1163,21 +1238,34 @@ export default function DriverPage() {
        LOGOUT
     ========================================================= */
 
-    function logout() {
-        localStorage.removeItem(
-            "tayebUser"
-        );
+    async function logout() {
+        try {
+            await fetch(
+                "/api/session/logout",
+                {
+                    method: "POST",
+                    credentials: "include",
+                }
+            );
+        } catch (error) {
+            console.error(
+                "Logout error:",
+                error
+            );
+        } finally {
+            localStorage.removeItem(
+                "tayebUser"
+            );
 
-        localStorage.removeItem(
-            "selectedRole"
-        );
+            localStorage.removeItem(
+                "selectedRole"
+            );
 
-        router.push(
-            "/login"
-        );
+            router.replace(
+                "/login"
+            );
+        }
     }
-
-
     /* =========================================================
        FIND DRIVER BID
     ========================================================= */

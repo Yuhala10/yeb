@@ -53,45 +53,109 @@ export default function ShipperPage() {
             return;
         }
 
-        const storedUser =
-            localStorage.getItem(
-                "tayebUser"
-            );
+        async function restoreSession() {
+            try {
+                const response = await fetch(
+                    "/api/session/me",
+                    {
+                        method: "GET",
+                        credentials: "include",
+                    }
+                );
 
-        if (!storedUser) {
-            router.replace("/login");
-            return;
-        }
+                if (!response.ok) {
+                    localStorage.removeItem(
+                        "tayebUser"
+                    );
 
-        try {
-            const parsedUser =
-                JSON.parse(storedUser);
+                    localStorage.removeItem(
+                        "selectedRole"
+                    );
 
-            if (
-                !parsedUser?.id ||
-                parsedUser.role !== "SHIPPER"
-            ) {
+                    router.replace("/login");
+                    return;
+                }
+
+                const result =
+                    await response.json();
+
+                if (
+                    !result.authenticated ||
+                    !result.user ||
+                    !result.user.id ||
+                    result.user.role !== "SHIPPER"
+                ) {
+                    localStorage.removeItem(
+                        "tayebUser"
+                    );
+
+                    localStorage.removeItem(
+                        "selectedRole"
+                    );
+
+                    router.replace("/login");
+                    return;
+                }
+
+                /*
+                 * The server session is the
+                 * authentication authority.
+                 */
+
+                setUser(result.user);
+
+                /*
+                 * Keep localStorage updated because
+                 * the existing Shipper dashboard
+                 * still uses tayebUser in other places.
+                 */
+
+                localStorage.setItem(
+                    "tayebUser",
+                    JSON.stringify(
+                        result.user
+                    )
+                );
+
+                localStorage.setItem(
+                    "selectedRole",
+                    result.user.role
+                );
+
+                /*
+                 * Load this user's shipments.
+                 */
+
+                loadShipments(
+                    result.user.id
+                );
+
+            } catch (error) {
+                console.error(
+                    "Could not restore Tayeb session:",
+                    error
+                );
+
+                localStorage.removeItem(
+                    "tayebUser"
+                );
+
+                localStorage.removeItem(
+                    "selectedRole"
+                );
+
                 router.replace("/login");
-                return;
             }
-
-            setUser(parsedUser);
-
-            loadShipments(parsedUser.id);
-        } catch (error) {
-            console.error(
-                "Could not read Tayeb user:",
-                error
-            );
-
-            router.replace("/login");
         }
+
+        restoreSession();
+
     }, [router]);
-
-
     /* =========================================================
        LOAD SHIPMENTS + BIDS
     ========================================================= */
+
+
 
     async function loadShipments(shipperId) {
         setLoading(true);
@@ -940,18 +1004,33 @@ export default function ShipperPage() {
        LOGOUT
     ========================================================= */
 
-    function handleLogout() {
-        localStorage.removeItem(
-            "tayebUser"
-        );
+    async function handleLogout() {
+        try {
+            await fetch(
+                "/api/session/logout",
+                {
+                    method: "POST",
+                    credentials: "include",
+                }
+            );
+        } catch (error) {
+            console.error(
+                "Logout error:",
+                error
+            );
+        } finally {
+            localStorage.removeItem(
+                "tayebUser"
+            );
 
-        localStorage.removeItem(
-            "selectedRole"
-        );
+            localStorage.removeItem(
+                "selectedRole"
+            );
 
-        router.push(
-            "/login"
-        );
+            router.replace(
+                "/login"
+            );
+        }
     }
 
 

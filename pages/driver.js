@@ -1366,17 +1366,6 @@ export default function DriverPage() {
                     height={48}
                 />
 
-                <div
-                    style={{
-                        background: "#fff7ed",
-                        border: "2px solid #f97316",
-                        padding: "20px",
-                        margin: "30px 0",
-                        borderRadius: "20px",
-                    }}
-                >
-                    DELETE ACCOUNT TEST
-                </div>
 
                 <DeleteAccount user={user} />
             </main>

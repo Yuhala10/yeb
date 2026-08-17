@@ -6,7 +6,7 @@ import supabase from "../lib/supabaseClient";
 import { useLanguage } from "../lib/LanguageContext";
 import BrandLogo from "../components/BrandLogo";
 import Notifications from "../components/Notifications";
-import DeleteAccount from "../components/DeleteAccount";
+import DeleteAccount from "../components/Account/DeleteAccount";
 
 export default function DriverPage() {
     const router = useRouter();
@@ -1365,6 +1365,20 @@ export default function DriverPage() {
                     width={130}
                     height={48}
                 />
+
+                <div
+                    style={{
+                        background: "#fff7ed",
+                        border: "2px solid #f97316",
+                        padding: "20px",
+                        margin: "30px 0",
+                        borderRadius: "20px",
+                    }}
+                >
+                    DELETE ACCOUNT TEST
+                </div>
+
+                <DeleteAccount user={user} />
             </main>
         );
     }
@@ -2706,11 +2720,6 @@ export default function DriverPage() {
 
                             </section>
                         )}
-                    {/* =================================================
-                       ACCOUNT SETTINGS
-                    ================================================ */}
-
-                    <DeleteAccount user={user} />
 
                     {/* =================================================
                         FOOTER

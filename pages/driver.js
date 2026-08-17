@@ -6,6 +6,7 @@ import supabase from "../lib/supabaseClient";
 import { useLanguage } from "../lib/LanguageContext";
 import BrandLogo from "../components/BrandLogo";
 import Notifications from "../components/Notifications";
+import DeleteAccount from "../components/DeleteAccount";
 
 export default function DriverPage() {
     const router = useRouter();
@@ -2705,7 +2706,11 @@ export default function DriverPage() {
 
                             </section>
                         )}
+                    {/* =================================================
+                       ACCOUNT SETTINGS
+                    ================================================ */}
 
+                    <DeleteAccount user={user} />
 
                     {/* =================================================
                         FOOTER

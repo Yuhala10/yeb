@@ -6,6 +6,7 @@ import supabase from "../lib/supabaseClient";
 import BrandLogo from "../components/BrandLogo";
 import Notifications from "../components/Notifications";
 import { useLanguage } from "../lib/LanguageContext";
+import DeleteAccount from "../components/DeleteAccount";
 
 export default function ShipperPage() {
     const router = useRouter();
@@ -2221,6 +2222,11 @@ export default function ShipperPage() {
 
                     </section>
 
+                    {/* =================================================
+                       ACCOUNT SETTINGS
+                        ================================================= */}
+
+                    <DeleteAccount user={user} />
 
                     {/* =================================================
                         FOOTER

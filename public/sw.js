@@ -1,4 +1,5 @@
-const CACHE_NAME = "tayeb-v1";
+// v2: drops caches from before API answers were excluded.
+const CACHE_NAME = "tayeb-v2";
 
 const APP_SHELL = [
     "/",
@@ -44,6 +45,12 @@ self.addEventListener("fetch", (event) => {
     const requestUrl = new URL(event.request.url);
 
     if (requestUrl.origin !== self.location.origin) {
+        return;
+    }
+
+    // Never cache API answers: they hold personal data and
+    // must not be shown to the next person using the phone.
+    if (requestUrl.pathname.startsWith("/api/")) {
         return;
     }
 

@@ -2,7 +2,8 @@ import Head from "next/head";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 
-import supabase from "../lib/supabaseClient";
+import { apiGet, apiPost, pollWhileVisible } from "../lib/api";
+import { CITY_NAMES, distanceKm } from "../lib/cities";
 import { useLanguage } from "../lib/LanguageContext";
 import BrandLogo from "../components/BrandLogo";
 import Notifications from "../components/Notifications";
@@ -59,223 +60,50 @@ export default function DriverPage() {
     const [counterLoading, setCounterLoading] =
         useState(false);
 
+    const [statusLoading, setStatusLoading] =
+        useState(false);
+
+    /*
+     * Location sharing while goods are on the road:
+     * "idle" (not started), "on", or "denied".
+     */
+    const [tracking, setTracking] =
+        useState("idle");
+
+    const [trackingAttempt, setTrackingAttempt] =
+        useState(0);
+
+
     /* =========================================================
-       LOAD DRIVER
+       SESSION ENDED
     ========================================================= */
 
-    useEffect(() => {
-        if (typeof window === "undefined") {
+    function goToLogin() {
+        localStorage.removeItem(
+            "tayebUser"
+        );
+
+        localStorage.removeItem(
+            "selectedRole"
+        );
+
+        router.replace("/login");
+    }
+
+    function showError(error) {
+        if (error?.status === 401) {
+            goToLogin();
             return;
         }
 
-        async function restoreSession() {
-            try {
-                const response = await fetch(
-                    "/api/session/me",
-                    {
-                        method: "GET",
-                        credentials: "include",
-                    }
-                );
-
-                if (!response.ok) {
-                    localStorage.removeItem(
-                        "tayebUser"
-                    );
-
-                    localStorage.removeItem(
-                        "selectedRole"
-                    );
-
-                    router.replace("/login");
-                    return;
-                }
-
-                const result =
-                    await response.json();
-
-                if (
-                    !result.authenticated ||
-                    !result.user ||
-                    !result.user.id ||
-                    result.user.role !== "DRIVER"
-                ) {
-                    localStorage.removeItem(
-                        "tayebUser"
-                    );
-
-                    localStorage.removeItem(
-                        "selectedRole"
-                    );
-
-                    router.replace("/login");
-                    return;
-                }
-
-                /*
-                 * Server session is the
-                 * authentication authority.
-                 */
-
-                setUser(result.user);
-
-                /*
-                 * Keep localStorage as a
-                 * compatibility cache for
-                 * the existing Driver code.
-                 */
-
-                localStorage.setItem(
-                    "tayebUser",
-                    JSON.stringify(
-                        result.user
-                    )
-                );
-
-                localStorage.setItem(
-                    "selectedRole",
-                    result.user.role
-                );
-
-                loadDriverData(
-                    result.user
-                );
-
-            } catch (error) {
-                console.error(
-                    "Could not restore Tayeb session:",
-                    error
-                );
-
-                localStorage.removeItem(
-                    "tayebUser"
-                );
-
-                localStorage.removeItem(
-                    "selectedRole"
-                );
-
-                router.replace("/login");
-            }
-        }
-
-        restoreSession();
-
-    }, [router]);
-
-
-    /* =========================================================
-       REALTIME
-    ========================================================= */
-
-    useEffect(() => {
-        if (!user?.id) return;
-
-        const shipmentChannel =
-            supabase
-                .channel(
-                    `tayeb-driver-shipments-${user.id}`
-                )
-                .on(
-                    "postgres_changes",
-                    {
-                        event: "*",
-                        schema: "public",
-                        table: "shipments",
-                    },
-                    () => {
-                        fetchShipments(
-                            user.id
-                        );
-                    }
-                )
-                .subscribe();
-
-        const bidChannel =
-            supabase
-                .channel(
-                    `tayeb-driver-bids-${user.id}`
-                )
-                .on(
-                    "postgres_changes",
-                    {
-                        event: "*",
-                        schema: "public",
-                        table: "bids",
-                        filter: `driver_id=eq.${user.id}`,
-                    },
-                    () => {
-                        fetchShipments(
-                            user.id
-                        );
-                    }
-                )
-                .subscribe();
-
-        return () => {
-            supabase.removeChannel(
-                shipmentChannel
-            );
-
-            supabase.removeChannel(
-                bidChannel
-            );
-        };
-    }, [user]);
-
-
-    /* =========================================================
-       LOAD DRIVER DATA
-    ========================================================= */
-
-    async function loadDriverData(
-        currentUser
-    ) {
-        try {
-            const {
-                data,
-                error,
-            } = await supabase
-                .from("users")
-                .select("*")
-                .eq(
-                    "id",
-                    currentUser.id
-                )
-                .maybeSingle();
-
-            if (
-                !error &&
-                data
-            ) {
-                setAvailable(
-                    data.is_available ??
-                    true
-                );
-
-                setUser(data);
-
-                localStorage.setItem(
-                    "tayebUser",
-                    JSON.stringify(data)
-                );
-            }
-        } catch (error) {
-            console.error(
-                "Driver profile error:",
-                error
-            );
-        }
-
-        fetchShipments(
-            currentUser.id
+        alert(
+            error?.message ||
+            t(
+                "errors.somethingWrong"
+            )
         );
     }
 
-
-    /* =========================================================
-       FETCH SHIPMENTS
-    ========================================================= */
 
     /* =========================================================
        OPEN OFFER FORM
@@ -368,111 +196,140 @@ export default function DriverPage() {
     }
 
 
-    async function fetchShipments(
-        driverId
-    ) {
-        setLoading(true);
+    /* =========================================================
+       LOAD DASHBOARD
+    =========================================================
+     *
+     * One call returns the driver's profile, loads ranked for
+     * them (return loads and loads in their city first), their
+     * deliveries and their offers. It runs again every 20
+     * seconds while the page is open, without a spinner.
+     */
 
+    async function fetchShipments() {
         try {
-            const {
-                data,
-                error,
-            } = await supabase
-                .from("shipments")
-                .select(`
-                    *,
-                    shipper:shipper_id (
-                        id,
-                        full_name,
-                        phone_number
-                    ),
-                    driver:driver_id (
-                        id,
-                        full_name,
-                        phone_number,
-                        profile_photo,
-                        vehicle_type,
-                        vehicle_number,
-                        plate_number,
-                        rating,
-                        total_completed_shipments
-                    )
-                `)
-                .or(
-                    `status.eq.OPEN,driver_id.eq.${driverId}`
-                )
-                .order(
-                    "created_at",
-                    {
-                        ascending:
-                            false,
-                    }
+            const data =
+                await apiGet(
+                    "/api/driver"
                 );
 
-            if (error) {
-                throw error;
-            }
-
-            const safeShipments =
-                data || [];
-
-            setShipments(
-                safeShipments
+            setUser(
+                data.user
             );
 
-            const {
-                data: bids,
-                error: bidsError,
-            } = await supabase
-                .from("bids")
-                .select(`
-                    id,
-                    shipment_id,
-                    driver_id,
-                    proposed_price,
-                    counter_price,
-                    last_offer_by,
-                    status,
-                    created_at,
-                    eta,
-                    note
-                `)
-                .eq(
-                    "driver_id",
-                    driverId
-                )
-                .order(
-                    "created_at",
-                    {
-                        ascending:
-                            false,
-                    }
-                );
+            setAvailable(
+                data.user?.is_available ??
+                true
+            );
 
-            if (bidsError) {
-                console.log(
-                    "Driver bids error:",
-                    bidsError
-                );
-            }
+            setShipments(
+                data.shipments ||
+                []
+            );
 
             setDriverBids(
-                bids || []
+                data.bids ||
+                []
+            );
+
+            localStorage.setItem(
+                "tayebUser",
+                JSON.stringify(
+                    data.user
+                )
             );
 
             openSharedLoad(
-                safeShipments,
-                bids || []
+                data.shipments ||
+                [],
+                data.bids ||
+                []
             );
         } catch (error) {
             console.error(
-                "Fetch driver shipments error:",
+                "Driver dashboard error:",
                 error
             );
+
+            if (
+                error?.status ===
+                401 ||
+                error?.status ===
+                403
+            ) {
+                goToLogin();
+            }
         } finally {
             setLoading(false);
         }
     }
+
+
+    /* =========================================================
+       LOAD DRIVER
+    ========================================================= */
+
+    useEffect(() => {
+        if (typeof window === "undefined") {
+            return;
+        }
+
+        async function restoreSession() {
+            try {
+                const result =
+                    await apiGet(
+                        "/api/session/me"
+                    );
+
+                if (
+                    !result.user?.id ||
+                    result.user.role !== "DRIVER"
+                ) {
+                    goToLogin();
+                    return;
+                }
+
+                setUser(result.user);
+
+                localStorage.setItem(
+                    "selectedRole",
+                    result.user.role
+                );
+            } catch (error) {
+                console.error(
+                    "Could not restore Tayeb session:",
+                    error
+                );
+
+                goToLogin();
+            }
+        }
+
+        restoreSession();
+        // Runs once when the page opens.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [router]);
+
+
+    /* =========================================================
+       KEEP UP TO DATE
+    ========================================================= */
+
+    const userId =
+        user?.id;
+
+    useEffect(() => {
+        if (!userId) {
+            return;
+        }
+
+        return pollWhileVisible(
+            fetchShipments,
+            20000
+        );
+        // fetchShipments only sets state.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [userId]);
 
 
     /* =========================================================
@@ -489,7 +346,6 @@ export default function DriverPage() {
             ""
         );
     }
-
 
     function formatPrice(
         value
@@ -512,7 +368,7 @@ export default function DriverPage() {
 
 
     /* =========================================================
-       SEND FIRST OFFER
+       SEND OR UPDATE MY PRICE
     ========================================================= */
 
     async function submitOffer(
@@ -550,91 +406,19 @@ export default function DriverPage() {
         setSubmittingOffer(true);
 
         try {
-            const {
-                data: newBid,
-                error,
-            } = await supabase
-                .from("bids")
-                .insert([
-                    {
-                        shipment_id:
-                            selectedShipment.id,
-
-                        driver_id:
-                            user.id,
-
-                        proposed_price:
-                            price,
-
-                        counter_price:
-                            null,
-
-                        last_offer_by:
-                            "DRIVER",
-
-                        eta:
-                            offerTime.trim() ||
-                            null,
-
-                        note:
-                            offerNote.trim() ||
-                            null,
-
-                        status:
-                            "PENDING",
-                    },
-                ])
-                .select("*")
-                .single();
-
-            if (error) {
-                throw error;
-            }
-
-            console.log(
-                "New bid:",
-                newBid
+            await apiPost(
+                "/api/driver",
+                {
+                    action: "offer",
+                    shipmentId:
+                        selectedShipment.id,
+                    price,
+                    eta:
+                        offerTime,
+                    note:
+                        offerNote,
+                }
             );
-
-            /* ---------------------------------------------
-               NOTIFY SHIPPER
-            --------------------------------------------- */
-
-            try {
-                await fetch(
-                    "/api/send-notification",
-                    {
-                        method:
-                            "POST",
-
-                        headers: {
-                            "Content-Type":
-                                "application/json",
-                        },
-
-                        body:
-                            JSON.stringify(
-                                {
-                                    shipmentId:
-                                        selectedShipment.id,
-
-                                    eventType:
-                                        "BID_RECEIVED",
-
-                                    targetUserId:
-                                        selectedShipment.shipper_id,
-                                }
-                            ),
-                    }
-                );
-            } catch (
-            notificationError
-            ) {
-                console.log(
-                    "Bid notification error:",
-                    notificationError
-                );
-            }
 
             setOfferPrice("");
             setOfferTime("");
@@ -648,9 +432,7 @@ export default function DriverPage() {
                 null
             );
 
-            await fetchShipments(
-                user.id
-            );
+            await fetchShipments();
 
             alert(
                 t(
@@ -663,12 +445,7 @@ export default function DriverPage() {
                 error
             );
 
-            alert(
-                error?.message ||
-                t(
-                    "errors.somethingWrong"
-                )
-            );
+            showError(error);
         } finally {
             setSubmittingOffer(
                 false
@@ -678,7 +455,7 @@ export default function DriverPage() {
 
 
     /* =========================================================
-       ACCEPT COUNTER PRICE
+       ACCEPT THE SHIPPER'S PRICE
     ========================================================= */
 
     async function acceptCounterPrice(
@@ -691,196 +468,14 @@ export default function DriverPage() {
             return;
         }
 
-        const finalPrice =
-            Number(
-                bid.counter_price
-            );
-
-        if (
-            !finalPrice ||
-            finalPrice <= 0
-        ) {
-            alert(
-                t(
-                    "errors.invalidPrice"
-                )
-            );
-
-            return;
-        }
-
         try {
-            /*
-             * Only accept if the shipment
-             * is still open.
-             */
-
-            const {
-                data:
-                updatedShipment,
-                error:
-                shipmentError,
-            } = await supabase
-                .from("shipments")
-                .update({
-                    driver_id:
-                        user.id,
-
-                    driver_name:
-                        user.full_name,
-
-                    driver_phone:
-                        user.phone_number,
-
-                    agreed_price:
-                        finalPrice,
-
-                    status:
-                        "MATCHED",
-
-                    matched_at:
-                        new Date().toISOString(),
-                })
-                .eq(
-                    "id",
-                    bid.shipment_id
-                )
-                .eq(
-                    "status",
-                    "OPEN"
-                )
-                .select("*")
-                .maybeSingle();
-
-            if (shipmentError) {
-                throw shipmentError;
-            }
-
-            if (
-                !updatedShipment
-            ) {
-                alert(
-                    "This cargo is no longer available."
-                );
-
-                await fetchShipments(
-                    user.id
-                );
-
-                return;
-            }
-
-
-            /*
-             * Accept this bid.
-             */
-
-            const {
-                error:
-                bidError,
-            } = await supabase
-                .from("bids")
-                .update({
-                    proposed_price:
-                        finalPrice,
-
-                    counter_price:
-                        null,
-
-                    last_offer_by:
-                        "DRIVER",
-
-                    status:
-                        "ACCEPTED",
-                })
-                .eq(
-                    "id",
-                    bid.id
-                )
-                .eq(
-                    "driver_id",
-                    user.id
-                );
-
-            if (bidError) {
-                throw bidError;
-            }
-
-
-            /*
-             * Reject other offers.
-             */
-
-            const {
-                error:
-                rejectError,
-            } = await supabase
-                .from("bids")
-                .update({
-                    status:
-                        "REJECTED",
-                })
-                .eq(
-                    "shipment_id",
-                    bid.shipment_id
-                )
-                .neq(
-                    "id",
-                    bid.id
-                );
-
-            if (
-                rejectError
-            ) {
-                console.log(
-                    "Other bids rejection error:",
-                    rejectError
-                );
-            }
-
-
-            /*
-             * Notify shipper.
-             */
-
-            try {
-                await fetch(
-                    "/api/send-notification",
-                    {
-                        method:
-                            "POST",
-
-                        headers: {
-                            "Content-Type":
-                                "application/json",
-                        },
-
-                        body:
-                            JSON.stringify(
-                                {
-                                    shipmentId:
-                                        bid.shipment_id,
-
-                                    eventType:
-                                        "MATCHED",
-
-                                    targetUserId:
-                                        updatedShipment.shipper_id,
-                                }
-                            ),
-                    }
-                );
-            } catch (
-            notificationError
-            ) {
-                console.log(
-                    "Matched notification error:",
-                    notificationError
-                );
-            }
-
-            await fetchShipments(
-                user.id
+            await apiPost(
+                "/api/driver",
+                {
+                    action: "acceptCounter",
+                    bidId:
+                        bid.id,
+                }
             );
 
             setCounterBid(
@@ -890,6 +485,8 @@ export default function DriverPage() {
             setCounterPrice(
                 ""
             );
+
+            await fetchShipments();
 
             alert(
                 t(
@@ -902,12 +499,9 @@ export default function DriverPage() {
                 error
             );
 
-            alert(
-                error?.message ||
-                t(
-                    "errors.somethingWrong"
-                )
-            );
+            showError(error);
+
+            await fetchShipments();
         }
     }
 
@@ -951,80 +545,15 @@ export default function DriverPage() {
         );
 
         try {
-            const {
-                error,
-            } = await supabase
-                .from("bids")
-                .update({
-                    counter_price:
-                        price,
-
-                    last_offer_by:
-                        "DRIVER",
-
-                    status:
-                        "COUNTERED",
-                })
-                .eq(
-                    "id",
-                    bid.id
-                )
-                .eq(
-                    "driver_id",
-                    user.id
-                );
-
-            if (error) {
-                throw error;
-            }
-
-
-            /*
-             * Notify shipper.
-             */
-
-            try {
-                const shipment =
-                    shipments.find(
-                        (item) =>
-                            item.id ===
-                            bid.shipment_id
-                    );
-
-                await fetch(
-                    "/api/send-notification",
-                    {
-                        method:
-                            "POST",
-
-                        headers: {
-                            "Content-Type":
-                                "application/json",
-                        },
-
-                        body:
-                            JSON.stringify(
-                                {
-                                    shipmentId:
-                                        bid.shipment_id,
-
-                                    eventType:
-                                        "COUNTER_OFFER",
-
-                                    targetUserId:
-                                        shipment?.shipper_id,
-                                }
-                            ),
-                    }
-                );
-            } catch (
-            notificationError
-            ) {
-                console.log(
-                    "Counter notification error:",
-                    notificationError
-                );
-            }
+            await apiPost(
+                "/api/driver",
+                {
+                    action: "counter",
+                    bidId:
+                        bid.id,
+                    price,
+                }
+            );
 
             setCounterPrice(
                 ""
@@ -1034,9 +563,7 @@ export default function DriverPage() {
                 null
             );
 
-            await fetchShipments(
-                user.id
-            );
+            await fetchShipments();
 
             alert(
                 t(
@@ -1049,12 +576,7 @@ export default function DriverPage() {
                 error
             );
 
-            alert(
-                error?.message ||
-                t(
-                    "errors.somethingWrong"
-                )
-            );
+            showError(error);
         } finally {
             setCounterLoading(
                 false
@@ -1064,269 +586,121 @@ export default function DriverPage() {
 
 
     /* =========================================================
-       AVAILABILITY
+       AVAILABILITY AND CITY
     ========================================================= */
 
-    async function toggleAvailability() {
+    async function updateProfile(
+        changes
+    ) {
         if (!user) {
             return;
         }
 
-        const newStatus =
-            !available;
-
         try {
-            const {
-                error,
-            } = await supabase
-                .from("users")
-                .update({
-                    is_available:
-                        newStatus,
-
-                    last_seen:
-                        new Date().toISOString(),
-                })
-                .eq(
-                    "id",
-                    user.id
+            const result =
+                await apiPost(
+                    "/api/driver",
+                    {
+                        action: "profile",
+                        ...changes,
+                    }
                 );
 
-            if (error) {
-                throw error;
-            }
-
-            setAvailable(
-                newStatus
+            setUser(
+                result.user
             );
 
-            const updatedUser = {
-                ...user,
-                is_available:
-                    newStatus,
-                last_seen:
-                    new Date().toISOString(),
-            };
-
-            setUser(
-                updatedUser
+            setAvailable(
+                result.user?.is_available ??
+                true
             );
 
             localStorage.setItem(
                 "tayebUser",
                 JSON.stringify(
-                    updatedUser
+                    result.user
                 )
             );
+
+            // The city changes which loads come first.
+            if (
+                changes.baseCity !==
+                undefined
+            ) {
+                await fetchShipments();
+            }
         } catch (error) {
             console.error(
-                "Availability error:",
+                "Profile error:",
                 error
             );
 
-            alert(
-                error?.message ||
-                t(
-                    "errors.somethingWrong"
-                )
-            );
+            showError(error);
         }
+    }
+
+    function toggleAvailability() {
+        updateProfile({
+            available:
+                !available,
+        });
     }
 
 
     /* =========================================================
        DELIVERY STATUS
-    ========================================================= */
+    =========================================================
+     *
+     * Finishing a delivery needs the receiver's 4-digit code
+     * (deliveryCode), which proves the goods arrived.
+     */
 
     async function updateStatus(
         shipment,
-        status
+        status,
+        deliveryCode
     ) {
         if (
             !user ||
-            !shipment
+            !shipment ||
+            statusLoading
         ) {
-            return;
+            return false;
         }
 
-        /*
-         * Only the selected driver
-         * can move an assigned shipment.
-         */
-
-        if (
-            shipment.driver_id !==
-            user.id &&
-            status !==
-            "MATCHED"
-        ) {
-            return;
-        }
-
-        const updates = {
-            status,
-        };
-
-        const now =
-            new Date().toISOString();
-
-        if (
-            status ===
-            "MATCHED"
-        ) {
-            updates.driver_id =
-                user.id;
-
-            updates.driver_name =
-                user.full_name;
-
-            updates.driver_phone =
-                user.phone_number;
-
-            updates.matched_at =
-                now;
-        }
-
-        if (
-            status ===
-            "DEPARTED"
-        ) {
-            updates.departed_at =
-                now;
-        }
-
-        if (
-            status ===
-            "ARRIVED"
-        ) {
-            updates.arrived_at =
-                now;
-        }
-
-        if (
-            status ===
-            "COMPLETED"
-        ) {
-            updates.completed_at =
-                now;
-        }
+        setStatusLoading(
+            true
+        );
 
         try {
-            const {
-                error,
-            } = await supabase
-                .from("shipments")
-                .update(updates)
-                .eq(
-                    "id",
-                    shipment.id
-                )
-                .eq(
-                    "driver_id",
-                    user.id
-                );
-
-            if (error) {
-                throw error;
-            }
-
-
-            /*
-             * Notify shipper.
-             */
-
-            try {
-                await fetch(
-                    "/api/send-notification",
-                    {
-                        method:
-                            "POST",
-
-                        headers: {
-                            "Content-Type":
-                                "application/json",
-                        },
-
-                        body:
-                            JSON.stringify(
-                                {
-                                    shipmentId:
-                                        shipment.id,
-
-                                    eventType:
-                                        status,
-
-                                    targetUserId:
-                                        shipment.shipper_id,
-                                }
-                            ),
-                    }
-                );
-            } catch (
-            notificationError
-            ) {
-                console.log(
-                    "Delivery notification error:",
-                    notificationError
-                );
-            }
-
-
-            /*
-             * Refresh.
-             */
-
-            await fetchShipments(
-                user.id
+            await apiPost(
+                "/api/driver",
+                {
+                    action: "status",
+                    shipmentId:
+                        shipment.id,
+                    status,
+                    deliveryCode,
+                }
             );
 
-            /*
-             * When completed, make
-             * driver available again.
-             */
+            await fetchShipments();
 
-            if (
-                status ===
-                "COMPLETED"
-            ) {
-                try {
-                    await supabase
-                        .from("users")
-                        .update({
-                            is_available:
-                                true,
-
-                            last_seen:
-                                new Date().toISOString(),
-                        })
-                        .eq(
-                            "id",
-                            user.id
-                        );
-
-                    setAvailable(
-                        true
-                    );
-                } catch (
-                availabilityError
-                ) {
-                    console.log(
-                        "Availability reset error:",
-                        availabilityError
-                    );
-                }
-            }
+            return true;
         } catch (error) {
             console.error(
                 "Delivery status error:",
                 error
             );
 
-            alert(
-                error?.message ||
-                t(
-                    "errors.somethingWrong"
-                )
+            showError(error);
+
+            await fetchShipments();
+
+            return false;
+        } finally {
+            setStatusLoading(
+                false
             );
         }
     }
@@ -1351,19 +725,11 @@ export default function DriverPage() {
                 error
             );
         } finally {
-            localStorage.removeItem(
-                "tayebUser"
-            );
-
-            localStorage.removeItem(
-                "selectedRole"
-            );
-
-            router.replace(
-                "/login"
-            );
+            goToLogin();
         }
     }
+
+
     /* =========================================================
        FIND DRIVER BID
     ========================================================= */
@@ -1441,6 +807,121 @@ export default function DriverPage() {
 
 
     /* =========================================================
+       LIVE LOCATION
+    =========================================================
+     *
+     * While a delivery is on the road (DEPARTED) and this page
+     * is open, the phone's position is sent to the shipper:
+     * at most once a minute, or sooner after 300 m of driving.
+     * It stops when the driver marks "Arrived". Browsers don't
+     * allow this while the page is closed.
+     */
+
+    const roadJobId =
+        activeJobs.find(
+            (item) =>
+                item.status ===
+                "DEPARTED"
+        )?.id;
+
+    useEffect(() => {
+        if (
+            !roadJobId ||
+            typeof navigator ===
+            "undefined" ||
+            !navigator.geolocation
+        ) {
+            return;
+        }
+
+        let lastSentAt = 0;
+        let lastPoint = null;
+
+        const watchId =
+            navigator.geolocation.watchPosition(
+                (position) => {
+                    setTracking("on");
+
+                    const point = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude,
+                    };
+
+                    const movedKm =
+                        lastPoint
+                            ? distanceKm(
+                                lastPoint,
+                                point
+                            )
+                            : Infinity;
+
+                    if (
+                        Date.now() - lastSentAt <
+                        60000 &&
+                        movedKm < 0.3
+                    ) {
+                        return;
+                    }
+
+                    lastSentAt =
+                        Date.now();
+
+                    lastPoint =
+                        point;
+
+                    apiPost(
+                        "/api/driver",
+                        {
+                            action: "location",
+                            shipmentId:
+                                roadJobId,
+                            lat: point.lat,
+                            lng: point.lng,
+                            accuracy:
+                                position.coords.accuracy,
+                        }
+                    ).catch((error) => {
+                        console.log(
+                            "Location update failed:",
+                            error
+                        );
+                    });
+                },
+                (error) => {
+                    setTracking(
+                        error.code ===
+                            error.PERMISSION_DENIED
+                            ? "denied"
+                            : "idle"
+                    );
+                },
+                {
+                    enableHighAccuracy:
+                        true,
+                    maximumAge:
+                        30000,
+                    timeout:
+                        60000,
+                }
+            );
+
+        return () =>
+            navigator.geolocation.clearWatch(
+                watchId
+            );
+    }, [roadJobId, trackingAttempt]);
+
+    function retryTracking() {
+        setTracking("idle");
+
+        setTrackingAttempt(
+            (current) =>
+                current + 1
+        );
+    }
+
+
+    /* =========================================================
        LOADING
     ========================================================= */
 
@@ -1462,9 +943,6 @@ export default function DriverPage() {
                     width={130}
                     height={48}
                 />
-
-
-                <DeleteAccount user={user} />
             </main>
         );
     }
@@ -1855,6 +1333,103 @@ export default function DriverPage() {
 
                         </div>
 
+
+                        {/* MY CITY: loads here come first */}
+
+                        <div
+                            style={{
+                                display:
+                                    "flex",
+                                flexWrap:
+                                    "wrap",
+                                alignItems:
+                                    "center",
+                                gap:
+                                    "10px",
+                                marginTop:
+                                    "16px",
+                                paddingTop:
+                                    "16px",
+                                borderTop:
+                                    "1px solid #f1f5f9",
+                            }}
+                        >
+
+                            <label
+                                htmlFor="driver-city"
+                                style={{
+                                    color:
+                                        "#111827",
+                                    fontSize:
+                                        "13px",
+                                    fontWeight:
+                                        800,
+                                }}
+                            >
+                                📍{" "}
+                                {t(
+                                    "driver.myCity"
+                                )}
+                            </label>
+
+                            <select
+                                id="driver-city"
+                                className="tayeb-input"
+                                value={
+                                    user.base_city ||
+                                    ""
+                                }
+                                onChange={(
+                                    event
+                                ) =>
+                                    updateProfile({
+                                        baseCity:
+                                            event.target.value ||
+                                            null,
+                                    })
+                                }
+                                style={{
+                                    flex:
+                                        "1 1 180px",
+                                    maxWidth:
+                                        "280px",
+                                }}
+                            >
+                                <option value="">
+                                    {t(
+                                        "driver.chooseCity"
+                                    )}
+                                </option>
+
+                                {CITY_NAMES.map(
+                                    (cityName) => (
+                                        <option
+                                            key={cityName}
+                                            value={cityName}
+                                        >
+                                            {cityName}
+                                        </option>
+                                    )
+                                )}
+                            </select>
+
+                            <span
+                                style={{
+                                    flexBasis:
+                                        "100%",
+                                    color:
+                                        "#6b7280",
+                                    fontSize:
+                                        "11px",
+                                }}
+                            >
+                                {t(
+                                    "driver.myCityHint"
+                                )}
+                            </span>
+
+                        </div>
+
                     </section>
 
 
@@ -1991,6 +1566,15 @@ export default function DriverPage() {
                                                 }
                                                 updateStatus={
                                                     updateStatus
+                                                }
+                                                statusLoading={
+                                                    statusLoading
+                                                }
+                                                tracking={
+                                                    tracking
+                                                }
+                                                retryTracking={
+                                                    retryTracking
                                                 }
                                             />
                                         )
@@ -2861,6 +2445,9 @@ export default function DriverPage() {
 
                 </div>
 
+
+                <DeleteAccount user={user} />
+
             </main>
         </>
     );
@@ -2990,6 +2577,51 @@ function CargoCard({
             </div>
 
 
+            {/* WHY THIS LOAD FITS */}
+
+            {shipment.match && (
+                <div
+                    style={{
+                        marginTop:
+                            "14px",
+                        padding:
+                            "10px 12px",
+                        borderRadius:
+                            "13px",
+                        background:
+                            shipment.match.type ===
+                                "RETURN"
+                                ? "#ecfdf5"
+                                : "#eff6ff",
+                        border:
+                            shipment.match.type ===
+                                "RETURN"
+                                ? "1px solid #a7f3d0"
+                                : "1px solid #bfdbfe",
+                        color:
+                            shipment.match.type ===
+                                "RETURN"
+                                ? "#065f46"
+                                : "#1e40af",
+                        fontSize:
+                            "12px",
+                        fontWeight:
+                            800,
+                    }}
+                >
+                    {t(
+                        shipment.match.type ===
+                            "RETURN"
+                            ? "driver.returnLoad"
+                            : "driver.nearYou"
+                    ).replace(
+                        "{city}",
+                        shipment.match.city
+                    )}
+                </div>
+            )}
+
+
             {/* ROUTE */}
 
             <div
@@ -3070,7 +2702,69 @@ function CargoCard({
                     FCFA
                 </span>
 
+                {shipment.route_km > 0 && (
+                    <span className="tayeb-badge tayeb-badge-gray">
+                        {t(
+                            "driver.routeKm"
+                        ).replace(
+                            "{km}",
+                            shipment.route_km
+                        )}
+                    </span>
+                )}
+
+                {shipment.from_km > 0 &&
+                    !shipment.match && (
+                        <span className="tayeb-badge tayeb-badge-gray">
+                            {t(
+                                "driver.kmFromYou"
+                            ).replace(
+                                "{km}",
+                                shipment.from_km
+                            )}
+                        </span>
+                    )}
+
             </div>
+
+
+            {/* USUAL PRICE ON THIS ROUTE (real past deals) */}
+
+            {shipment.price_hint && (
+                <p
+                    style={{
+                        marginTop:
+                            "10px",
+                        color:
+                            "#6b7280",
+                        fontSize:
+                            "11px",
+                        fontWeight:
+                            700,
+                    }}
+                >
+                    💡{" "}
+                    {t(
+                        "common.usualPrice"
+                    )
+                        .replace(
+                            "{low}",
+                            formatPrice(
+                                shipment.price_hint.low
+                            )
+                        )
+                        .replace(
+                            "{high}",
+                            formatPrice(
+                                shipment.price_hint.high
+                            )
+                        )
+                        .replace(
+                            "{count}",
+                            shipment.price_hint.count
+                        )}
+                </p>
+            )}
 
 
             {/* EXISTING BID */}
@@ -3234,9 +2928,29 @@ function ActiveDelivery({
     t,
     formatPrice,
     updateStatus,
+    statusLoading,
+    tracking,
+    retryTracking,
 }) {
-    const driver =
-        shipment.driver;
+    const [deliveryCode, setDeliveryCode] =
+        useState("");
+
+    async function finishDelivery(
+        event
+    ) {
+        event.preventDefault();
+
+        const done =
+            await updateStatus(
+                shipment,
+                "COMPLETED",
+                deliveryCode
+            );
+
+        if (done) {
+            setDeliveryCode("");
+        }
+    }
 
     return (
         <article className="tayeb-shipment-card">
@@ -3367,7 +3081,40 @@ function ActiveDelivery({
                     }
                 </span>
 
+                {shipment.route_km > 0 && (
+                    <span className="tayeb-badge tayeb-badge-gray">
+                        {t(
+                            "driver.routeKm"
+                        ).replace(
+                            "{km}",
+                            shipment.route_km
+                        )}
+                    </span>
+                )}
+
             </div>
+
+
+            {/* RECEIVER */}
+
+            {shipment.receiver_phone && (
+                <a
+                    href={`tel:+237${shipment.receiver_phone}`}
+                    className="tayeb-button tayeb-button-light tayeb-button-full"
+                    style={{
+                        marginTop:
+                            "15px",
+                        textDecoration:
+                            "none",
+                    }}
+                >
+                    📞{" "}
+                    {t(
+                        "driver.callReceiver"
+                    )}{" "}
+                    · {shipment.receiver_phone}
+                </a>
+            )}
 
 
             {/* SHIPPER INFO */}
@@ -3439,8 +3186,23 @@ function ActiveDelivery({
                             value={
                                 shipment
                                     .shipper
-                                    .phone_number ||
-                                "—"
+                                    .phone_number ? (
+                                    <a
+                                        href={`tel:+237${shipment.shipper.phone_number}`}
+                                        style={{
+                                            color:
+                                                "#ea580c",
+                                        }}
+                                    >
+                                        {
+                                            shipment
+                                                .shipper
+                                                .phone_number
+                                        }
+                                    </a>
+                                ) : (
+                                    "—"
+                                )
                             }
                         />
 
@@ -3448,6 +3210,74 @@ function ActiveDelivery({
 
                 </div>
             )}
+
+
+            {/* LIVE LOCATION */}
+
+            {shipment.status ===
+                "DEPARTED" && (
+                    <div
+                        style={{
+                            marginTop:
+                                "15px",
+                            padding:
+                                "12px 14px",
+                            borderRadius:
+                                "14px",
+                            background:
+                                tracking ===
+                                    "on"
+                                    ? "#f0fdf4"
+                                    : "#fffbeb",
+                            color:
+                                tracking ===
+                                    "on"
+                                    ? "#166534"
+                                    : "#92400e",
+                            fontSize:
+                                "12px",
+                            fontWeight:
+                                700,
+                            lineHeight:
+                                1.45,
+                        }}
+                    >
+                        {tracking === "on"
+                            ? t(
+                                "driver.sharingLocation"
+                            )
+                            : tracking ===
+                                "denied"
+                                ? t(
+                                    "driver.locationBlocked"
+                                )
+                                : t(
+                                    "driver.locationOff"
+                                )}
+
+                        {tracking !==
+                            "on" && (
+                                <button
+                                    type="button"
+                                    onClick={
+                                        retryTracking
+                                    }
+                                    className="tayeb-button tayeb-button-light"
+                                    style={{
+                                        display:
+                                            "flex",
+                                        marginTop:
+                                            "10px",
+                                    }}
+                                >
+                                    📡{" "}
+                                    {t(
+                                        "driver.shareLocation"
+                                    )}
+                                </button>
+                            )}
+                    </div>
+                )}
 
 
             {/* DELIVERY BUTTON */}
@@ -3469,6 +3299,9 @@ function ActiveDelivery({
                                     "DEPARTED"
                                 )
                             }
+                            disabled={
+                                statusLoading
+                            }
                             className="tayeb-button tayeb-button-primary tayeb-button-full"
                         >
                             🚚{" "}
@@ -3489,6 +3322,9 @@ function ActiveDelivery({
                                     "ARRIVED"
                                 )
                             }
+                            disabled={
+                                statusLoading
+                            }
                             className="tayeb-button tayeb-button-primary tayeb-button-full"
                         >
                             📍{" "}
@@ -3499,23 +3335,119 @@ function ActiveDelivery({
                     )}
 
 
+                {/* FINISH: needs the receiver's code */}
+
                 {shipment.status ===
-                    "ARRIVED" && (
-                        <button
-                            type="button"
-                            onClick={() =>
-                                updateStatus(
-                                    shipment,
-                                    "COMPLETED"
-                                )
-                            }
-                            className="tayeb-button tayeb-button-success tayeb-button-full"
+                    "ARRIVED" &&
+                    shipment.code_locked && (
+                        <div
+                            style={{
+                                padding:
+                                    "13px",
+                                borderRadius:
+                                    "14px",
+                                background:
+                                    "#fef2f2",
+                                color:
+                                    "#991b1b",
+                                fontSize:
+                                    "12px",
+                                fontWeight:
+                                    700,
+                            }}
                         >
-                            ✓{" "}
                             {t(
-                                "driver.completeDelivery"
+                                "driver.codeLocked"
                             )}
-                        </button>
+                        </div>
+                    )}
+
+                {shipment.status ===
+                    "ARRIVED" &&
+                    !shipment.code_locked && (
+                        <form
+                            onSubmit={
+                                finishDelivery
+                            }
+                        >
+
+                            {shipment.needs_code && (
+                                <div className="tayeb-form-group">
+
+                                    <label
+                                        className="tayeb-label"
+                                        htmlFor={`code-${shipment.id}`}
+                                    >
+                                        {t(
+                                            "driver.deliveryCode"
+                                        )}
+                                    </label>
+
+                                    <input
+                                        id={`code-${shipment.id}`}
+                                        className="tayeb-input"
+                                        value={
+                                            deliveryCode
+                                        }
+                                        onChange={(
+                                            event
+                                        ) =>
+                                            setDeliveryCode(
+                                                event.target.value
+                                                    .replace(/\D/g, "")
+                                                    .slice(0, 4)
+                                            )
+                                        }
+                                        inputMode="numeric"
+                                        placeholder="0000"
+                                        required
+                                        style={{
+                                            fontSize:
+                                                "22px",
+                                            letterSpacing:
+                                                "0.4em",
+                                            textAlign:
+                                                "center",
+                                            fontWeight:
+                                                900,
+                                        }}
+                                    />
+
+                                    <p
+                                        style={{
+                                            marginTop:
+                                                "7px",
+                                            color:
+                                                "#6b7280",
+                                            fontSize:
+                                                "11px",
+                                        }}
+                                    >
+                                        {t(
+                                            "driver.deliveryCodeHint"
+                                        )}
+                                    </p>
+
+                                </div>
+                            )}
+
+                            <button
+                                type="submit"
+                                disabled={
+                                    statusLoading ||
+                                    (shipment.needs_code &&
+                                        deliveryCode.length !==
+                                        4)
+                                }
+                                className="tayeb-button tayeb-button-success tayeb-button-full"
+                            >
+                                ✓{" "}
+                                {t(
+                                    "driver.completeDelivery"
+                                )}
+                            </button>
+
+                        </form>
                     )}
 
             </div>

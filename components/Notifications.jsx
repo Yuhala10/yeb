@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import supabase from "../lib/supabaseClient";
+import { apiGet, apiPost, pollWhileVisible } from "../lib/api";
 import { useLanguage } from "../lib/LanguageContext";
 
 export default function Notifications({
@@ -176,96 +176,6 @@ export default function Notifications({
 
 
     /* =========================================================
-       FETCH NOTIFICATIONS
-    ========================================================= */
-
-    useEffect(() => {
-        if (!userId) {
-            return;
-        }
-
-        fetchNotifications();
-
-        /*
-         * Realtime notification channel.
-         */
-
-        const channel =
-            supabase
-                .channel(
-                    `tayeb-notifications-${userId}`
-                )
-                .on(
-                    "postgres_changes",
-                    {
-                        event: "INSERT",
-                        schema: "public",
-                        table: "notifications",
-                        filter:
-                            `user_id=eq.${userId}`,
-                    },
-                    async (
-                        payload
-                    ) => {
-                        const newNotification =
-                            payload.new;
-
-                        /*
-                         * Add the notification
-                         * immediately.
-                         */
-
-                        setNotifications(
-                            (
-                                current
-                            ) => {
-                                const exists =
-                                    current.some(
-                                        (
-                                            item
-                                        ) =>
-                                            item.id ===
-                                            newNotification.id
-                                    );
-
-                                if (
-                                    exists
-                                ) {
-                                    return current;
-                                }
-
-                                return [
-                                    newNotification,
-                                    ...current,
-                                ];
-                            }
-                        );
-
-                        /*
-                         * Play the sound.
-                         */
-
-                        await playNotificationSound();
-
-                        /*
-                         * Refresh from database
-                         * to keep everything in sync.
-                         */
-
-                        fetchNotifications();
-                    }
-                )
-                .subscribe();
-
-        return () => {
-            supabase.removeChannel(
-                channel
-            );
-        };
-    }, [userId]);
-
-
-    /* =========================================================
        FETCH
     ========================================================= */
 
@@ -274,35 +184,12 @@ export default function Notifications({
             return;
         }
 
-        setLoading(true);
-
         try {
             const {
-                data,
-                error,
-            } = await supabase
-                .from("notifications")
-                .select("*")
-                .eq(
-                    "user_id",
-                    userId
-                )
-                .order(
-                    "created_at",
-                    {
-                        ascending:
-                            false,
-                    }
-                );
-
-            if (error) {
-                console.error(
-                    "Notifications fetch error:",
-                    error
-                );
-
-                return;
-            }
+                notifications: data,
+            } = await apiGet(
+                "/api/notifications"
+            );
 
             const safeData =
                 data || [];
@@ -315,26 +202,37 @@ export default function Notifications({
              * could make the notification sound.
              */
 
-            if (
-                !initializedRef.current
-            ) {
-                previousIdsRef.current =
-                    new Set(
-                        safeData.map(
-                            (
-                                item
-                            ) =>
-                                item.id
+            const hasNew =
+                initializedRef.current &&
+                safeData.some(
+                    (
+                        item
+                    ) =>
+                        !previousIdsRef.current.has(
+                            item.id
                         )
-                    );
+                );
 
-                initializedRef.current =
-                    true;
-            }
+            previousIdsRef.current =
+                new Set(
+                    safeData.map(
+                        (
+                            item
+                        ) =>
+                            item.id
+                    )
+                );
+
+            initializedRef.current =
+                true;
 
             setNotifications(
                 safeData
             );
+
+            if (hasNew) {
+                playNotificationSound();
+            }
         } catch (error) {
             console.error(
                 "Notification error:",
@@ -404,6 +302,29 @@ export default function Notifications({
 
 
     /* =========================================================
+       FETCH NOTIFICATIONS
+    ========================================================= */
+
+    useEffect(() => {
+        if (!userId) {
+            return;
+        }
+
+        /*
+         * Check for new notifications now, then every 20
+         * seconds while the page is open.
+         */
+
+        return pollWhileVisible(
+            fetchNotifications,
+            20000
+        );
+        // fetchNotifications only reads refs and sets state.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [userId]);
+
+
+    /* =========================================================
        MARK ONE READ
     ========================================================= */
 
@@ -417,25 +338,12 @@ export default function Notifications({
         }
 
         try {
-            const {
-                error,
-            } = await supabase
-                .from("notifications")
-                .update({
-                    read: true,
-                })
-                .eq(
-                    "id",
-                    notificationId
-                )
-                .eq(
-                    "user_id",
-                    userId
-                );
-
-            if (error) {
-                throw error;
-            }
+            await apiPost(
+                "/api/notifications",
+                {
+                    id: notificationId,
+                }
+            );
 
             setNotifications(
                 (
@@ -488,25 +396,10 @@ export default function Notifications({
         }
 
         try {
-            const {
-                error,
-            } = await supabase
-                .from("notifications")
-                .update({
-                    read: true,
-                })
-                .eq(
-                    "user_id",
-                    userId
-                )
-                .eq(
-                    "read",
-                    false
-                );
-
-            if (error) {
-                throw error;
-            }
+            await apiPost(
+                "/api/notifications",
+                {}
+            );
 
             setNotifications(
                 (

@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import supabase from '../lib/supabaseClient';
+import { apiPost } from '../lib/api';
 
-export default function FeedbackPage({ userId = null }) {
+export default function FeedbackPage() {
     const [type, setType] = useState('SUGGESTION');
     const [message, setMessage] = useState('');
     const [phone, setPhone] = useState('');
@@ -18,24 +18,18 @@ export default function FeedbackPage({ userId = null }) {
 
         setLoading(true);
 
-        const { error } = await supabase
-            .from('feedback')
-            .insert([
-                {
-                    user_id: userId,
-                    feedback_type: type,
-                    message: message.trim(),
-                    contact_phone: phone.trim() || null,
-                    status: 'UNREAD',
-                },
-            ]);
-
-        setLoading(false);
-
-        if (error) {
+        try {
+            await apiPost('/api/feedback', {
+                type,
+                message: message.trim(),
+                phone: phone.trim(),
+            });
+        } catch (error) {
             console.error(error);
             alert(error.message);
             return;
+        } finally {
+            setLoading(false);
         }
 
         setSent(true);

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import supabase from "../lib/supabaseClient";
+import { apiPost } from "../lib/api";
+import { CITY_NAMES } from "../lib/cities";
 import { useLanguage } from "../lib/LanguageContext";
 import BrandLogo from "../components/BrandLogo";
 
@@ -33,6 +34,24 @@ export default function LoginPage() {
     const [showPin, setShowPin] =
         useState(false);
 
+    const [step, setStep] =
+        useState("phone");
+
+    const [account, setAccount] =
+        useState(null);
+
+    const [pin, setPin] =
+        useState("");
+
+    const [pinConfirm, setPinConfirm] =
+        useState("");
+
+    const [city, setCity] =
+        useState("");
+
+    const [needsVehicle, setNeedsVehicle] =
+        useState(false);
+
     useEffect(() => {
         if (
             typeof window === "undefined"
@@ -53,11 +72,35 @@ export default function LoginPage() {
         }
     }, []);
 
+    /*
+     * "+237 681 73 15 12" and "681731512" are the same number.
+     */
+
     const cleanPhone =
-        phone.trim();
+        phone
+            .replace(/\D/g, "")
+            .replace(/^237(?=\d{9}$)/, "");
 
     const isAdminPhone =
         cleanPhone === ADMIN_PHONE;
+
+    const isNewAccount =
+        step === "details" &&
+        account &&
+        !account.exists;
+
+    const creatingPin =
+        step === "details" &&
+        account &&
+        (!account.exists ||
+            !account.hasPin);
+
+    const showDriverDetails =
+        step === "details" &&
+        role === "DRIVER" &&
+        (isNewAccount ||
+            needsVehicle ||
+            !account?.hasVehicle);
 
     function text(
         key,
@@ -93,57 +136,91 @@ export default function LoginPage() {
 
     /*
      * ============================================================
-     * CREATE SECURE SESSION
+     * ERROR MESSAGES
+     * ============================================================
+     *
+     * The server answers in English with a code; French
+     * speakers get the French version of the common ones.
+     */
+
+    function errorMessage(error) {
+        const french = {
+            PHONE_INVALID:
+                "Entrez un numéro camerounais à 9 chiffres, comme 6XX XXX XXX.",
+            PIN_INVALID:
+                "Votre PIN doit contenir 4 à 6 chiffres.",
+            PIN_WRONG:
+                "PIN incorrect. Réessayez.",
+            PIN_LOCKED:
+                "Trop de PIN incorrects. Réessayez dans 15 minutes.",
+            NAME_REQUIRED:
+                "Veuillez entrer votre nom complet.",
+            DRIVER_DETAILS_REQUIRED:
+                "Ajoutez le type de véhicule et le numéro de plaque.",
+            OFFLINE:
+                "Pas de connexion internet. Vérifiez votre réseau.",
+        };
+
+        if (
+            language === "fr" &&
+            french[error?.code]
+        ) {
+            return french[error.code];
+        }
+
+        return (
+            error?.message ||
+            (language === "fr"
+                ? "Une erreur est survenue. Veuillez réessayer."
+                : "Something went wrong. Please try again.")
+        );
+    }
+
+    /*
+     * ============================================================
+     * SAVE SESSION AND OPEN THE DASHBOARD
      * ============================================================
      */
 
-    async function createSession(
-        payload
-    ) {
-        const response =
-            await fetch(
-                "/api/session/login",
-                {
-                    method: "POST",
+    function openDashboard(user) {
+        localStorage.setItem(
+            "tayebUser",
+            JSON.stringify(user)
+        );
 
-                    headers: {
-                        "Content-Type":
-                            "application/json",
-                    },
+        localStorage.setItem(
+            "selectedRole",
+            user.role
+        );
 
-                    body:
-                        JSON.stringify(
-                            payload
-                        ),
-                }
-            );
-
-        let result = null;
-
-        try {
-            result =
-                await response.json();
-        } catch {
-            result = null;
+        if (user.role === "ADMIN") {
+            router.push("/admin");
+            return;
         }
 
-        if (!response.ok) {
-            throw new Error(
-                result?.error ||
-                text(
-                    "errors.somethingWrong",
-                    "Unable to create secure session."
-                )
-            );
-        }
+        router.push(
+            user.role === "DRIVER"
+                ? "/driver"
+                : "/shipper"
+        );
+    }
 
-        return result;
+    function changeNumber() {
+        setStep("phone");
+        setAccount(null);
+        setPin("");
+        setPinConfirm("");
+        setNeedsVehicle(false);
     }
 
     /*
      * ============================================================
      * LOGIN
      * ============================================================
+     *
+     * Step 1: the phone number tells us if this is a new or
+     * returning account. Step 2: the PIN, plus name and
+     * vehicle details for new accounts.
      */
 
     async function handleLogin(
@@ -174,38 +251,17 @@ export default function LoginPage() {
                 }
 
                 const session =
-                    await createSession({
-                        isAdmin: true,
-                        phone:
-                            cleanPhone,
-                        adminPin,
-                    });
-
-                const adminUser =
-                    session?.user;
-
-                if (!adminUser) {
-                    throw new Error(
-                        language === "fr"
-                            ? "Le compte administrateur n'a pas pu être créé."
-                            : "Administrator account could not be created."
+                    await apiPost(
+                        "/api/session/login",
+                        {
+                            isAdmin: true,
+                            phone: cleanPhone,
+                            adminPin,
+                        }
                     );
-                }
 
-                localStorage.setItem(
-                    "tayebUser",
-                    JSON.stringify(
-                        adminUser
-                    )
-                );
-
-                localStorage.setItem(
-                    "selectedRole",
-                    "ADMIN"
-                );
-
-                router.push(
-                    "/admin"
+                openDashboard(
+                    session.user
                 );
 
                 return;
@@ -213,11 +269,71 @@ export default function LoginPage() {
 
             /*
              * =====================================================
-             * NORMAL USER VALIDATION
+             * STEP 1: PHONE
              * =====================================================
              */
 
-            if (!name.trim()) {
+            if (step === "phone") {
+                const result =
+                    await apiPost(
+                        "/api/session/lookup",
+                        {
+                            phone,
+                        }
+                    );
+
+                setAccount(result);
+
+                /*
+                 * Returning users start with the role they
+                 * already have; the role cards still let
+                 * them switch on purpose.
+                 */
+
+                if (
+                    result.exists &&
+                    (result.role === "SHIPPER" ||
+                        result.role === "DRIVER")
+                ) {
+                    selectRole(
+                        result.role
+                    );
+                }
+
+                setStep("details");
+
+                return;
+            }
+
+            /*
+             * =====================================================
+             * STEP 2: PIN AND DETAILS
+             * =====================================================
+             */
+
+            if (!/^\d{4,6}$/.test(pin)) {
+                throw new Error(
+                    language === "fr"
+                        ? "Votre PIN doit contenir 4 à 6 chiffres."
+                        : "Your PIN must be 4 to 6 digits."
+                );
+            }
+
+            if (
+                creatingPin &&
+                pin !== pinConfirm
+            ) {
+                throw new Error(
+                    language === "fr"
+                        ? "Les deux PIN ne sont pas identiques."
+                        : "The two PINs don't match."
+                );
+            }
+
+            if (
+                isNewAccount &&
+                !name.trim()
+            ) {
                 throw new Error(
                     language === "fr"
                         ? "Veuillez entrer votre nom complet."
@@ -225,277 +341,25 @@ export default function LoginPage() {
                 );
             }
 
-            if (!cleanPhone) {
-                throw new Error(
-                    language === "fr"
-                        ? "Veuillez entrer votre numéro de téléphone."
-                        : "Please enter your phone number."
-                );
-            }
-
-            /*
-             * =====================================================
-             * DRIVER VALIDATION
-             * =====================================================
-             */
-
-            if (role === "DRIVER") {
-                if (
-                    !vehicleType.trim()
-                ) {
-                    throw new Error(
-                        language === "fr"
-                            ? "Veuillez entrer le type de véhicule."
-                            : "Please enter your vehicle type."
-                    );
-                }
-
-                if (
-                    !plateNumber.trim()
-                ) {
-                    throw new Error(
-                        language === "fr"
-                            ? "Veuillez entrer le numéro de plaque."
-                            : "Please enter your plate number."
-                    );
-                }
-            }
-
-            /*
-             * =====================================================
-             * FIND EXISTING USER
-             * =====================================================
-             */
-
-            const {
-                data: existingUser,
-                error: findError,
-            } = await supabase
-                .from("users")
-                .select("*")
-                .eq(
-                    "phone_number",
-                    cleanPhone
-                )
-                .maybeSingle();
-
-            if (findError) {
-                throw findError;
-            }
-
-            let user =
-                existingUser;
-
-            /*
-             * =====================================================
-             * CREATE NEW USER
-             * =====================================================
-             */
-
-            if (!user) {
-                const newUserData = {
-                    full_name:
-                        name.trim(),
-
-                    phone_number:
-                        cleanPhone,
-
-                    role,
-                };
-
-                if (
-                    role === "DRIVER"
-                ) {
-                    newUserData.vehicle_type =
-                        vehicleType.trim();
-
-                    newUserData.plate_number =
-                        plateNumber.trim();
-                }
-
-                const {
-                    data: newUser,
-                    error: createError,
-                } = await supabase
-                    .from("users")
-                    .insert([
-                        newUserData,
-                    ])
-                    .select()
-                    .single();
-
-                if (createError) {
-                    throw createError;
-                }
-
-                user = newUser;
-            }
-
-            /*
-             * =====================================================
-             * UPDATE ROLE
-             * =====================================================
-             */
-
-            if (
-                user.role !== role
-            ) {
-                const {
-                    data: updatedUser,
-                    error: roleError,
-                } = await supabase
-                    .from("users")
-                    .update({
-                        role,
-                    })
-                    .eq(
-                        "id",
-                        user.id
-                    )
-                    .select()
-                    .single();
-
-                if (roleError) {
-                    throw roleError;
-                }
-
-                if (updatedUser) {
-                    user =
-                        updatedUser;
-                }
-            }
-
-            /*
-             * =====================================================
-             * UPDATE DRIVER
-             * =====================================================
-             */
-
-            if (
-                role === "DRIVER"
-            ) {
-                const {
-                    data: updatedDriver,
-                    error: driverError,
-                } = await supabase
-                    .from("users")
-                    .update({
-                        full_name:
-                            name.trim(),
-
-                        vehicle_type:
-                            vehicleType.trim(),
-
-                        plate_number:
-                            plateNumber.trim(),
-                    })
-                    .eq(
-                        "id",
-                        user.id
-                    )
-                    .select()
-                    .single();
-
-                if (driverError) {
-                    throw driverError;
-                }
-
-                if (updatedDriver) {
-                    user =
-                        updatedDriver;
-                }
-            }
-
-            /*
-             * =====================================================
-             * UPDATE SHIPPER
-             * =====================================================
-             */
-
-            if (
-                role === "SHIPPER"
-            ) {
-                const {
-                    data: updatedShipper,
-                    error: shipperError,
-                } = await supabase
-                    .from("users")
-                    .update({
-                        full_name:
-                            name.trim(),
-                    })
-                    .eq(
-                        "id",
-                        user.id
-                    )
-                    .select()
-                    .single();
-
-                if (
-                    !shipperError &&
-                    updatedShipper
-                ) {
-                    user =
-                        updatedShipper;
-                }
-            }
-
-            /*
-             * =====================================================
-             * CREATE SERVER SESSION
-             * =====================================================
-             */
-
             const session =
-                await createSession({
-                    userId:
-                        user.id,
-
-                    phone:
-                        user.phone_number,
-                });
-
-            const verifiedUser =
-                session?.user ||
-                user;
-
-            /*
-             * =====================================================
-             * LOCAL COMPATIBILITY SESSION
-             * =====================================================
-             */
-
-            localStorage.setItem(
-                "tayebUser",
-                JSON.stringify(
-                    verifiedUser
-                )
-            );
-
-            localStorage.setItem(
-                "selectedRole",
-                verifiedUser.role
-            );
-
-            /*
-             * =====================================================
-             * ROUTING
-             * =====================================================
-             */
-
-            if (
-                verifiedUser.role ===
-                "DRIVER"
-            ) {
-                router.push(
-                    "/driver"
+                await apiPost(
+                    "/api/session/login",
+                    {
+                        phone,
+                        pin,
+                        role,
+                        name:
+                            name.trim(),
+                        vehicleType:
+                            vehicleType.trim(),
+                        plateNumber:
+                            plateNumber.trim(),
+                        city,
+                    }
                 );
 
-                return;
-            }
-
-            router.push(
-                "/shipper"
+            openDashboard(
+                session.user
             );
         } catch (error) {
             console.error(
@@ -503,13 +367,22 @@ export default function LoginPage() {
                 error
             );
 
+            if (
+                error?.code ===
+                "DRIVER_DETAILS_REQUIRED"
+            ) {
+                setNeedsVehicle(true);
+            }
+
+            if (
+                error?.code ===
+                "PHONE_INVALID"
+            ) {
+                changeNumber();
+            }
+
             alert(
-                error?.message ||
-                (
-                    language === "fr"
-                        ? "Une erreur est survenue. Veuillez réessayer."
-                        : "Something went wrong. Please try again."
-                )
+                errorMessage(error)
             );
         } finally {
             setLoading(false);
@@ -733,8 +606,9 @@ export default function LoginPage() {
                         className="tayeb-login-form"
                     >
 
-                        {/* NAME */}
+                        {/* NAME (new accounts) */}
 
+                        {isNewAccount && !isAdminPhone && (
                         <div className="tayeb-field">
 
                             <label>
@@ -783,6 +657,7 @@ export default function LoginPage() {
                             </div>
 
                         </div>
+                        )}
 
 
                         {/* PHONE */}
@@ -819,14 +694,191 @@ export default function LoginPage() {
                                     placeholder="6XX XXX XXX"
                                     required
                                     disabled={
-                                        loading
+                                        loading ||
+                                        step ===
+                                        "details"
                                     }
                                     autoComplete="tel"
+                                    inputMode="tel"
                                 />
 
                             </div>
 
+                            {step === "details" &&
+                                !isAdminPhone && (
+                                    <button
+                                        type="button"
+                                        className="tayeb-link-button"
+                                        onClick={
+                                            changeNumber
+                                        }
+                                    >
+                                        {language ===
+                                            "fr"
+                                            ? "Changer de numéro"
+                                            : "Use another number"}
+                                    </button>
+                                )}
+
                         </div>
+
+
+                        {/* USER PIN */}
+
+                        {step === "details" &&
+                            !isAdminPhone && (
+                                <>
+                                    <div className="tayeb-account-notice">
+                                        {account?.exists
+                                            ? account.hasPin
+                                                ? language === "fr"
+                                                    ? "👋 Bon retour ! Entrez votre PIN."
+                                                    : "👋 Welcome back! Enter your PIN."
+                                                : language === "fr"
+                                                    ? "🔐 Créez un PIN pour protéger votre compte. Vous l'utiliserez à chaque connexion."
+                                                    : "🔐 Create a PIN to protect your account. You'll use it every time you log in."
+                                            : language === "fr"
+                                                ? "✨ Nouveau sur Tayeb ? Créez votre compte en 1 minute."
+                                                : "✨ New to Tayeb? Create your account in 1 minute."}
+                                    </div>
+
+                                    <div className="tayeb-field">
+
+                                        <label>
+                                            {creatingPin
+                                                ? language === "fr"
+                                                    ? "Choisissez un PIN (4 à 6 chiffres)"
+                                                    : "Choose a PIN (4 to 6 digits)"
+                                                : language === "fr"
+                                                    ? "Votre PIN"
+                                                    : "Your PIN"}
+                                        </label>
+
+                                        <div className="tayeb-input-wrap">
+
+                                            <span className="tayeb-input-icon">
+                                                🔐
+                                            </span>
+
+                                            <input
+                                                type={
+                                                    showPin
+                                                        ? "text"
+                                                        : "password"
+                                                }
+                                                value={
+                                                    pin
+                                                }
+                                                onChange={(
+                                                    event
+                                                ) =>
+                                                    setPin(
+                                                        event.target.value
+                                                            .replace(/\D/g, "")
+                                                            .slice(0, 6)
+                                                    )
+                                                }
+                                                placeholder="••••"
+                                                inputMode="numeric"
+                                                required
+                                                disabled={
+                                                    loading
+                                                }
+                                                autoComplete={
+                                                    creatingPin
+                                                        ? "new-password"
+                                                        : "current-password"
+                                                }
+                                                autoFocus
+                                            />
+
+                                            <button
+                                                type="button"
+                                                className="tayeb-eye-button"
+                                                onClick={() =>
+                                                    setShowPin(
+                                                        (current) =>
+                                                            !current
+                                                    )
+                                                }
+                                                tabIndex={
+                                                    -1
+                                                }
+                                            >
+                                                {showPin
+                                                    ? "🙈"
+                                                    : "👁️"}
+                                            </button>
+
+                                        </div>
+
+                                    </div>
+
+                                    {creatingPin && (
+                                        <div className="tayeb-field">
+
+                                            <label>
+                                                {language === "fr"
+                                                    ? "Confirmez votre PIN"
+                                                    : "Confirm your PIN"}
+                                            </label>
+
+                                            <div className="tayeb-input-wrap">
+
+                                                <span className="tayeb-input-icon">
+                                                    🔐
+                                                </span>
+
+                                                <input
+                                                    type={
+                                                        showPin
+                                                            ? "text"
+                                                            : "password"
+                                                    }
+                                                    value={
+                                                        pinConfirm
+                                                    }
+                                                    onChange={(
+                                                        event
+                                                    ) =>
+                                                        setPinConfirm(
+                                                            event.target.value
+                                                                .replace(/\D/g, "")
+                                                                .slice(0, 6)
+                                                        )
+                                                    }
+                                                    placeholder="••••"
+                                                    inputMode="numeric"
+                                                    required
+                                                    disabled={
+                                                        loading
+                                                    }
+                                                    autoComplete="new-password"
+                                                />
+
+                                            </div>
+
+                                        </div>
+                                    )}
+
+                                    {!creatingPin && (
+                                        <a
+                                            className="tayeb-link-button"
+                                            href={`https://wa.me/237${ADMIN_PHONE}?text=${encodeURIComponent(
+                                                language === "fr"
+                                                    ? `Bonjour Tayeb, j'ai oublié mon PIN. Mon numéro : ${cleanPhone}`
+                                                    : `Hello Tayeb, I forgot my PIN. My number: ${cleanPhone}`
+                                            )}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            {language === "fr"
+                                                ? "PIN oublié ? Écrivez-nous sur WhatsApp"
+                                                : "Forgot your PIN? Message us on WhatsApp"}
+                                        </a>
+                                    )}
+                                </>
+                            )}
 
 
                         {/* ADMIN PIN */}
@@ -905,8 +957,7 @@ export default function LoginPage() {
                         {/* DRIVER DETAILS */}
 
                         {!isAdminPhone &&
-                            role ===
-                            "DRIVER" && (
+                            showDriverDetails && (
                                 <div className="tayeb-driver-box">
 
                                     <div className="tayeb-driver-heading">
@@ -1027,6 +1078,60 @@ export default function LoginPage() {
 
                                     </div>
 
+
+                                    <div className="tayeb-field">
+
+                                        <label>
+                                            {language === "fr"
+                                                ? "Votre ville (pour recevoir les marchandises près de vous)"
+                                                : "Your city (to get loads near you)"}
+                                        </label>
+
+                                        <div className="tayeb-input-wrap">
+
+                                            <span className="tayeb-input-icon">
+                                                📍
+                                            </span>
+
+                                            <select
+                                                value={
+                                                    city
+                                                }
+                                                onChange={(
+                                                    event
+                                                ) =>
+                                                    setCity(
+                                                        event
+                                                            .target
+                                                            .value
+                                                    )
+                                                }
+                                                disabled={
+                                                    loading
+                                                }
+                                            >
+                                                <option value="">
+                                                    {language === "fr"
+                                                        ? "Choisir une ville"
+                                                        : "Choose a city"}
+                                                </option>
+
+                                                {CITY_NAMES.map(
+                                                    (cityName) => (
+                                                        <option
+                                                            key={cityName}
+                                                            value={cityName}
+                                                        >
+                                                            {cityName}
+                                                        </option>
+                                                    )
+                                                )}
+                                            </select>
+
+                                        </div>
+
+                                    </div>
+
                                 </div>
                             )}
 
@@ -1089,10 +1194,18 @@ export default function LoginPage() {
                                                 "login.adminLogin",
                                                 "Admin Login"
                                             )
-                                            : text(
-                                                "login.continue",
-                                                "Continue"
-                                            )}
+                                            : step === "phone"
+                                                ? text(
+                                                    "login.continue",
+                                                    "Continue"
+                                                )
+                                                : isNewAccount
+                                                    ? language === "fr"
+                                                        ? "Créer mon compte"
+                                                        : "Create my account"
+                                                    : language === "fr"
+                                                        ? "Se connecter"
+                                                        : "Log in"}
                                     </span>
 
                                     <span className="submit-arrow">
@@ -1597,8 +1710,34 @@ export default function LoginPage() {
 
                 .tayeb-field label {
                     color: #374151;
-                    font-size: 8px;
-                    font-weight: 900;
+                    font-size: 12px;
+                    font-weight: 800;
+                }
+
+
+                .tayeb-link-button {
+                    justify-self: start;
+                    padding: 2px 0;
+                    border: 0;
+                    background: transparent;
+                    color: #ea580c;
+                    font-family: inherit;
+                    font-size: 12px;
+                    font-weight: 800;
+                    text-decoration: none;
+                    cursor: pointer;
+                }
+
+
+                .tayeb-account-notice {
+                    padding: 12px 14px;
+                    border-radius: 14px;
+                    background: #fff7ed;
+                    border: 1px solid #fed7aa;
+                    color: #9a3412;
+                    font-size: 13px;
+                    font-weight: 700;
+                    line-height: 1.45;
                 }
 
 
@@ -1618,7 +1757,8 @@ export default function LoginPage() {
                 }
 
 
-                .tayeb-input-wrap input {
+                .tayeb-input-wrap input,
+                .tayeb-input-wrap select {
                     width: 100%;
                     min-height: 53px;
                     padding:
@@ -1630,10 +1770,18 @@ export default function LoginPage() {
                     background: #f9fafb;
                     color: #111827;
                     font-family: inherit;
-                    font-size: 11px;
+                    /* 16px stops iPhones zooming in on focus. */
+                    font-size: 16px;
                     font-weight: 650;
                     transition:
                         0.18s ease;
+                }
+
+
+                .tayeb-input-wrap select {
+                    appearance: none;
+                    -webkit-appearance: none;
+                    cursor: pointer;
                 }
 
 
@@ -1643,13 +1791,15 @@ export default function LoginPage() {
                 }
 
 
-                .tayeb-input-wrap input:hover {
+                .tayeb-input-wrap input:hover,
+                .tayeb-input-wrap select:hover {
                     border-color:
                         #d1d5db;
                     background: #fff;
                 }
 
 
+                .tayeb-input-wrap select:focus,
                 .tayeb-input-wrap input:focus {
                     border-color:
                         #f97316;

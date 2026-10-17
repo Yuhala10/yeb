@@ -2,11 +2,9 @@ import Head from "next/head";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 
-import supabase from "../lib/supabaseClient";
+import { apiGet } from "../lib/api";
 import BrandLogo from "../components/BrandLogo";
 import { useLanguage } from "../lib/LanguageContext";
-
-const ADMIN_PHONE = "681731512";
 
 export default function AdminDashboard() {
     const router = useRouter();
@@ -285,60 +283,57 @@ export default function AdminDashboard() {
             return;
         }
 
-        const savedUser =
-            localStorage.getItem(
-                "tayebUser"
-            );
+        /*
+         * The server session decides who is admin. The
+         * browser's saved user can be edited by anyone.
+         */
 
-        if (!savedUser) {
-            router.replace(
-                "/login"
-            );
-
-            return;
-        }
-
-        try {
-            const parsedUser =
-                JSON.parse(
-                    savedUser
+        async function checkAdmin() {
+            try {
+                const {
+                    user,
+                } = await apiGet(
+                    "/api/session/me"
                 );
 
-            if (
-                parsedUser?.role !==
-                "ADMIN" ||
-                parsedUser?.phone_number !==
-                ADMIN_PHONE
-            ) {
-                setErrorMessage(
-                    text.accessDenied
-                );
-
-                setTimeout(() => {
-                    router.replace(
-                        "/"
+                if (
+                    user?.role !==
+                    "ADMIN"
+                ) {
+                    setErrorMessage(
+                        text.accessDenied
                     );
-                }, 900);
 
-                return;
+                    setTimeout(() => {
+                        router.replace(
+                            "/"
+                        );
+                    }, 900);
+
+                    return;
+                }
+
+                setAdmin(
+                    user
+                );
+
+                loadDashboard();
+
+            } catch (error) {
+                console.error(
+                    "Admin session error:",
+                    error
+                );
+
+                router.replace(
+                    "/login"
+                );
             }
-
-            setAdmin(
-                parsedUser
-            );
-
-            loadDashboard();
-
-        } catch (error) {
-            console.error(
-                "Admin session error:",
-                error
-            );
-
-            router.replace(
-                "/login"
-            );
         }
+
+        checkAdmin();
+        // Runs on first load and when the language changes.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [router, language]);
 
 
@@ -351,100 +346,28 @@ export default function AdminDashboard() {
         setErrorMessage("");
 
         try {
-            const [
-                usersResult,
-                shipmentsResult,
-                bidsResult,
-                notificationsResult,
-            ] = await Promise.all([
-                supabase
-                    .from("users")
-                    .select("*")
-                    .order(
-                        "created_at",
-                        {
-                            ascending:
-                                false,
-                        }
-                    ),
-
-                supabase
-                    .from("shipments")
-                    .select("*")
-                    .order(
-                        "created_at",
-                        {
-                            ascending:
-                                false,
-                        }
-                    ),
-
-                supabase
-                    .from("bids")
-                    .select("*")
-                    .order(
-                        "created_at",
-                        {
-                            ascending:
-                                false,
-                        }
-                    ),
-
-                supabase
-                    .from("notifications")
-                    .select("*")
-                    .order(
-                        "created_at",
-                        {
-                            ascending:
-                                false,
-                        }
-                    ),
-            ]);
-
-
-            if (
-                usersResult.error
-            ) {
-                throw usersResult.error;
-            }
-
-            if (
-                shipmentsResult.error
-            ) {
-                throw shipmentsResult.error;
-            }
-
-            if (
-                bidsResult.error
-            ) {
-                throw bidsResult.error;
-            }
-
-            if (
-                notificationsResult.error
-            ) {
-                throw notificationsResult.error;
-            }
-
+            const data =
+                await apiGet(
+                    "/api/admin/dashboard"
+                );
 
             setUsers(
-                usersResult.data ||
+                data.users ||
                 []
             );
 
             setShipments(
-                shipmentsResult.data ||
+                data.shipments ||
                 []
             );
 
             setBids(
-                bidsResult.data ||
+                data.bids ||
                 []
             );
 
             setNotifications(
-                notificationsResult.data ||
+                data.notifications ||
                 []
             );
 

@@ -1,80 +1,87 @@
-import { useState, useEffect } from "react";
+import Head from "next/head";
+import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/router";
-import { apiGet, apiPost } from "../lib/api";
-import { cityNames } from "../lib/cities";
+import { useEffect, useState } from "react";
+
 import PhoneInput from "../components/Site/PhoneInput";
-import { useVisitorCountry } from "../lib/useCountry";
+import { apiGet, apiPost } from "../lib/api";
+import { appError, useAppText } from "../lib/appText";
+import { cityNames } from "../lib/cities";
+import { FOUNDER, QUOTES } from "../lib/founder";
 import { useLanguage } from "../lib/LanguageContext";
-import BrandLogo from "../components/BrandLogo";
+import { formatPhone, parsePhone } from "../lib/phone";
+import { useVisitorCountry } from "../lib/useCountry";
+import { DASHBOARDS } from "../lib/useSession";
 
-// Tayeb support on WhatsApp (international digits).
-const SUPPORT_WHATSAPP = "237681731512";
+/*
+ * ============================================================
+ * LOGIN AND SIGN-UP
+ * ============================================================
+ *
+ * Step 1: what you want to do and your phone number. The
+ * server says if the number is new, has a PIN, or needs one.
+ * Step 2: the PIN, plus name and vehicle/farm details for new
+ * accounts. Then back to the page that sent you here, or to
+ * your dashboard.
+ */
 
-const ROLES = ["SHIPPER", "DRIVER", "FARMER"];
+const ROLES = [
+    ["SHIPPER", "📦"],
+    ["DRIVER", "🚚"],
+    ["FARMER", "🌾"],
+];
+
+const ROLE_KEYS = ROLES.map(([key]) => key);
 
 export default function LoginPage() {
     const router = useRouter();
 
-    const {
-        language,
-        t,
-    } = useLanguage();
+    const { language } = useLanguage();
 
-    const [name, setName] = useState("");
-    const [phone, setPhone] = useState("");
+    const a = useAppText();
 
-    // How to read numbers typed without a country code.
     const [country, setCountry] = useVisitorCountry();
+
+    const [step, setStep] = useState("phone");
+
     const [role, setRole] = useState("SHIPPER");
 
-    const [vehicleType, setVehicleType] =
-        useState("");
+    const [switching, setSwitching] = useState(false);
 
-    const [plateNumber, setPlateNumber] =
-        useState("");
+    const [phone, setPhone] = useState("");
 
-    const [loading, setLoading] =
-        useState(false);
+    const [account, setAccount] = useState(null);
 
-    const [showPin, setShowPin] =
-        useState(false);
+    const [name, setName] = useState("");
 
-    const [step, setStep] =
-        useState("phone");
+    const [pin, setPin] = useState("");
 
-    const [account, setAccount] =
-        useState(null);
+    const [pinRepeat, setPinRepeat] = useState("");
 
-    const [pin, setPin] =
-        useState("");
+    const [showPin, setShowPin] = useState(false);
 
-    const [pinConfirm, setPinConfirm] =
-        useState("");
+    const [vehicleType, setVehicleType] = useState("");
 
-    const [city, setCity] =
-        useState("");
+    const [plate, setPlate] = useState("");
 
-    const [needsVehicle, setNeedsVehicle] =
-        useState(false);
+    const [city, setCity] = useState("");
 
-    /*
-     * The "Sell my harvest" choice appears once Tayeb Marché
-     * is set up in the database.
-     */
-    const [marketOpen, setMarketOpen] =
-        useState(false);
+    const [needsVehicle, setNeedsVehicle] = useState(false);
+
+    const [marketOpen, setMarketOpen] = useState(false);
+
+    const [loading, setLoading] = useState(false);
+
+    const [error, setError] = useState("");
+
+    /* ---------------- setup ---------------- */
 
     useEffect(() => {
         let alive = true;
 
         apiGet("/api/market?status=1")
-            .then((result) => {
-                if (alive) {
-                    setMarketOpen(
-                        Boolean(result.ready)
-                    );
-                }
-            })
+            .then((result) => alive && setMarketOpen(Boolean(result.ready)))
             .catch(() => {});
 
         return () => {
@@ -87,7 +94,7 @@ export default function LoginPage() {
             return;
         }
 
-        // Deferred so the first render matches the server.
+        // Deferred so the first render matches the server's.
         const timer = setTimeout(() => {
             const fromLink = String(router.query.role || "").toUpperCase();
 
@@ -99,7 +106,7 @@ export default function LoginPage() {
                 saved = null;
             }
 
-            const next = ROLES.includes(fromLink) ? fromLink : ROLES.includes(saved) ? saved : null;
+            const next = ROLE_KEYS.includes(fromLink) ? fromLink : ROLE_KEYS.includes(saved) ? saved : null;
 
             if (next) {
                 setRole(next);
@@ -109,139 +116,47 @@ export default function LoginPage() {
         return () => clearTimeout(timer);
     }, [router.isReady, router.query.role]);
 
-    // For the "forgot my PIN" message to support.
-    const cleanPhone =
-        phone.trim();
+    /* ---------------- derived ---------------- */
 
+    const isNew = step === "pin" && account && !account.exists;
 
-    const isNewAccount =
-        step === "details" &&
-        account &&
-        !account.exists;
+    const creatingPin = step === "pin" && account && (!account.exists || !account.hasPin);
 
-    const creatingPin =
-        step === "details" &&
-        account &&
-        (!account.exists ||
-            !account.hasPin);
+    const askVehicle = step === "pin" && role === "DRIVER" && (isNew || needsVehicle || !account?.hasVehicle);
 
-    const showDriverDetails =
-        step === "details" &&
-        role === "DRIVER" &&
-        (isNewAccount ||
-            needsVehicle ||
-            !account?.hasVehicle);
+    const askFarm = step === "pin" && role === "FARMER" && (isNew || !account?.hasCity);
 
-    const showFarmCity =
-        step === "details" &&
-        role === "FARMER" &&
-        (isNewAccount ||
-            !account?.hasCity);
+    const roles = ROLES.filter(([key]) => key !== "FARMER" || marketOpen || role === "FARMER");
 
-    function text(
-        key,
-        english
-    ) {
+    function chooseRole(next) {
+        setRole(next);
+        setError("");
+
         try {
-            return t(
-                key,
-                english
-            );
+            localStorage.setItem("selectedRole", next);
         } catch {
-            return english;
+            // Storage blocked: the choice still counts for this login.
         }
     }
 
-    function goBack() {
-        router.push("/");
+    function restart() {
+        setStep("phone");
+        setAccount(null);
+        setPin("");
+        setPinRepeat("");
+        setNeedsVehicle(false);
+        setSwitching(false);
+        setError("");
     }
-
-    function selectRole(nextRole) {
-        setRole(nextRole);
-
-        if (
-            typeof window !==
-            "undefined"
-        ) {
-            localStorage.setItem(
-                "selectedRole",
-                nextRole
-            );
-        }
-    }
-
-    /*
-     * ============================================================
-     * ERROR MESSAGES
-     * ============================================================
-     *
-     * The server answers in English with a code; French
-     * speakers get the French version of the common ones.
-     */
-
-    function errorMessage(error) {
-        const french = {
-            PHONE_INVALID:
-                "Entrez un numéro camerounais à 9 chiffres, comme 6XX XXX XXX.",
-            PIN_INVALID:
-                "Votre PIN doit contenir 4 à 6 chiffres.",
-            PIN_WRONG:
-                "PIN incorrect. Réessayez.",
-            PIN_LOCKED:
-                "Trop de PIN incorrects. Réessayez dans 15 minutes.",
-            NAME_REQUIRED:
-                "Veuillez entrer votre nom complet.",
-            DRIVER_DETAILS_REQUIRED:
-                "Ajoutez le type de véhicule et le numéro de plaque.",
-            CITY_REQUIRED:
-                "Choisissez la ville où se trouve votre ferme.",
-            MARKET_NOT_READY:
-                "Les comptes agriculteurs ouvrent très bientôt.",
-            OFFLINE:
-                "Pas de connexion internet. Vérifiez votre réseau.",
-        };
-
-        if (
-            language === "fr" &&
-            french[error?.code]
-        ) {
-            return french[error.code];
-        }
-
-        return (
-            error?.message ||
-            (language === "fr"
-                ? "Une erreur est survenue. Veuillez réessayer."
-                : "Something went wrong. Please try again.")
-        );
-    }
-
-    /*
-     * ============================================================
-     * SAVE SESSION AND OPEN THE DASHBOARD
-     * ============================================================
-     */
 
     function openDashboard(user) {
-        localStorage.setItem(
-            "tayebUser",
-            JSON.stringify(user)
-        );
-
-        localStorage.setItem(
-            "selectedRole",
-            user.role
-        );
-
-        if (user.role === "ADMIN") {
-            router.push("/admin");
-            return;
+        try {
+            localStorage.setItem("tayebUser", JSON.stringify(user));
+            localStorage.setItem("selectedRole", user.role);
+        } catch {
+            // Storage blocked: the session cookie is what counts.
         }
 
-        /*
-         * Back to the page that sent them here (a product they
-         * wanted to order, for example), if it's on this site.
-         */
         let returnTo = null;
 
         try {
@@ -251,70 +166,30 @@ export default function LoginPage() {
             returnTo = null;
         }
 
-        if (
-            returnTo &&
-            returnTo.startsWith("/") &&
-            !returnTo.startsWith("//") &&
-            !returnTo.includes("\\")
-        ) {
+        // Back to the page that sent them here, if it's on this site.
+        if (returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//") && !returnTo.includes("\\")) {
             router.push(returnTo);
             return;
         }
 
-        router.push(
-            user.role === "DRIVER"
-                ? "/driver"
-                : user.role === "FARMER"
-                    ? "/farmer"
-                    : "/shipper"
-        );
+        router.push(DASHBOARDS[user.role] || "/");
     }
 
-    function changeNumber() {
-        setStep("phone");
-        setAccount(null);
-        setPin("");
-        setPinConfirm("");
-        setNeedsVehicle(false);
-    }
+    /* ---------------- submit ---------------- */
 
-    /*
-     * ============================================================
-     * LOGIN
-     * ============================================================
-     *
-     * Step 1: the phone number tells us if this is a new or
-     * returning account. Step 2: the PIN, plus name and
-     * vehicle details for new accounts.
-     */
-
-    async function handleLogin(
-        event
-    ) {
+    async function submit(event) {
         event.preventDefault();
 
         if (loading) {
             return;
         }
 
+        setError("");
         setLoading(true);
 
         try {
-            /*
-             * =====================================================
-             * STEP 1: PHONE
-             * =====================================================
-             */
-
             if (step === "phone") {
-                const result =
-                    await apiPost(
-                        "/api/session/lookup",
-                        {
-                            phone,
-                            country,
-                        }
-                    );
+                const result = await apiPost("/api/session/lookup", { phone, country });
 
                 setAccount(result);
 
@@ -322,1905 +197,367 @@ export default function LoginPage() {
                     setCountry(result.country);
                 }
 
-                /*
-                 * Returning users start with the role they
-                 * already have; the role cards still let
-                 * them switch on purpose.
-                 */
-
-                if (
-                    result.exists &&
-                    ROLES.includes(result.role)
-                ) {
-                    selectRole(
-                        result.role
-                    );
+                // Returning people start in the space they already use.
+                if (result.exists && ROLE_KEYS.includes(result.role)) {
+                    setRole(result.role);
                 }
 
-                setStep("details");
-
+                setStep("pin");
                 return;
             }
 
-            /*
-             * =====================================================
-             * STEP 2: PIN AND DETAILS
-             * =====================================================
-             */
-
             if (!/^\d{4,6}$/.test(pin)) {
-                throw new Error(
-                    language === "fr"
-                        ? "Votre PIN doit contenir 4 à 6 chiffres."
-                        : "Your PIN must be 4 to 6 digits."
-                );
+                throw new Error(a("l_pinShort"));
             }
 
-            if (
-                creatingPin &&
-                pin !== pinConfirm
-            ) {
-                throw new Error(
-                    language === "fr"
-                        ? "Les deux PIN ne sont pas identiques."
-                        : "The two PINs don't match."
-                );
+            if (creatingPin && pin !== pinRepeat) {
+                throw new Error(a("l_pinMismatch"));
             }
 
-            if (
-                isNewAccount &&
-                !name.trim()
-            ) {
-                throw new Error(
-                    language === "fr"
-                        ? "Veuillez entrer votre nom complet."
-                        : "Please enter your full name."
-                );
+            if (isNew && name.trim().length < 2) {
+                throw new Error(a("l_nameMissing"));
             }
 
-            const session =
-                await apiPost(
-                    "/api/session/login",
-                    {
-                        phone,
-                        country,
-                        pin,
-                        role,
-                        name:
-                            name.trim(),
-                        vehicleType:
-                            vehicleType.trim(),
-                        plateNumber:
-                            plateNumber.trim(),
-                        city,
-                    }
-                );
+            const session = await apiPost("/api/session/login", {
+                phone,
+                country,
+                pin,
+                role,
+                name: name.trim(),
+                vehicleType: vehicleType.trim(),
+                plateNumber: plate.trim(),
+                city,
+            });
 
-            openDashboard(
-                session.user
-            );
-        } catch (error) {
-            console.error(
-                "Login error:",
-                error
-            );
-
-            if (
-                error?.code ===
-                "DRIVER_DETAILS_REQUIRED"
-            ) {
+            openDashboard(session.user);
+        } catch (failure) {
+            if (failure?.code === "DRIVER_DETAILS_REQUIRED") {
                 setNeedsVehicle(true);
             }
 
-            if (
-                error?.code ===
-                "PHONE_INVALID"
-            ) {
-                changeNumber();
+            if (failure?.code === "PHONE_INVALID") {
+                restart();
             }
 
-            alert(
-                errorMessage(error)
-            );
+            setError(appError(language, failure));
         } finally {
             setLoading(false);
         }
     }
 
+    const quote = QUOTES[0];
+
+    const forgot = `https://wa.me/${FOUNDER.whatsapp}?text=${encodeURIComponent(a("l_forgotMessage", { phone: phone.trim() }))}`;
+
     return (
-        <main className="tayeb-login-page">
+        <>
+            <Head>
+                <title>{`${a("l_title")} · Tayeb`}</title>
+                <meta name="description" content={a("l_sub")} />
+                <meta name="robots" content="noindex, follow" />
+            </Head>
 
-            {/* =================================================
-                BACKGROUND
-            ================================================= */}
+            <main className="lg-page">
 
-            <div className="tayeb-login-glow glow-one" />
-            <div className="tayeb-login-glow glow-two" />
+                {/* =============================================
+                    STORY
+                ============================================= */}
 
-            {/* =================================================
-                TOP NAVIGATION
-            ================================================= */}
+                <section className="lg-story">
 
-            <header className="tayeb-login-header">
-
-                <button
-                    type="button"
-                    className="tayeb-back-button"
-                    onClick={goBack}
-                >
-                    <span className="back-arrow">
-                        ←
-                    </span>
-
-                    <span>
-                        {text(
-                            "common.back",
-                            "Back"
-                        )}
-                    </span>
-                </button>
-
-                <BrandLogo
-                    width={105}
-                    height={42}
-                />
-
-                <div className="tayeb-header-space" />
-
-            </header>
-
-
-            {/* =================================================
-                LOGIN CONTENT
-            ================================================= */}
-
-            <section className="tayeb-login-shell">
-
-                <div className="tayeb-login-card">
-
-                    {/* BRAND */}
-
-                    <div className="tayeb-login-brand">
-
-                        <div className="tayeb-login-logo-wrap">
-                            <BrandLogo
-                                width={145}
-                                height={58}
-                            />
-                        </div>
-
-                        <div className="tayeb-login-tagline">
-                            Move. Manage. Deliver.
-                        </div>
-
+                    <div className="lg-top">
+                        <Link href="/" className="ts-brand" aria-label="Tayeb">
+                            <span className="ts-brand-logo">
+                                <Image src="/branding/tayeb-logo.jpeg" alt="" width={40} height={40} priority />
+                            </span>
+                            <span className="ts-brand-name">Tayeb</span>
+                        </Link>
+                        <Link href="/" className="lg-back">← {a("l_back")}</Link>
                     </div>
 
-
-                    {/* TITLE */}
-
-                    <div className="tayeb-login-heading">
-
-                        <span className="tayeb-login-eyebrow">
-                            TAYEB
-                        </span>
-
+                    <div>
                         <h1>
-                            {text(
-                                "login.welcome",
-                                "Welcome to Tayeb"
-                            )}
+                            {language === "fr" ? <>Bienvenue sur <em>Tayeb</em>.</> : <>Welcome to <em>Tayeb</em>.</>}
                         </h1>
-
-                        <p>
-                            {text(
-                                "login.subtitle",
-                                "Move your goods. Find a driver. Get moving."
-                            )}
-                        </p>
-
+                        <p>{a("l_sub")}</p>
+                        <ul className="lg-perks">
+                            {["l_perk1", "l_perk2", "l_perk3"].map((key) => (
+                                <li key={key}><span aria-hidden="true">✓</span>{a(key)}</li>
+                            ))}
+                        </ul>
                     </div>
 
+                    <blockquote className="lg-quote">
+                        “{quote.text[language] || quote.text.en}”
+                        <strong>{quote.author}</strong>
+                    </blockquote>
 
-                    {/* =================================================
-                        ROLE SELECTION
-                    ================================================= */}
+                </section>
 
-                    {(
-                        <div className="tayeb-role-section">
 
-                            <div className="tayeb-field-label">
-                                {language === "fr"
-                                    ? "Je veux"
-                                    : "I want to"}
+                {/* =============================================
+                    FORM
+                ============================================= */}
+
+                <section className="lg-panel">
+                    <form className="lg-card" onSubmit={submit} noValidate>
+
+                        <div className="lg-steps" aria-hidden="true">
+                            <i className="on" />
+                            <i className={step === "pin" ? "on" : ""} />
+                        </div>
+
+                        <h2>
+                            {step === "phone"
+                                ? a("l_iWant")
+                                : account?.exists
+                                    ? a("l_welcomeBack").split("!")[0] + " 👋"
+                                    : a("l_create")}
+                        </h2>
+
+                        {/* ---------- role ---------- */}
+
+                        {(step === "phone" || switching) && (
+                            <div className="lg-roles" role="radiogroup" aria-label={a("l_iWant")}>
+                                {roles.map(([key, icon]) => (
+                                    <button
+                                        key={key}
+                                        type="button"
+                                        role="radio"
+                                        aria-checked={role === key}
+                                        className={`lg-role ${role === key ? "active" : ""}`}
+                                        onClick={() => {
+                                            chooseRole(key);
+                                            setSwitching(false);
+                                        }}
+                                    >
+                                        <span aria-hidden="true">{icon}</span>
+                                        <span>
+                                            <strong>{a(`l_${key}`)}</strong>
+                                            <small>{a(`l_${key}_sub`)}</small>
+                                        </span>
+                                        <i aria-hidden="true">{role === key ? "✓" : ""}</i>
+                                    </button>
+                                ))}
                             </div>
+                        )}
 
-                            <div className="tayeb-role-grid">
+                        {/* ---------- phone ---------- */}
 
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        selectRole(
-                                            "SHIPPER"
-                                        )
-                                    }
-                                    className={`tayeb-role-card ${role ===
-                                            "SHIPPER"
-                                            ? "selected"
-                                            : ""
-                                        }`}
-                                >
-
-                                    <div className="tayeb-role-icon shipper">
-                                        📦
+                        {step === "phone" ? (
+                            <div className="ap-field">
+                                <label htmlFor="login-phone">{a("l_phone")}</label>
+                                <PhoneInput
+                                    id="login-phone"
+                                    country={country}
+                                    onCountry={setCountry}
+                                    value={phone}
+                                    onChange={setPhone}
+                                    disabled={loading}
+                                />
+                            </div>
+                        ) : (
+                            <>
+                                <div className="lg-who">
+                                    <div>
+                                        <small className="ap-label">{a("l_phone")}</small>
+                                        <div><strong>{formatPhone(parsePhone(phone, country)?.phone || phone)}</strong></div>
                                     </div>
+                                    <button type="button" className="lg-link" onClick={restart}>{a("l_change")}</button>
+                                </div>
 
-                                    <div className="tayeb-role-copy">
-
-                                        <strong>
-                                            {text(
-                                                "login.shipper",
-                                                "Send Cargo"
-                                            )}
-                                        </strong>
-
-                                        <span>
-                                            {language ===
-                                                "fr"
-                                                ? "Envoyer mes marchandises"
-                                                : "I need to move goods"}
-                                        </span>
-
+                                {!switching && (
+                                    <div className="lg-who">
+                                        <div>
+                                            <small className="ap-label">{a("l_iWant")}</small>
+                                            <div><strong>{ROLES.find(([key]) => key === role)?.[1]} {a(`l_${role}`)}</strong></div>
+                                        </div>
+                                        {roles.length > 1 && (
+                                            <button type="button" className="lg-link" onClick={() => setSwitching(true)}>
+                                                {language === "fr" ? "Changer" : "Change"}
+                                            </button>
+                                        )}
                                     </div>
+                                )}
 
-                                    <div className="tayeb-role-check">
-                                        {role ===
-                                            "SHIPPER"
-                                            ? "✓"
-                                            : ""}
+                                <div className={`ap-note ${account?.exists ? "ap-note-green" : "ap-note-orange"}`}>
+                                    <span aria-hidden="true">{account?.exists ? (account.hasPin ? "👋" : "🔐") : "✨"}</span>
+                                    <span>{account?.exists ? (account.hasPin ? a("l_welcomeBack") : a("l_setPin")) : a("l_new")}</span>
+                                </div>
+                            </>
+                        )}
+
+                        {/* ---------- new account: name ---------- */}
+
+                        {isNew && (
+                            <div className="ap-field">
+                                <label htmlFor="login-name">{a("l_name")}</label>
+                                <input
+                                    id="login-name"
+                                    className="mk-input"
+                                    value={name}
+                                    maxLength={80}
+                                    onChange={(event) => setName(event.target.value)}
+                                    placeholder={a("l_namePlaceholder")}
+                                    autoComplete="name"
+                                    autoFocus
+                                />
+                            </div>
+                        )}
+
+                        {/* ---------- driver: vehicle ---------- */}
+
+                        {askVehicle && (
+                            <div className="ap-card is-muted" style={{ padding: 16 }}>
+                                <div>
+                                    <strong style={{ color: "var(--ts-ink)" }}>🚚 {a("l_vehicle")}</strong>
+                                    <div className="ap-card-sub">{a("l_vehicleSub")}</div>
+                                </div>
+                                <div className="ap-field">
+                                    <label htmlFor="login-vehicle">{a("l_vehicleType")}</label>
+                                    <input
+                                        id="login-vehicle"
+                                        className="mk-input"
+                                        value={vehicleType}
+                                        maxLength={60}
+                                        onChange={(event) => setVehicleType(event.target.value)}
+                                        placeholder={a("l_vehicleTypePlaceholder")}
+                                        autoComplete="off"
+                                    />
+                                    <div className="ap-chips">
+                                        {a("l_vehicles").split("|").map((choice) => (
+                                            <button
+                                                key={choice}
+                                                type="button"
+                                                className={`ap-chip ${vehicleType === choice ? "ap-chip-orange" : ""}`}
+                                                style={{ border: 0, cursor: "pointer" }}
+                                                onClick={() => setVehicleType(choice)}
+                                            >
+                                                {choice}
+                                            </button>
+                                        ))}
                                     </div>
-
-                                </button>
-
-
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        selectRole(
-                                            "DRIVER"
-                                        )
-                                    }
-                                    className={`tayeb-role-card ${role ===
-                                            "DRIVER"
-                                            ? "selected"
-                                            : ""
-                                        }`}
-                                >
-
-                                    <div className="tayeb-role-icon driver">
-                                        🚚
+                                </div>
+                                <div className="ap-form-grid">
+                                    <div className="ap-field">
+                                        <label htmlFor="login-plate">{a("l_plate")}</label>
+                                        <input
+                                            id="login-plate"
+                                            className="mk-input"
+                                            value={plate}
+                                            maxLength={20}
+                                            onChange={(event) => setPlate(event.target.value.toUpperCase())}
+                                            placeholder={a("l_platePlaceholder")}
+                                            autoComplete="off"
+                                        />
                                     </div>
-
-                                    <div className="tayeb-role-copy">
-
-                                        <strong>
-                                            {text(
-                                                "login.driver",
-                                                "Drive & Earn"
-                                            )}
-                                        </strong>
-
-                                        <span>
-                                            {language ===
-                                                "fr"
-                                                ? "Transporter des marchandises"
-                                                : "I want to drive"}
-                                        </span>
-
+                                    <div className="ap-field">
+                                        <label htmlFor="login-city">{a("l_city")}</label>
+                                        <select id="login-city" className="mk-select" value={city} onChange={(event) => setCity(event.target.value)}>
+                                            <option value="">{a("l_chooseCity")}</option>
+                                            {cityNames(country).map((item) => (
+                                                <option key={item} value={item}>{item}</option>
+                                            ))}
+                                        </select>
                                     </div>
+                                </div>
+                                <small className="ap-card-sub">{a("l_cityHint")}</small>
+                            </div>
+                        )}
 
-                                    <div className="tayeb-role-check">
-                                        {role ===
-                                            "DRIVER"
-                                            ? "✓"
-                                            : ""}
-                                    </div>
+                        {/* ---------- farmer: farm city ---------- */}
 
-                                </button>
+                        {askFarm && (
+                            <div className="ap-card is-muted" style={{ padding: 16 }}>
+                                <div>
+                                    <strong style={{ color: "var(--ts-ink)" }}>🌾 {a("l_farm")}</strong>
+                                    <div className="ap-card-sub">{a("l_farmSub")}</div>
+                                </div>
+                                <div className="ap-field">
+                                    <label htmlFor="login-farm">{a("l_farmCity")}</label>
+                                    <select id="login-farm" className="mk-select" value={city} onChange={(event) => setCity(event.target.value)}>
+                                        <option value="">{a("l_chooseCity")}</option>
+                                        {cityNames(country).map((item) => (
+                                            <option key={item} value={item}>{item}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                        )}
 
+                        {/* ---------- PIN ---------- */}
 
-                                {(marketOpen ||
-                                    role ===
-                                    "FARMER") && (
+                        {step === "pin" && (
+                            <>
+                                <div className="ap-field">
+                                    <label htmlFor="login-pin">{creatingPin ? a("l_pinNew") : a("l_pin")}</label>
+                                    <div className="lg-pin">
+                                        <input
+                                            id="login-pin"
+                                            className="mk-input ap-pin"
+                                            type={showPin ? "text" : "password"}
+                                            inputMode="numeric"
+                                            value={pin}
+                                            onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                                            placeholder="••••"
+                                            autoComplete={creatingPin ? "new-password" : "current-password"}
+                                            autoFocus={!isNew}
+                                        />
                                         <button
                                             type="button"
-                                            onClick={() =>
-                                                selectRole(
-                                                    "FARMER"
-                                                )
-                                            }
-                                            className={`tayeb-role-card ${role ===
-                                                    "FARMER"
-                                                    ? "selected"
-                                                    : ""
-                                                }`}
+                                            onClick={() => setShowPin((current) => !current)}
+                                            aria-label={showPin ? a("l_hidePin") : a("l_showPin")}
+                                            tabIndex={-1}
                                         >
-
-                                            <div className="tayeb-role-icon farmer">
-                                                🌾
-                                            </div>
-
-                                            <div className="tayeb-role-copy">
-
-                                                <strong>
-                                                    {language ===
-                                                        "fr"
-                                                        ? "Vendre ma récolte"
-                                                        : "Sell my harvest"}
-                                                </strong>
-
-                                                <span>
-                                                    {language ===
-                                                        "fr"
-                                                        ? "Je suis agriculteur"
-                                                        : "I'm a farmer"}
-                                                </span>
-
-                                            </div>
-
-                                            <div className="tayeb-role-check">
-                                                {role ===
-                                                    "FARMER"
-                                                    ? "✓"
-                                                    : ""}
-                                            </div>
-
+                                            {showPin ? "🙈" : "👁️"}
                                         </button>
-                                    )}
+                                    </div>
+                                </div>
 
-                            </div>
-
-                        </div>
-                    )}
-
-
-                    {/* =================================================
-                        FORM
-                    ================================================= */}
-
-                    <form
-                        onSubmit={
-                            handleLogin
-                        }
-                        className="tayeb-login-form"
-                    >
-
-                        {/* NAME (new accounts) */}
-
-                        {isNewAccount && (
-                        <div className="tayeb-field">
-
-                            <label>
-                                {text(
-                                    "login.fullName",
-                                    "Full name"
+                                {creatingPin && (
+                                    <div className="ap-field">
+                                        <label htmlFor="login-pin-repeat">{a("l_pinRepeat")}</label>
+                                        <input
+                                            id="login-pin-repeat"
+                                            className="mk-input ap-pin"
+                                            type={showPin ? "text" : "password"}
+                                            inputMode="numeric"
+                                            value={pinRepeat}
+                                            onChange={(event) => setPinRepeat(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                                            placeholder="••••"
+                                            autoComplete="new-password"
+                                        />
+                                    </div>
                                 )}
-                            </label>
 
-                            <div className="tayeb-input-wrap">
-
-                                <span className="tayeb-input-icon">
-                                    👤
-                                </span>
-
-                                <input
-                                    type="text"
-                                    value={
-                                        name
-                                    }
-                                    onChange={(
-                                        event
-                                    ) =>
-                                        setName(
-                                            event
-                                                .target
-                                                .value
-                                        )
-                                    }
-                                    placeholder={
-                                        language ===
-                                            "fr"
-                                            ? "Votre nom complet"
-                                            : "Your full name"
-                                    }
-                                    required
-                                    disabled={
-                                        loading
-                                    }
-                                    autoComplete="name"
-                                />
-
-                            </div>
-
-                        </div>
+                                {!creatingPin && (
+                                    <a className="lg-link" href={forgot} target="_blank" rel="noopener noreferrer">
+                                        {a("l_forgot")}
+                                    </a>
+                                )}
+                            </>
                         )}
 
-
-                        {/* PHONE */}
-
-                        <div className="tayeb-field">
-
-                            <label>
-                                {text(
-                                    "login.phone",
-                                    "Phone number"
-                                )}
-                            </label>
-
-                            <PhoneInput
-                                country={country}
-                                onCountry={setCountry}
-                                value={phone}
-                                onChange={setPhone}
-                                disabled={
-                                    loading ||
-                                    step ===
-                                    "details"
-                                }
-                            />
-
-                            {step === "details" && (
-                                    <button
-                                        type="button"
-                                        className="tayeb-link-button"
-                                        onClick={
-                                            changeNumber
-                                        }
-                                    >
-                                        {language ===
-                                            "fr"
-                                            ? "Changer de numéro"
-                                            : "Use another number"}
-                                    </button>
-                                )}
-
-                        </div>
-
-
-                        {/* USER PIN */}
-
-                        {step === "details" && (
-                                <>
-                                    <div className="tayeb-account-notice">
-                                        {account?.exists
-                                            ? account.hasPin
-                                                ? language === "fr"
-                                                    ? "👋 Bon retour ! Entrez votre PIN."
-                                                    : "👋 Welcome back! Enter your PIN."
-                                                : language === "fr"
-                                                    ? "🔐 Créez un PIN pour protéger votre compte. Vous l'utiliserez à chaque connexion."
-                                                    : "🔐 Create a PIN to protect your account. You'll use it every time you log in."
-                                            : language === "fr"
-                                                ? "✨ Nouveau sur Tayeb ? Créez votre compte en 1 minute."
-                                                : "✨ New to Tayeb? Create your account in 1 minute."}
-                                    </div>
-
-                                    <div className="tayeb-field">
-
-                                        <label>
-                                            {creatingPin
-                                                ? language === "fr"
-                                                    ? "Choisissez un PIN (4 à 6 chiffres)"
-                                                    : "Choose a PIN (4 to 6 digits)"
-                                                : language === "fr"
-                                                    ? "Votre PIN"
-                                                    : "Your PIN"}
-                                        </label>
-
-                                        <div className="tayeb-input-wrap">
-
-                                            <span className="tayeb-input-icon">
-                                                🔐
-                                            </span>
-
-                                            <input
-                                                type={
-                                                    showPin
-                                                        ? "text"
-                                                        : "password"
-                                                }
-                                                value={
-                                                    pin
-                                                }
-                                                onChange={(
-                                                    event
-                                                ) =>
-                                                    setPin(
-                                                        event.target.value
-                                                            .replace(/\D/g, "")
-                                                            .slice(0, 6)
-                                                    )
-                                                }
-                                                placeholder="••••"
-                                                inputMode="numeric"
-                                                required
-                                                disabled={
-                                                    loading
-                                                }
-                                                autoComplete={
-                                                    creatingPin
-                                                        ? "new-password"
-                                                        : "current-password"
-                                                }
-                                                autoFocus
-                                            />
-
-                                            <button
-                                                type="button"
-                                                className="tayeb-eye-button"
-                                                onClick={() =>
-                                                    setShowPin(
-                                                        (current) =>
-                                                            !current
-                                                    )
-                                                }
-                                                tabIndex={
-                                                    -1
-                                                }
-                                            >
-                                                {showPin
-                                                    ? "🙈"
-                                                    : "👁️"}
-                                            </button>
-
-                                        </div>
-
-                                    </div>
-
-                                    {creatingPin && (
-                                        <div className="tayeb-field">
-
-                                            <label>
-                                                {language === "fr"
-                                                    ? "Confirmez votre PIN"
-                                                    : "Confirm your PIN"}
-                                            </label>
-
-                                            <div className="tayeb-input-wrap">
-
-                                                <span className="tayeb-input-icon">
-                                                    🔐
-                                                </span>
-
-                                                <input
-                                                    type={
-                                                        showPin
-                                                            ? "text"
-                                                            : "password"
-                                                    }
-                                                    value={
-                                                        pinConfirm
-                                                    }
-                                                    onChange={(
-                                                        event
-                                                    ) =>
-                                                        setPinConfirm(
-                                                            event.target.value
-                                                                .replace(/\D/g, "")
-                                                                .slice(0, 6)
-                                                        )
-                                                    }
-                                                    placeholder="••••"
-                                                    inputMode="numeric"
-                                                    required
-                                                    disabled={
-                                                        loading
-                                                    }
-                                                    autoComplete="new-password"
-                                                />
-
-                                            </div>
-
-                                        </div>
-                                    )}
-
-                                    {!creatingPin && (
-                                        <a
-                                            className="tayeb-link-button"
-                                            href={`https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent(
-                                                language === "fr"
-                                                    ? `Bonjour Tayeb, j'ai oublié mon PIN. Mon numéro : ${cleanPhone}`
-                                                    : `Hello Tayeb, I forgot my PIN. My number: ${cleanPhone}`
-                                            )}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                        >
-                                            {language === "fr"
-                                                ? "PIN oublié ? Écrivez-nous sur WhatsApp"
-                                                : "Forgot your PIN? Message us on WhatsApp"}
-                                        </a>
-                                    )}
-                                </>
-                            )}
-
-
-                        {/* DRIVER DETAILS */}
-
-                        {showDriverDetails && (
-                                <div className="tayeb-driver-box">
-
-                                    <div className="tayeb-driver-heading">
-
-                                        <div className="tayeb-driver-heading-icon">
-                                            🚚
-                                        </div>
-
-                                        <div>
-                                            <strong>
-                                                {language ===
-                                                    "fr"
-                                                    ? "Informations du véhicule"
-                                                    : "Vehicle information"}
-                                            </strong>
-
-                                            <span>
-                                                {language ===
-                                                    "fr"
-                                                    ? "Aidez les expéditeurs à vous reconnaître"
-                                                    : "Help shippers know what you're driving"}
-                                            </span>
-                                        </div>
-
-                                    </div>
-
-
-                                    <div className="tayeb-field">
-
-                                        <label>
-                                            {text(
-                                                "login.vehicleType",
-                                                "Vehicle type"
-                                            )}
-                                        </label>
-
-                                        <div className="tayeb-input-wrap">
-
-                                            <span className="tayeb-input-icon">
-                                                🚛
-                                            </span>
-
-                                            <input
-                                                type="text"
-                                                value={
-                                                    vehicleType
-                                                }
-                                                onChange={(
-                                                    event
-                                                ) =>
-                                                    setVehicleType(
-                                                        event
-                                                            .target
-                                                            .value
-                                                    )
-                                                }
-                                                placeholder={
-                                                    language ===
-                                                        "fr"
-                                                        ? "Ex. Camion, fourgon..."
-                                                        : "e.g. Truck, van..."
-                                                }
-                                                required
-                                                disabled={
-                                                    loading
-                                                }
-                                                autoComplete="off"
-                                            />
-
-                                        </div>
-
-                                    </div>
-
-
-                                    <div className="tayeb-field">
-
-                                        <label>
-                                            {text(
-                                                "login.plateNumber",
-                                                "Plate number"
-                                            )}
-                                        </label>
-
-                                        <div className="tayeb-input-wrap">
-
-                                            <span className="tayeb-input-icon">
-                                                🔖
-                                            </span>
-
-                                            <input
-                                                type="text"
-                                                value={
-                                                    plateNumber
-                                                }
-                                                onChange={(
-                                                    event
-                                                ) =>
-                                                    setPlateNumber(
-                                                        event
-                                                            .target
-                                                            .value
-                                                    )
-                                                }
-                                                placeholder={
-                                                    language ===
-                                                        "fr"
-                                                        ? "Numéro de plaque"
-                                                        : "Vehicle plate number"
-                                                }
-                                                required
-                                                disabled={
-                                                    loading
-                                                }
-                                                autoComplete="off"
-                                            />
-
-                                        </div>
-
-                                    </div>
-
-
-                                    <div className="tayeb-field">
-
-                                        <label>
-                                            {language === "fr"
-                                                ? "Votre ville (pour recevoir les marchandises près de vous)"
-                                                : "Your city (to get loads near you)"}
-                                        </label>
-
-                                        <div className="tayeb-input-wrap">
-
-                                            <span className="tayeb-input-icon">
-                                                📍
-                                            </span>
-
-                                            <select
-                                                value={
-                                                    city
-                                                }
-                                                onChange={(
-                                                    event
-                                                ) =>
-                                                    setCity(
-                                                        event
-                                                            .target
-                                                            .value
-                                                    )
-                                                }
-                                                disabled={
-                                                    loading
-                                                }
-                                            >
-                                                <option value="">
-                                                    {language === "fr"
-                                                        ? "Choisir une ville"
-                                                        : "Choose a city"}
-                                                </option>
-
-                                                {cityNames(country).map(
-                                                    (cityName) => (
-                                                        <option
-                                                            key={cityName}
-                                                            value={cityName}
-                                                        >
-                                                            {cityName}
-                                                        </option>
-                                                    )
-                                                )}
-                                            </select>
-
-                                        </div>
-
-                                    </div>
-
-                                </div>
-                            )}
-
-
-                        {/* FARMER: WHERE IS THE FARM */}
-
-                        {showFarmCity && (
-                                <div className="tayeb-driver-box">
-
-                                    <div className="tayeb-driver-heading">
-
-                                        <div className="tayeb-driver-heading-icon">
-                                            🌾
-                                        </div>
-
-                                        <div>
-                                            <strong>
-                                                {language ===
-                                                    "fr"
-                                                    ? "Votre ferme"
-                                                    : "Your farm"}
-                                            </strong>
-
-                                            <span>
-                                                {language ===
-                                                    "fr"
-                                                    ? "Les acheteurs et les chauffeurs voient la ville"
-                                                    : "Buyers and drivers see the city"}
-                                            </span>
-                                        </div>
-
-                                    </div>
-
-                                    <div className="tayeb-field">
-
-                                        <label>
-                                            {language === "fr"
-                                                ? "Ville de la ferme"
-                                                : "City of the farm"}
-                                        </label>
-
-                                        <div className="tayeb-input-wrap">
-
-                                            <span className="tayeb-input-icon">
-                                                📍
-                                            </span>
-
-                                            <select
-                                                value={
-                                                    city
-                                                }
-                                                onChange={(
-                                                    event
-                                                ) =>
-                                                    setCity(
-                                                        event
-                                                            .target
-                                                            .value
-                                                    )
-                                                }
-                                                required
-                                                disabled={
-                                                    loading
-                                                }
-                                            >
-                                                <option value="">
-                                                    {language === "fr"
-                                                        ? "Choisir une ville"
-                                                        : "Choose a city"}
-                                                </option>
-
-                                                {cityNames(country).map(
-                                                    (cityName) => (
-                                                        <option
-                                                            key={cityName}
-                                                            value={cityName}
-                                                        >
-                                                            {cityName}
-                                                        </option>
-                                                    )
-                                                )}
-                                            </select>
-
-                                        </div>
-
-                                    </div>
-
-                                </div>
-                            )}
-
-
-                        {/* SUBMIT */}
-
-                        <button
-                            type="submit"
-                            disabled={
-                                loading
-                            }
-                            className="tayeb-login-submit"
-                        >
-
-                            {loading ? (
-                                <>
-                                    <span className="tayeb-submit-spinner" />
-
-                                    <span>
-                                        {text(
-                                            "login.pleaseWait",
-                                            "Please wait..."
-                                        )}
-                                    </span>
-                                </>
-                            ) : (
-                                <>
-                                    <span>
-                                        {step === "phone"
-                                                ? text(
-                                                    "login.continue",
-                                                    "Continue"
-                                                )
-                                                : isNewAccount
-                                                    ? language === "fr"
-                                                        ? "Créer mon compte"
-                                                        : "Create my account"
-                                                    : language === "fr"
-                                                        ? "Se connecter"
-                                                        : "Log in"}
-                                    </span>
-
-                                    <span className="submit-arrow">
-                                        →
-                                    </span>
-                                </>
-                            )}
-
+                        {error && (
+                            <div className="ap-note ap-note-red" role="alert">
+                                <span aria-hidden="true">⚠️</span>
+                                <span>{error}</span>
+                            </div>
+                        )}
+
+                        <button type="submit" className="ts-btn ts-btn-primary ts-btn-lg" disabled={loading}>
+                            {loading ? a("l_wait") : step === "phone" ? `${a("l_continue")} →` : isNew ? `${a("l_create")} →` : `${a("l_login")} →`}
                         </button>
 
+                        <div className="lg-secure">
+                            <span aria-hidden="true">🔒</span>
+                            <span>{a("l_secure")}</span>
+                        </div>
+
                     </form>
+                </section>
 
-
-                    {/* SECURITY NOTE */}
-
-                    <div className="tayeb-login-security">
-
-                        <span>
-                            🔒
-                        </span>
-
-                        <span>
-                            {language ===
-                                "fr"
-                                ? "Votre session est sécurisée."
-                                : "Your session is secure."}
-                        </span>
-
-                    </div>
-
-                </div>
-
-            </section>
-
-
-            {/* =================================================
-                FOOTER
-            ================================================= */}
-
-            <footer className="tayeb-login-footer">
-
-                <BrandLogo
-                    width={82}
-                    height={32}
-                />
-
-                <span>
-                    Move. Manage. Deliver.
-                </span>
-
-            </footer>
-
-
-            {/* =================================================
-                PREMIUM STYLES
-            ================================================= */}
-
-            <style jsx global>{`
-
-                * {
-                    box-sizing: border-box;
-                }
-
-
-                body {
-                    margin: 0;
-                    background: #f8fafc;
-                }
-
-
-                .tayeb-login-page {
-                    position: relative;
-                    min-height: 100vh;
-                    display: flex;
-                    flex-direction: column;
-                    overflow: hidden;
-                    background:
-                        radial-gradient(
-                            circle at 12% 15%,
-                            rgba(249,115,22,0.09),
-                            transparent 32%
-                        ),
-                        radial-gradient(
-                            circle at 88% 82%,
-                            rgba(251,191,36,0.08),
-                            transparent 30%
-                        ),
-                        #f8fafc;
-                    color: #111827;
-                }
-
-
-                .tayeb-login-glow {
-                    position: fixed;
-                    z-index: 0;
-                    pointer-events: none;
-                    border-radius: 999px;
-                    filter: blur(80px);
-                    opacity: 0.55;
-                }
-
-
-                .glow-one {
-                    width: 320px;
-                    height: 320px;
-                    left: -170px;
-                    top: 150px;
-                    background: #fed7aa;
-                }
-
-
-                .glow-two {
-                    width: 300px;
-                    height: 300px;
-                    right: -150px;
-                    bottom: 60px;
-                    background: #fde68a;
-                }
-
-
-                /* =================================================
-                   HEADER
-                ================================================= */
-
-                .tayeb-login-header {
-                    position: relative;
-                    z-index: 10;
-                    width: 100%;
-                    min-height: 72px;
-                    display: grid;
-                    grid-template-columns: 1fr auto 1fr;
-                    align-items: center;
-                    padding: 12px clamp(16px, 5vw, 65px);
-                    background: rgba(
-                        255,
-                        255,
-                        255,
-                        0.82
-                    );
-                    border-bottom: 1px solid
-                        rgba(
-                            229,
-                            231,
-                            235,
-                            0.85
-                        );
-                    backdrop-filter: blur(20px);
-                    -webkit-backdrop-filter: blur(20px);
-                }
-
-
-                .tayeb-back-button {
-                    justify-self: start;
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 8px;
-                    min-height: 40px;
-                    padding: 0 13px;
-                    border: 1px solid #e5e7eb;
-                    border-radius: 12px;
-                    background: white;
-                    color: #374151;
-                    font-size: 12px;
-                    font-weight: 900;
-                    cursor: pointer;
-                    transition:
-                        0.18s ease;
-                }
-
-
-                .tayeb-back-button:hover {
-                    color: #ea580c;
-                    border-color: #fed7aa;
-                    background: #fff7ed;
-                    transform:
-                        translateX(-2px);
-                }
-
-
-                .back-arrow {
-                    font-size: 15px;
-                    line-height: 1;
-                }
-
-
-                .tayeb-header-space {
-                    justify-self: end;
-                    width: 70px;
-                }
-
-
-                /* =================================================
-                   SHELL
-                ================================================= */
-
-                .tayeb-login-shell {
-                    position: relative;
-                    z-index: 2;
-                    flex: 1;
-                    width: 100%;
-                    display: flex;
-                    justify-content: center;
-                    padding:
-                        48px 18px 55px;
-                }
-
-
-                .tayeb-login-card {
-                    width: min(
-                        500px,
-                        100%
-                    );
-                    align-self: flex-start;
-                    padding:
-                        34px;
-                    border: 1px solid
-                        rgba(
-                            229,
-                            231,
-                            235,
-                            0.95
-                        );
-                    border-radius: 32px;
-                    background:
-                        rgba(
-                            255,
-                            255,
-                            255,
-                            0.96
-                        );
-                    box-shadow:
-                        0 35px 90px
-                            rgba(
-                                15,
-                                23,
-                                42,
-                                0.10
-                            ),
-                        0 8px 30px
-                            rgba(
-                                15,
-                                23,
-                                42,
-                                0.04
-                            );
-                }
-
-
-                /* =================================================
-                   BRAND
-                ================================================= */
-
-                .tayeb-login-brand {
-                    text-align: center;
-                }
-
-
-                .tayeb-login-logo-wrap {
-                    display: flex;
-                    justify-content: center;
-                }
-
-
-                .tayeb-login-tagline {
-                    margin-top: 2px;
-                    color: #f97316;
-                    font-size: 11px;
-                    font-weight: 900;
-                    letter-spacing:
-                        0.13em;
-                    text-transform:
-                        uppercase;
-                }
-
-
-                /* =================================================
-                   HEADING
-                ================================================= */
-
-                .tayeb-login-heading {
-                    margin-top: 28px;
-                    text-align: center;
-                }
-
-
-                .tayeb-login-eyebrow {
-                    display: inline-flex;
-                    align-items: center;
-                    min-height: 24px;
-                    padding: 0 9px;
-                    border-radius: 999px;
-                    background: #fff7ed;
-                    border: 1px solid
-                        #fed7aa;
-                    color: #ea580c;
-                    font-size: 10px;
-                    font-weight: 900;
-                    letter-spacing:
-                        0.15em;
-                }
-
-
-                .tayeb-login-heading h1 {
-                    margin:
-                        12px 0 0;
-                    color: #111827;
-                    font-size:
-                        clamp(
-                            29px,
-                            7vw,
-                            39px
-                        );
-                    line-height: 1;
-                    letter-spacing:
-                        -0.055em;
-                    font-weight: 950;
-                }
-
-
-                .tayeb-login-heading p {
-                    max-width: 370px;
-                    margin:
-                        12px auto 0;
-                    color: #6b7280;
-                    font-size: 13px;
-                    line-height: 1.6;
-                }
-
-
-                /* =================================================
-                   ROLE SELECTION
-                ================================================= */
-
-                .tayeb-role-section {
-                    margin-top: 29px;
-                }
-
-
-                .tayeb-field-label {
-                    margin-bottom: 9px;
-                    color: #374151;
-                    font-size: 11px;
-                    font-weight: 900;
-                    text-transform:
-                        uppercase;
-                    letter-spacing:
-                        0.08em;
-                }
-
-
-                .tayeb-role-grid {
-                    display: grid;
-                    grid-template-columns:
-                        repeat(
-                            auto-fit,
-                            minmax(150px, 1fr)
-                        );
-                    gap: 10px;
-                }
-
-
-                .tayeb-role-card {
-                    position: relative;
-                    display: flex;
-                    align-items: center;
-                    gap: 11px;
-                    min-height: 78px;
-                    padding:
-                        12px;
-                    border: 1px solid
-                        #e5e7eb;
-                    border-radius: 19px;
-                    background: #fff;
-                    color: #374151;
-                    text-align: left;
-                    cursor: pointer;
-                    transition:
-                        0.18s ease;
-                }
-
-
-                .tayeb-role-card:hover {
-                    border-color:
-                        #fed7aa;
-                    transform:
-                        translateY(-1px);
-                    box-shadow:
-                        0 8px 20px
-                            rgba(
-                                249,
-                                115,
-                                22,
-                                0.07
-                            );
-                }
-
-
-                .tayeb-role-card.selected {
-                    border-color:
-                        #f97316;
-                    background:
-                        #fffaf5;
-                    box-shadow:
-                        0 10px 25px
-                            rgba(
-                                249,
-                                115,
-                                22,
-                                0.10
-                            );
-                }
-
-
-                .tayeb-role-icon {
-                    width: 42px;
-                    height: 42px;
-                    flex: 0 0 42px;
-                    display: grid;
-                    place-items: center;
-                    border-radius: 13px;
-                    font-size: 19px;
-                }
-
-
-                .tayeb-role-icon.shipper {
-                    background:
-                        #fff7ed;
-                }
-
-
-                .tayeb-role-icon.driver {
-                    background:
-                        #f8fafc;
-                }
-
-
-                .tayeb-role-icon.farmer {
-                    background:
-                        #ecfdf5;
-                }
-
-
-                .tayeb-role-copy {
-                    min-width: 0;
-                    flex: 1;
-                }
-
-
-                .tayeb-role-copy strong {
-                    display: block;
-                    color: #111827;
-                    font-size: 12px;
-                    font-weight: 950;
-                }
-
-
-                .tayeb-role-copy span {
-                    display: block;
-                    margin-top: 4px;
-                    color: #9ca3af;
-                    font-size: 10px;
-                    line-height: 1.3;
-                }
-
-
-                .tayeb-role-check {
-                    width: 20px;
-                    height: 20px;
-                    flex: 0 0 20px;
-                    display: grid;
-                    place-items: center;
-                    border: 1px solid
-                        #e5e7eb;
-                    border-radius: 50%;
-                    color: white;
-                    background:
-                        white;
-                    font-size: 13px;
-                    font-weight: 900;
-                }
-
-
-                .tayeb-role-card.selected
-                    .tayeb-role-check {
-                    border-color:
-                        #f97316;
-                    background:
-                        #f97316;
-                }
-
-
-                /* =================================================
-                   FORM
-                ================================================= */
-
-                .tayeb-login-form {
-                    display: grid;
-                    gap: 17px;
-                    margin-top: 25px;
-                }
-
-
-                .tayeb-field {
-                    display: grid;
-                    gap: 7px;
-                }
-
-
-                .tayeb-field label {
-                    color: #374151;
-                    font-size: 14px;
-                    font-weight: 800;
-                }
-
-
-                .tayeb-link-button {
-                    justify-self: start;
-                    padding: 2px 0;
-                    border: 0;
-                    background: transparent;
-                    color: #ea580c;
-                    font-family: inherit;
-                    font-size: 14px;
-                    font-weight: 800;
-                    text-decoration: none;
-                    cursor: pointer;
-                }
-
-
-                .tayeb-account-notice {
-                    padding: 12px 14px;
-                    border-radius: 14px;
-                    background: #fff7ed;
-                    border: 1px solid #fed7aa;
-                    color: #9a3412;
-                    font-size: 15px;
-                    font-weight: 700;
-                    line-height: 1.45;
-                }
-
-
-                .tayeb-input-wrap {
-                    position: relative;
-                    display: flex;
-                    align-items: center;
-                }
-
-
-                .tayeb-input-icon {
-                    position: absolute;
-                    left: 14px;
-                    z-index: 2;
-                    font-size: 15px;
-                    pointer-events: none;
-                }
-
-
-                .tayeb-input-wrap input,
-                .tayeb-input-wrap select {
-                    width: 100%;
-                    min-height: 53px;
-                    padding:
-                        0 43px;
-                    border: 1px solid
-                        #e5e7eb;
-                    border-radius: 15px;
-                    outline: none;
-                    background: #f9fafb;
-                    color: #111827;
-                    font-family: inherit;
-                    /* 16px stops iPhones zooming in on focus. */
-                    font-size: 16px;
-                    font-weight: 650;
-                    transition:
-                        0.18s ease;
-                }
-
-
-                .tayeb-input-wrap select {
-                    appearance: none;
-                    -webkit-appearance: none;
-                    cursor: pointer;
-                }
-
-
-                .tayeb-input-wrap input::placeholder {
-                    color: #b0b7c3;
-                    font-weight: 500;
-                }
-
-
-                .tayeb-input-wrap input:hover,
-                .tayeb-input-wrap select:hover {
-                    border-color:
-                        #d1d5db;
-                    background: #fff;
-                }
-
-
-                .tayeb-input-wrap select:focus,
-                .tayeb-input-wrap input:focus {
-                    border-color:
-                        #f97316;
-                    background: white;
-                    box-shadow:
-                        0 0 0 4px
-                            rgba(
-                                249,
-                                115,
-                                22,
-                                0.09
-                            );
-                }
-
-
-                .tayeb-input-wrap input:disabled {
-                    opacity: 0.65;
-                    cursor: not-allowed;
-                }
-
-
-                .tayeb-eye-button {
-                    position: absolute;
-                    right: 10px;
-                    width: 34px;
-                    height: 34px;
-                    display: grid;
-                    place-items: center;
-                    border: 0;
-                    border-radius: 9px;
-                    background:
-                        transparent;
-                    cursor: pointer;
-                    font-size: 15px;
-                }
-
-
-                .tayeb-eye-button:hover {
-                    background:
-                        #f3f4f6;
-                }
-
-
-                /* =================================================
-                   DRIVER
-                ================================================= */
-
-                .tayeb-driver-box {
-                    display: grid;
-                    gap: 16px;
-                    padding:
-                        18px;
-                    border: 1px solid
-                        #fed7aa;
-                    border-radius: 20px;
-                    background:
-                        linear-gradient(
-                            135deg,
-                            #fffaf5,
-                            #ffffff
-                        );
-                }
-
-
-                .tayeb-driver-heading {
-                    display: flex;
-                    align-items: center;
-                    gap: 11px;
-                }
-
-
-                .tayeb-driver-heading-icon {
-                    width: 38px;
-                    height: 38px;
-                    flex: 0 0 38px;
-                    display: grid;
-                    place-items: center;
-                    border-radius: 12px;
-                    background:
-                        #fff7ed;
-                    font-size: 17px;
-                }
-
-
-                .tayeb-driver-heading strong {
-                    display: block;
-                    color: #111827;
-                    font-size: 12px;
-                    font-weight: 950;
-                }
-
-
-                .tayeb-driver-heading span {
-                    display: block;
-                    margin-top: 3px;
-                    color: #9ca3af;
-                    font-size: 10px;
-                    line-height: 1.4;
-                }
-
-
-                /* =================================================
-                   ADMIN
-                ================================================= */
-
-                .tayeb-admin-notice {
-                    display: flex;
-                    align-items: center;
-                    gap: 11px;
-                    padding:
-                        13px 15px;
-                    border: 1px solid
-                        #e5e7eb;
-                    border-radius: 15px;
-                    background:
-                        #f8fafc;
-                }
-
-
-                .tayeb-admin-notice > span {
-                    width: 34px;
-                    height: 34px;
-                    display: grid;
-                    place-items: center;
-                    border-radius: 10px;
-                    background:
-                        #eef2ff;
-                }
-
-
-                .tayeb-admin-notice strong {
-                    display: block;
-                    color: #374151;
-                    font-size: 11px;
-                    font-weight: 900;
-                }
-
-
-                .tayeb-admin-notice small {
-                    display: block;
-                    margin-top: 3px;
-                    color: #9ca3af;
-                    font-size: 10px;
-                }
-
-
-                /* =================================================
-                   SUBMIT
-                ================================================= */
-
-                .tayeb-login-submit {
-                    position: relative;
-                    width: 100%;
-                    min-height: 58px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 10px;
-                    margin-top: 3px;
-                    padding: 0 20px;
-                    border: 1px solid
-                        #ea580c;
-                    border-radius: 17px;
-                    background:
-                        linear-gradient(
-                            135deg,
-                            #f97316,
-                            #ea580c
-                        );
-                    color: white;
-                    font-family: inherit;
-                    font-size: 13px;
-                    font-weight: 950;
-                    letter-spacing:
-                        0.01em;
-                    cursor: pointer;
-                    box-shadow:
-                        0 14px 30px
-                            rgba(
-                                249,
-                                115,
-                                22,
-                                0.22
-                            );
-                    transition:
-                        0.18s ease;
-                }
-
-
-                .tayeb-login-submit:hover:not(:disabled) {
-                    transform:
-                        translateY(-2px);
-                    box-shadow:
-                        0 18px 35px
-                            rgba(
-                                249,
-                                115,
-                                22,
-                                0.28
-                            );
-                }
-
-
-                .tayeb-login-submit:active:not(:disabled) {
-                    transform:
-                        translateY(0);
-                }
-
-
-                .tayeb-login-submit:disabled {
-                    opacity: 0.72;
-                    cursor: not-allowed;
-                    box-shadow: none;
-                }
-
-
-                .submit-arrow {
-                    font-size: 16px;
-                    line-height: 1;
-                }
-
-
-                .tayeb-submit-spinner {
-                    width: 16px;
-                    height: 16px;
-                    border: 2px solid
-                        rgba(
-                            255,
-                            255,
-                            255,
-                            0.35
-                        );
-                    border-top-color:
-                        white;
-                    border-radius: 50%;
-                    animation:
-                        tayebLoginSpin
-                        0.7s linear
-                        infinite;
-                }
-
-
-                @keyframes tayebLoginSpin {
-                    to {
-                        transform:
-                            rotate(360deg);
-                    }
-                }
-
-
-                /* =================================================
-                   SECURITY
-                ================================================= */
-
-                .tayeb-login-security {
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 6px;
-                    margin-top: 18px;
-                    color: #9ca3af;
-                    font-size: 10px;
-                    font-weight: 700;
-                }
-
-
-                /* =================================================
-                   FOOTER
-                ================================================= */
-
-                .tayeb-login-footer {
-                    position: relative;
-                    z-index: 2;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    gap: 5px;
-                    padding:
-                        0 18px 25px;
-                    color: #9ca3af;
-                    font-size: 10px;
-                    font-weight: 800;
-                }
-
-
-                /* =================================================
-                   MOBILE
-                ================================================= */
-
-                @media (max-width: 600px) {
-
-                    .tayeb-login-header {
-                        min-height: 64px;
-                        padding:
-                            10px 13px;
-                    }
-
-
-                    .tayeb-back-button {
-                        min-height: 37px;
-                        padding:
-                            0 10px;
-                    }
-
-
-                    .tayeb-login-shell {
-                        padding:
-                            22px 12px 40px;
-                    }
-
-
-                    .tayeb-login-card {
-                        padding:
-                            25px 18px;
-                        border-radius:
-                            27px;
-                    }
-
-
-                    .tayeb-login-heading {
-                        margin-top:
-                            22px;
-                    }
-
-
-                    .tayeb-login-heading h1 {
-                        font-size:
-                            31px;
-                    }
-
-
-                    .tayeb-role-grid {
-                        grid-template-columns:
-                            1fr;
-                    }
-
-
-                    .tayeb-role-card {
-                        min-height:
-                            70px;
-                    }
-
-
-                    .tayeb-input-wrap input {
-                        min-height:
-                            51px;
-                    }
-
-
-                    .tayeb-login-submit {
-                        min-height:
-                            56px;
-                    }
-
-                }
-
-
-                @media (max-width: 380px) {
-
-                    .tayeb-login-card {
-                        padding:
-                            22px 14px;
-                    }
-
-
-                    .tayeb-login-heading h1 {
-                        font-size:
-                            28px;
-                    }
-
-                }
-
-            `}</style>
-
-        </main>
+            </main>
+        </>
     );
 }

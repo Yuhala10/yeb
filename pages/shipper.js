@@ -1,3119 +1,917 @@
-import Head from "next/head";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
+import { useEffect, useMemo, useState } from "react";
 
+import AccountPanel from "../components/App/AccountPanel";
+import AppShell from "../components/App/AppShell";
+import { AppLoading, CodeDigits, DeliverySteps, digits, Empty, Person, Route, SectionHead, Sheet, splitPlace, Stars, timeAgo } from "../components/App/Bits";
+import { useFeedback } from "../components/App/Feedback";
+import OrderCard from "../components/Market/OrderCard";
+import PhoneInput from "../components/Site/PhoneInput";
 import { apiGet, apiPost, pollWhileVisible } from "../lib/api";
+import { appError, useAppText } from "../lib/appText";
+import { CARGO_TYPES, cargoEmoji, cargoLabel } from "../lib/cargo";
 import { cityNames } from "../lib/cities";
-import { countryOrDefault, sortedCountries } from "../lib/countries";
+import { countryName, countryOrDefault, findCountry, sortedCountries } from "../lib/countries";
+import { useLanguage } from "../lib/LanguageContext";
+import { marketError, useMarketText } from "../lib/marketText";
 import { formatMoney } from "../lib/money";
 import { formatPhone, telHref, whatsappHref } from "../lib/phone";
-import BrandLogo from "../components/BrandLogo";
-import Notifications from "../components/Notifications";
-import { useLanguage } from "../lib/LanguageContext";
+import { productEmoji, productName } from "../lib/produce";
 import { shareLoadOnWhatsApp } from "../lib/shareLoad";
-import { marketError, useMarketText } from "../lib/marketText";
-import DeleteAccount from "../components/Account/DeleteAccount";
-import OrderCard from "../components/Market/OrderCard";
+import { leaveDashboard, useRoleUser } from "../lib/useSession";
+
+/*
+ * ============================================================
+ * SHIPPER AND BUYER
+ * ============================================================
+ *
+ * Post a load, compare drivers' prices, choose one, give the
+ * receiver the delivery code, follow the truck, rate. The
+ * same account buys produce on Tayeb Marché: those orders
+ * and product alerts live in the Orders tab. Refreshes every
+ * 20 seconds while open.
+ */
+
+const LIVE = ["MATCHED", "DEPARTED", "ARRIVED"];
+
+const EMPTY_FORM = {
+    type: "Bags/Sacks",
+    other: "",
+    quantity: "",
+    originCountry: "",
+    originCity: "",
+    originArea: "",
+    destinationCountry: "",
+    destinationCity: "",
+    destinationArea: "",
+    price: "",
+    receiverPhone: "",
+};
 
 export default function ShipperPage() {
     const router = useRouter();
 
-    const {
-        t,
-        language,
-        setLanguage,
-    } = useLanguage();
+    const { language } = useLanguage();
 
-    const [user, setUser] = useState(null);
-
-    const [shipments, setShipments] = useState([]);
-
-    const [bids, setBids] = useState([]);
-
-    const [loading, setLoading] = useState(true);
-
-    const [posting, setPosting] = useState(false);
-
-    const [showPostForm, setShowPostForm] =
-        useState(false);
-
-    const [selectedBid, setSelectedBid] =
-        useState(null);
-
-    const [counterPrice, setCounterPrice] =
-        useState("");
-
-    const [counterLoading, setCounterLoading] =
-        useState(false);
-
-    const emptyCargo = {
-        itemType: "Bags/Sacks",
-        originCity: "",
-        originArea: "",
-        destinationCountry: "",
-        destinationCity: "",
-        destinationArea: "",
-        quantity: "",
-        price: "",
-        receiverPhone: "",
-    };
-
-    const [cargo, setCargo] = useState(emptyCargo);
-
-    /*
-     * Typical price and distance for the route in the form.
-     */
-    const [routeInfo, setRouteInfo] =
-        useState(null);
-
-    /*
-     * Tayeb Marché: { ready, orders } for produce this
-     * shipper bought from farmers.
-     */
-    const [market, setMarket] =
-        useState({
-            ready: false,
-            orders: [],
-        });
-
-    const [marketBusy, setMarketBusy] =
-        useState(null);
+    const a = useAppText();
 
     const m = useMarketText();
 
+    const { toast, confirm } = useFeedback();
+
+    const [user, setUser] = useRoleUser("SHIPPER");
+
+    const [data, setData] = useState(null);
+
+    const [market, setMarket] = useState({ ready: false, orders: [], alerts: [] });
+
+    const [tab, setTab] = useState(null);
+
+    const [busy, setBusy] = useState(null);
+
+    const [counterFor, setCounterFor] = useState(null);
 
     /* =========================================================
-       SESSION ENDED
+       DATA
     ========================================================= */
 
-    function goToLogin() {
-        localStorage.removeItem(
-            "tayebUser"
-        );
-
-        localStorage.removeItem(
-            "selectedRole"
-        );
-
-        router.replace("/login");
-    }
-
-    function showError(error) {
-        if (error?.status === 401) {
-            goToLogin();
-            return;
-        }
-
-        alert(
-            error?.message ||
-            t(
-                "errors.somethingWrong"
-            )
-        );
-    }
-
-
-    /* =========================================================
-       LOAD SHIPMENTS + BIDS
-    =========================================================
-     *
-     * Runs on open and every 20 seconds while the page is
-     * visible, so new offers and the truck's position show up
-     * without refreshing.
-     */
-
-    async function loadShipments() {
+    async function load() {
         try {
-            const data =
-                await apiGet(
-                    "/api/shipper"
-                );
+            const result = await apiGet("/api/shipper");
 
-            setUser(
-                data.user
-            );
+            setData(result);
+            setUser(result.user);
 
-            setShipments(
-                data.shipments ||
-                []
-            );
-
-            setBids(
-                data.bids ||
-                []
-            );
-        } catch (error) {
-            console.error(
-                "Tayeb shipment loading error:",
-                error
-            );
-
-            if (
-                error?.status ===
-                401 ||
-                error?.status ===
-                403
-            ) {
-                goToLogin();
-            }
-        } finally {
-            setLoading(false);
-        }
-    }
-
-
-    /* =========================================================
-       LOAD USER
-    ========================================================= */
-
-    useEffect(() => {
-        if (typeof window === "undefined") {
-            return;
-        }
-
-        async function restoreSession() {
-            try {
-                const result =
-                    await apiGet(
-                        "/api/session/me"
-                    );
-
-                if (
-                    !result.user?.id ||
-                    result.user.role !== "SHIPPER"
-                ) {
-                    goToLogin();
-                    return;
+            // First visit: straight to what matters.
+            setTab((current) => {
+                if (current) {
+                    return current;
                 }
 
-                setUser(result.user);
+                if (typeof window !== "undefined" && window.location.hash === "#orders") {
+                    return "orders";
+                }
 
-                localStorage.setItem(
-                    "tayebUser",
-                    JSON.stringify(
-                        result.user
-                    )
-                );
-
-                localStorage.setItem(
-                    "selectedRole",
-                    result.user.role
-                );
-            } catch (error) {
-                console.error(
-                    "Could not restore Tayeb session:",
-                    error
-                );
-
-                goToLogin();
+                return (result.shipments || []).some((item) => item.status === "OPEN" || LIVE.includes(item.status)) ? "loads" : "send";
+            });
+        } catch (error) {
+            if (error?.status === 401 || error?.status === 403) {
+                leaveDashboard(router, "SHIPPER");
             }
         }
+    }
 
-        restoreSession();
-        // Runs once when the page opens.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [router]);
-
-
-    /* =========================================================
-       TAYEB MARCHÉ ORDERS
-    =========================================================
-     *
-     * Produce this shipper ordered from farmers. Confirmed
-     * delivery orders also appear as loads below, where the
-     * buyer chooses a driver as usual.
-     */
-
-    async function loadMarketOrders() {
+    async function loadMarket() {
         try {
-            const result =
-                await apiGet(
-                    "/api/market?orders=mine"
-                );
-
-            setMarket(result);
+            setMarket(await apiGet("/api/market?orders=mine"));
         } catch {
             // The market is optional: the dashboard works without it.
         }
     }
 
-    async function marketOrderAction(
-        action,
-        order,
-        extra = {}
-    ) {
-        const question =
-            action === "cancel"
-                ? m("cancelQuestion")
-                : action === "received"
-                    ? m("receivedQuestion")
-                    : null;
-
-        if (
-            question &&
-            !window.confirm(question)
-        ) {
-            return;
-        }
-
-        setMarketBusy(order.id);
-
-        try {
-            await apiPost(
-                "/api/market",
-                {
-                    action,
-                    orderId:
-                        order.id,
-                    ...extra,
-                }
-            );
-
-            if (action === "rate") {
-                alert(m("thanksRating"));
-            }
-        } catch (error) {
-            alert(
-                marketError(
-                    language,
-                    error
-                )
-            );
-        } finally {
-            setMarketBusy(null);
-
-            await Promise.all([
-                loadShipments(),
-                loadMarketOrders(),
-            ]);
-        }
-    }
-
-
-    /* =========================================================
-       KEEP UP TO DATE
-    ========================================================= */
-
-    const userId =
-        user?.id;
+    const userId = user?.id;
 
     useEffect(() => {
         if (!userId) {
             return;
         }
 
-        return pollWhileVisible(
-            () => {
-                loadShipments();
-                loadMarketOrders();
-            },
-            20000
-        );
-        // loadShipments and loadMarketOrders only set state.
+        return pollWhileVisible(() => {
+            load();
+            loadMarket();
+        }, 20000);
+        // load and loadMarket only set state.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [userId]);
 
-
     /* =========================================================
-       PRICE CLEANING
+       GROUPS
     ========================================================= */
 
-    function cleanPrice(value) {
-        return String(value || "")
-            .replace(/[^\d]/g, "");
-    }
+    const shipments = useMemo(() => data?.shipments || [], [data]);
 
-    function formatPrice(value) {
-        const number =
-            Number(value);
+    const bids = useMemo(() => data?.bids || [], [data]);
 
-        if (
-            !Number.isFinite(number)
-        ) {
-            return "0";
-        }
+    const live = shipments.filter((item) => item.status === "OPEN" || LIVE.includes(item.status));
 
-        return number.toLocaleString(
-            "en-US"
-        );
-    }
+    const history = shipments.filter((item) => item.status === "COMPLETED" || item.status === "CANCELLED");
 
+    const bidsFor = (shipmentId) => bids.filter((bid) => bid.shipment_id === shipmentId && bid.status !== "REJECTED");
+
+    const openIds = new Set(shipments.filter((item) => item.status === "OPEN").map((item) => item.id));
+
+    const toAnswer = bids.filter((bid) => openIds.has(bid.shipment_id) && bid.status !== "REJECTED" && bid.last_offer_by !== "SHIPPER").length;
+
+    const liveOrders = market.orders.filter((order) => order.status === "PENDING" || order.status === "CONFIRMED").length;
 
     /* =========================================================
-       FORM CHANGE
+       ACTIONS
     ========================================================= */
 
-    async function loadRouteInfo(
-        originCity,
-        destinationCity
-    ) {
-        if (
-            !originCity ||
-            !destinationCity
-        ) {
-            setRouteInfo(null);
-            return;
-        }
+    async function run(key, action, success) {
+        setBusy(key);
 
         try {
-            const info =
-                await apiGet(
-                    `/api/shipper?from=${encodeURIComponent(originCity)}&to=${encodeURIComponent(destinationCity)}`
-                );
+            const result = await action();
 
-            setRouteInfo(info);
-        } catch {
-            setRouteInfo(null);
-        }
-    }
+            if (success) {
+                toast(success, "success");
+            }
 
-    function updateCargo(
-        field,
-        value
-    ) {
-        const next = {
-            ...cargo,
-            [field]:
-                field === "price"
-                    ? cleanPrice(value)
-                    : value,
-        };
+            await load();
 
-        setCargo(next);
-
-        if (
-            field === "originCity" ||
-            field === "destinationCity"
-        ) {
-            loadRouteInfo(
-                next.originCity,
-                next.destinationCity
-            );
-        }
-    }
-
-
-    /* =========================================================
-       POST CARGO
-    ========================================================= */
-
-    async function handlePostCargo(
-        event
-    ) {
-        event.preventDefault();
-
-        if (!user || posting) {
-            return;
-        }
-
-        const quantity =
-            Number(cargo.quantity);
-
-        const price =
-            Number(
-                cleanPrice(
-                    cargo.price
-                )
-            );
-
-        if (
-            !cargo.itemType.trim() ||
-            !cargo.originCity ||
-            !cargo.destinationCity ||
-            !quantity ||
-            quantity <= 0 ||
-            !price ||
-            price <= 0
-        ) {
-            alert(
-                t(
-                    "errors.required"
-                )
-            );
-
-            return;
-        }
-
-        setPosting(true);
-
-        try {
-            await apiPost(
-                "/api/shipper",
-                {
-                    action: "post",
-                    ...cargo,
-                    quantity,
-                    price,
-                }
-            );
-
-            setCargo(emptyCargo);
-
-            setRouteInfo(null);
-
-            setShowPostForm(false);
-
-            await loadShipments();
-
-            alert(
-                t(
-                    "shipper.shipmentPosted"
-                )
-            );
+            return result || true;
         } catch (error) {
-            console.error(
-                "Post cargo error:",
-                error
-            );
+            if (error?.status === 401) {
+                leaveDashboard(router, "SHIPPER");
+                return false;
+            }
 
-            showError(error);
+            toast(appError(language, error), "error");
+            await load();
+
+            return false;
         } finally {
-            setPosting(false);
+            setBusy(null);
         }
     }
 
+    async function post(cargo) {
+        const result = await run("post", () => apiPost("/api/shipper", { action: "post", ...cargo }));
 
-    /* =========================================================
-       ACCEPT DRIVER OFFER
-    ========================================================= */
-
-    async function acceptBid(
-        bid
-    ) {
-        if (!user || !bid) {
-            return;
+        if (result) {
+            toast(result.notified > 0 ? a("s_posted", { count: result.notified }) : a("s_postedNone"), "success");
+            setTab("loads");
+            return true;
         }
 
-        try {
-            await apiPost(
-                "/api/shipper",
-                {
-                    action: "accept",
-                    bidId:
-                        bid.id,
-                }
-            );
+        return false;
+    }
 
-            setSelectedBid(
-                null
-            );
+    async function choose(bid, shipment) {
+        const price = formatMoney(bid.counter_price ?? bid.proposed_price, shipment.currency);
 
-            await loadShipments();
+        const yes = await confirm({
+            title: a("s_chooseTitle", { name: bid.driver?.full_name || "", price }),
+            text: a("s_chooseText"),
+            confirmLabel: a("s_choose", { price }),
+            icon: "🤝",
+        });
 
-            alert(
-                t(
-                    "shipper.offerAccepted"
-                )
-            );
-        } catch (error) {
-            console.error(
-                "Accept bid error:",
-                error
-            );
-
-            showError(error);
-
-            await loadShipments();
+        if (yes) {
+            await run(bid.id, () => apiPost("/api/shipper", { action: "accept", bidId: bid.id }), a("s_chosen"));
         }
     }
 
+    async function sendCounter(bid, price) {
+        const done = await run("counter", () => apiPost("/api/shipper", { action: "counter", bidId: bid.id, price }), a("s_counterSent"));
 
-    /* =========================================================
-       SUGGEST ANOTHER PRICE
-    ========================================================= */
+        if (done) {
+            setCounterFor(null);
+        }
+    }
 
-    async function suggestAnotherPrice(
-        bid
-    ) {
-        if (!user || !bid) {
+    async function setStatus(shipment, status) {
+        const ask = {
+            CANCELLED: [a("s_cancelTitle"), a("s_cancelText"), a("s_cancel"), "danger", "✕", a("s_cancelled")],
+            DEPARTED: [a("s_handedTitle"), a("s_handedText"), a("s_handedOver"), null, "📦", null],
+            COMPLETED: [a("s_receivedTitle"), a("s_receivedText"), a("s_received"), null, "✅", a("s_completed")],
+        }[status];
+
+        if (!(await confirm({ title: ask[0], text: ask[1], confirmLabel: ask[2], tone: ask[3], icon: ask[4] }))) {
             return;
         }
 
-        const price =
-            Number(
-                cleanPrice(
-                    counterPrice
-                )
-            );
+        await run(shipment.id, () => apiPost("/api/shipper", { action: "status", shipmentId: shipment.id, status }), ask[5]);
+    }
 
-        if (
-            !price ||
-            price <= 0
-        ) {
-            alert(
-                t(
-                    "errors.invalidPrice"
-                )
-            );
+    async function rate(shipment, rating) {
+        await run(shipment.id, () => apiPost("/api/shipper", { action: "rate", shipmentId: shipment.id, rating }), a("s_thanksRating"));
+    }
 
+    async function orderAction(action, order, extra = {}) {
+        const question = action === "cancel" ? m("cancelQuestion") : action === "received" ? m("receivedQuestion") : null;
+
+        if (question && !(await confirm({ title: question, tone: action === "cancel" ? "danger" : null, icon: action === "cancel" ? "✕" : "✅" }))) {
             return;
         }
 
-        setCounterLoading(true);
+        setBusy(order.id);
 
         try {
-            await apiPost(
-                "/api/shipper",
-                {
-                    action: "counter",
-                    bidId:
-                        bid.id,
-                    price,
-                }
-            );
+            await apiPost("/api/market", { action, orderId: order.id, ...extra });
 
-            setCounterPrice("");
-
-            setSelectedBid(
-                null
-            );
-
-            await loadShipments();
-
-            alert(
-                t(
-                    "shipper.counterSent"
-                )
-            );
+            if (action === "rate") {
+                toast(m("thanksRating"), "success");
+            }
         } catch (error) {
-            console.error(
-                "Counter offer error:",
-                error
-            );
-
-            showError(error);
+            toast(marketError(language, error), "error");
         } finally {
-            setCounterLoading(
-                false
-            );
+            setBusy(null);
+            await Promise.all([load(), loadMarket()]);
         }
     }
 
-
-    /* =========================================================
-       UPDATE DELIVERY STATUS
-    =========================================================
-     *
-     * DEPARTED: goods handed to the driver.
-     * COMPLETED: the receiver has the goods (no code needed).
-     * CANCELLED: only while no driver is chosen.
-     */
-
-    async function updateShipmentStatus(
-        shipment,
-        status
-    ) {
-        if (
-            !user ||
-            !shipment?.id
-        ) {
-            return;
-        }
-
-        const question =
-            status === "CANCELLED"
-                ? t("shipper.confirmCancel")
-                : status === "COMPLETED"
-                    ? t("shipper.confirmReceived")
-                    : null;
-
-        if (
-            question &&
-            !window.confirm(question)
-        ) {
-            return;
-        }
+    async function removeAlert(alert) {
+        setBusy(alert.id);
 
         try {
-            await apiPost(
-                "/api/shipper",
-                {
-                    action: "status",
-                    shipmentId:
-                        shipment.id,
-                    status,
-                }
-            );
-
-            await loadShipments();
+            await apiPost("/api/market", { action: "deleteAlert", alertId: alert.id });
+            toast(a("s_alertRemoved"), "success");
+            await loadMarket();
         } catch (error) {
-            console.error(
-                "Shipment status error:",
-                error
-            );
-
-            showError(error);
-
-            await loadShipments();
-        }
-    }
-
-
-    /* =========================================================
-       RATE THE DRIVER
-    ========================================================= */
-
-    async function rateDriver(
-        shipment,
-        rating
-    ) {
-        try {
-            await apiPost(
-                "/api/shipper",
-                {
-                    action: "rate",
-                    shipmentId:
-                        shipment.id,
-                    rating,
-                }
-            );
-
-            await loadShipments();
-
-            alert(
-                t(
-                    "shipper.thanksRating"
-                )
-            );
-        } catch (error) {
-            console.error(
-                "Rating error:",
-                error
-            );
-
-            showError(error);
-        }
-    }
-
-
-    /* =========================================================
-       LOGOUT
-    ========================================================= */
-
-    async function handleLogout() {
-        try {
-            await fetch(
-                "/api/session/logout",
-                {
-                    method: "POST",
-                    credentials: "include",
-                }
-            );
-        } catch (error) {
-            console.error(
-                "Logout error:",
-                error
-            );
+            toast(marketError(language, error), "error");
         } finally {
-            goToLogin();
+            setBusy(null);
         }
     }
-
 
     /* =========================================================
-       GROUP DATA
+       SCREEN
     ========================================================= */
 
-    const activeShipments =
-        useMemo(
-            () =>
-                shipments.filter(
-                    (shipment) =>
-                        shipment.status !==
-                        "COMPLETED" &&
-                        shipment.status !==
-                        "CANCELLED"
-                ),
-            [shipments]
-        );
-
-    const completedShipments =
-        useMemo(
-            () =>
-                shipments.filter(
-                    (shipment) =>
-                        shipment.status ===
-                        "COMPLETED"
-                ),
-            [shipments]
-        );
-
-    function shipmentBids(
-        shipmentId
-    ) {
-        return bids.filter(
-            (bid) =>
-                bid.shipment_id ===
-                shipmentId
-        );
+    if (!user || !data || !tab) {
+        return <AppLoading />;
     }
 
-
-    /* =========================================================
-       STATUS TEXT
-    ========================================================= */
-
-    function statusText(
-        status
-    ) {
-        const keyMap = {
-            OPEN:
-                "status.open",
-            PENDING:
-                "status.pending",
-            COUNTERED:
-                "status.countered",
-            ACCEPTED:
-                "status.accepted",
-            MATCHED:
-                "status.matched",
-            DEPARTED:
-                "status.departed",
-            ARRIVED:
-                "status.arrived",
-            COMPLETED:
-                "status.completed",
-            CANCELLED:
-                "status.cancelled",
-        };
-
-        return t(
-            keyMap[status] ||
-            "common.status"
-        );
-    }
-
-    function statusClass(
-        status
-    ) {
-        if (
-            status ===
-            "COMPLETED"
-        ) {
-            return "tayeb-badge tayeb-badge-success";
-        }
-
-        if (
-            status ===
-            "CANCELLED"
-        ) {
-            return "tayeb-badge tayeb-badge-danger";
-        }
-
-        if (
-            status ===
-            "MATCHED" ||
-            status ===
-            "DEPARTED" ||
-            status ===
-            "ARRIVED"
-        ) {
-            return "tayeb-badge tayeb-badge-orange";
-        }
-
-        return "tayeb-badge tayeb-badge-gray";
-    }
-
-
-    /* =========================================================
-       LOADING
-    ========================================================= */
-
-    if (
-        !user ||
-        loading
-    ) {
-        return (
-            <main
-                style={{
-                    minHeight:
-                        "100vh",
-                    display:
-                        "grid",
-                    placeItems:
-                        "center",
-                    background:
-                        "#fff",
-                }}
-            >
-                <div
-                    style={{
-                        textAlign:
-                            "center",
-                    }}
-                >
-                    <BrandLogo
-                        width={130}
-                        height={48}
-                    />
-
-                    <div
-                        style={{
-                            marginTop:
-                                "25px",
-                        }}
-                    >
-                        <span className="tayeb-spinner tayeb-spinner-orange" />
-                    </div>
-
-                    <p
-                        style={{
-                            marginTop:
-                                "15px",
-                            color:
-                                "#6b7280",
-                            fontSize:
-                                "14px",
-                        }}
-                    >
-                        {t(
-                            "common.loading"
-                        )}
-                    </p>
-                </div>
-            </main>
-        );
-    }
-
+    const tabs = [
+        { key: "send", label: a("s_tabSend"), icon: "➕" },
+        { key: "loads", label: a("s_tabLoads"), icon: "🚚", count: toAnswer },
+        ...(market.ready ? [{ key: "orders", label: a("s_tabOrders"), icon: "🧺", count: liveOrders }] : []),
+        { key: "profile", label: a("s_tabProfile"), icon: "👤" },
+    ];
 
     return (
-        <>
-            <Head>
-                <title>
-                    Tayeb —{" "}
-                    {t(
-                        "shipper.dashboard"
-                    )}
-                </title>
-
-                <meta
-                    name="description"
-                    content={t(
-                        "shipper.dashboard"
-                    )}
-                />
-            </Head>
-
-
-            <main className="tayeb-app">
-
-                {/* =================================================
-                    TOP BAR
-                ================================================= */}
-
-                <header className="tayeb-topbar">
-
-                    <div className="tayeb-topbar-left">
-
-                        <BrandLogo
-                            width={105}
-                            height={40}
-                        />
-
-                        <div
-                            style={{
-                                display:
-                                    "none",
-                            }}
-                            className="shipper-desktop-title"
-                        >
-                            <strong>
-                                {t(
-                                    "shipper.dashboard"
-                                )}
-                            </strong>
-                        </div>
-
-                    </div>
-
-
-                    <div className="tayeb-topbar-right">
-
-                        {/* LANGUAGE */}
-
-                        <div
-                            style={{
-                                display:
-                                    "flex",
-                                alignItems:
-                                    "center",
-                                gap:
-                                    "3px",
-                                padding:
-                                    "4px",
-                                border:
-                                    "1px solid #e5e7eb",
-                                borderRadius:
-                                    "12px",
-                                background:
-                                    "white",
-                            }}
-                        >
-
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    setLanguage(
-                                        "en"
-                                    )
-                                }
-                                style={{
-                                    border: 0,
-                                    borderRadius:
-                                        "8px",
-                                    padding:
-                                        "6px 8px",
-                                    background:
-                                        language ===
-                                            "en"
-                                            ? "#fff7ed"
-                                            : "transparent",
-                                    color:
-                                        language ===
-                                            "en"
-                                            ? "#f97316"
-                                            : "#6b7280",
-                                    fontSize:
-                                        "12px",
-                                    fontWeight:
-                                        900,
-                                    cursor:
-                                        "pointer",
-                                }}
-                            >
-                                EN
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    setLanguage(
-                                        "fr"
-                                    )
-                                }
-                                style={{
-                                    border: 0,
-                                    borderRadius:
-                                        "8px",
-                                    padding:
-                                        "6px 8px",
-                                    background:
-                                        language ===
-                                            "fr"
-                                            ? "#fff7ed"
-                                            : "transparent",
-                                    color:
-                                        language ===
-                                            "fr"
-                                            ? "#f97316"
-                                            : "#6b7280",
-                                    fontSize:
-                                        "12px",
-                                    fontWeight:
-                                        900,
-                                    cursor:
-                                        "pointer",
-                                }}
-                            >
-                                FR
-                            </button>
-
-                        </div>
-
-
-                        {/* NOTIFICATIONS */}
-
-                        <Notifications
-                            userId={
-                                user.id
-                            }
-                        />
-
-
-                        {/* USER */}
-
-                        <div
-                            className="tayeb-avatar"
-                            title={
-                                user.full_name
-                            }
-                        >
-                            {user.full_name
-                                ?.charAt(
-                                    0
-                                )
-                                ?.toUpperCase() ||
-                                "T"}
-                        </div>
-
-                    </div>
-
-                </header>
-
-
-                {/* =================================================
-                    MAIN CONTENT
-                ================================================= */}
-
-                <div className="tayeb-dashboard">
-
-                    {/* WELCOME */}
-
-                    <div
-                        style={{
-                            display:
-                                "flex",
-                            alignItems:
-                                "flex-end",
-                            justifyContent:
-                                "space-between",
-                            gap:
-                                "20px",
-                            flexWrap:
-                                "wrap",
-                            marginBottom:
-                                "28px",
-                        }}
-                    >
-
-                        <div>
-
-                            <span className="tayeb-section-label">
-                                TAYEB
-                            </span>
-
-                            <h1
-                                style={{
-                                    color:
-                                        "#111827",
-                                    fontSize:
-                                        "clamp(30px, 5vw, 46px)",
-                                    lineHeight:
-                                        1,
-                                    letterSpacing:
-                                        "-0.05em",
-                                    fontWeight:
-                                        900,
-                                }}
-                            >
-                                {t(
-                                    "shipper.greeting"
-                                )}
-                                ,{" "}
-                                <span
-                                    style={{
-                                        color:
-                                            "#f97316",
-                                    }}
-                                >
-                                    {
-                                        user.full_name
-                                    }
-                                </span>
-                            </h1>
-
-                            <p
-                                style={{
-                                    marginTop:
-                                        "10px",
-                                    color:
-                                        "#6b7280",
-                                    fontSize:
-                                        "15px",
-                                }}
-                            >
-                                {t(
-                                    "shipper.dashboard"
-                                )}
-                            </p>
-
-                        </div>
-
-
-                        <button
-                            type="button"
-                            onClick={
-                                handleLogout
-                            }
-                            className="tayeb-button tayeb-button-secondary"
-                        >
-                            {t(
-                                "common.logout"
-                            )}
-                        </button>
-
-                    </div>
-
-
-                    {/* =================================================
-                        SUMMARY
-                    ================================================= */}
-
-                    <div
-                        className="tayeb-dashboard-grid"
-                        style={{
-                            marginBottom:
-                                "22px",
-                        }}
-                    >
-
-                        <StatCard
-                            value={
-                                shipments.length
-                            }
-                            label={
-                                t(
-                                    "shipper.myShipments"
-                                )
-                            }
-                            icon="📦"
-                        />
-
-                        <StatCard
-                            value={
-                                activeShipments.length
-                            }
-                            label={
-                                t(
-                                    "shipper.activeShipments"
-                                )
-                            }
-                            icon="🚚"
-                        />
-
-                        <StatCard
-                            value={
-                                completedShipments.length
-                            }
-                            label={
-                                t(
-                                    "shipper.completedShipments"
-                                )
-                            }
-                            icon="✓"
-                        />
-
-                        <StatCard
-                            value={
-                                bids.filter(
-                                    (bid) =>
-                                        bid.status ===
-                                        "PENDING"
-                                ).length
-                            }
-                            label={
-                                t(
-                                    "shipper.driverOffers"
-                                )
-                            }
-                            icon="💰"
-                        />
-
-                    </div>
-
-
-                    {/* =================================================
-                        SEND CARGO BUTTON
-                    ================================================= */}
-
-                    <div
-                        style={{
-                            marginBottom:
-                                "22px",
-                        }}
-                    >
-
-                        <button
-                            type="button"
-                            onClick={() =>
-                                setShowPostForm(
-                                    (current) =>
-                                        !current
-                                )
-                            }
-                            className="tayeb-button tayeb-button-primary"
-                            style={{
-                                minHeight:
-                                    "54px",
-                                padding:
-                                    "0 24px",
-                            }}
-                        >
-                            📦{" "}
-                            {t(
-                                "shipper.sendCargo"
-                            )}
-                            <span>
-                                {showPostForm
-                                    ? "−"
-                                    : "+"}
-                            </span>
-                        </button>
-
-                    </div>
-
-
-                    {/* =================================================
-                        TAYEB MARCHÉ
-                    ================================================= */}
-
+        <AppShell
+            user={user}
+            eyebrow={`${a("role_SHIPPER")}${user.country ? ` · ${findCountry(user.country)?.flag || ""} ${countryName(user.country, language)}` : ""}`}
+            title={<>{a("helloWord")}, <em>{String(user.full_name || "").split(/\s+/)[0]}</em></>}
+            subtitle={a("s_sub")}
+            actions={
+                <>
+                    <button type="button" className="ts-btn ts-btn-primary" onClick={() => setTab("send")}>
+                        ➕ {a("s_newLoad")}
+                    </button>
                     {market.ready && (
-                        <Link
-                            href="/market"
-                            className="mk-promo mk-promo-light"
-                            style={{
-                                display:
-                                    "flex",
-                                alignItems:
-                                    "center",
-                                justifyContent:
-                                    "space-between",
-                                gap:
-                                    "16px",
-                                flexWrap:
-                                    "wrap",
-                                marginBottom:
-                                    "22px",
-                                padding:
-                                    "20px 22px",
-                                textDecoration:
-                                    "none",
-                            }}
-                        >
-                            <div>
-                                <h3 style={{ fontSize: 18 }}>
-                                    🌾 {m("marketCardTitle")}
-                                </h3>
-                                <p style={{ marginTop: 6 }}>
-                                    {m("marketCardText")}
-                                </p>
-                            </div>
-
-                            <span className="mk-btn mk-btn-dark">
-                                {m("goToMarket")} →
-                            </span>
+                        <Link href="/market" className="ts-btn ts-btn-glass">
+                            🌾 {a("menuMarket")}
                         </Link>
                     )}
+                </>
+            }
+            stats={[
+                { value: live.length, label: a("s_statLive") },
+                { value: toAnswer, label: a("s_statPrices"), hot: toAnswer > 0 },
+                { value: shipments.filter((item) => item.status === "COMPLETED").length, label: a("s_statDone") },
+                ...(market.ready ? [{ value: market.orders.length, label: a("s_statOrders") }] : []),
+            ]}
+            tabs={tabs}
+            tab={tab}
+            onTab={setTab}
+        >
 
-                    {market.ready &&
-                        market.orders.length > 0 && (
-                            <section
-                                id="orders"
-                                style={{
-                                    marginBottom:
-                                        "26px",
-                                }}
-                            >
-                                <div className="mk-section-head" style={{ marginTop: 0 }}>
-                                    <h2>
-                                        🛒 {m("myOrders")}
-                                    </h2>
-                                </div>
+            {/* =================================================
+                SEND
+            ================================================= */}
 
-                                <div className="mk-list">
-                                    {market.orders
-                                        .slice(0, 30)
-                                        .map(
-                                            (order) => (
-                                                <OrderCard
-                                                    key={
-                                                        order.id
-                                                    }
-                                                    order={
-                                                        order
-                                                    }
-                                                    role="buyer"
-                                                    busy={
-                                                        marketBusy ===
-                                                        order.id
-                                                    }
-                                                    onAction={
-                                                        marketOrderAction
-                                                    }
-                                                />
-                                            )
-                                        )}
-                                </div>
-                            </section>
-                        )}
+            {tab === "send" && (
+                <section className="ap-section ap-fade">
+                    <div className="ap-two">
+                        <PostForm user={user} busy={busy === "post"} onPost={post} />
 
-
-                    {/* =================================================
-                        POST CARGO FORM
-                    ================================================= */}
-
-                    {showPostForm && (
-                        <section
-                            className="tayeb-card tayeb-fade-in"
-                            style={{
-                                padding:
-                                    "25px",
-                                marginBottom:
-                                    "28px",
-                            }}
-                        >
-
-                            <div
-                                style={{
-                                    marginBottom:
-                                        "22px",
-                                }}
-                            >
-
-                                <span className="tayeb-section-label">
-                                    {t(
-                                        "shipper.postCargo"
-                                    )}
-                                </span>
-
-                                <h2
-                                    style={{
-                                        color:
-                                            "#111827",
-                                        fontSize:
-                                            "25px",
-                                        fontWeight:
-                                            900,
-                                    }}
-                                >
-                                    {t(
-                                        "shipper.cargoDetails"
-                                    )}
-                                </h2>
-
+                        <div className="ap-stack">
+                            <div className="ap-card" style={{ background: "var(--ts-ink)", color: "rgba(255,255,255,0.78)", borderColor: "transparent" }}>
+                                <span className="ap-label" style={{ color: "#fdba74" }}>Tayeb</span>
+                                {[
+                                    ["1", language === "fr" ? "Publiez en une minute, gratuitement." : "Post in a minute, for free."],
+                                    ["2", language === "fr" ? "Les chauffeurs proches envoient leurs prix." : "Drivers nearby send their prices."],
+                                    ["3", language === "fr" ? "Choisissez : vous recevez son numéro et un code de livraison." : "Choose one: you get their number and a delivery code."],
+                                    ["4", language === "fr" ? "Suivez le camion jusqu'à la porte." : "Follow the truck to the door."],
+                                ].map(([step, text]) => (
+                                    <div key={step} style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                                        <span className="ap-count" style={{ flex: "none" }}>{step}</span>
+                                        <span style={{ color: "white", fontWeight: 700 }}>{text}</span>
+                                    </div>
+                                ))}
                             </div>
 
-
-                            <form
-                                onSubmit={
-                                    handlePostCargo
-                                }
-                            >
-
-                                <div
-                                    className="tayeb-dashboard-grid"
-                                >
-
-                                    <div className="tayeb-span-6">
-
-                                        <div className="tayeb-form-group">
-
-                                            <label className="tayeb-label">
-                                                {t(
-                                                    "shipper.whatAreYouSending"
-                                                )}
-                                            </label>
-
-                                            <select
-                                                value={cargo.itemType}
-                                                onChange={(event) =>
-                                                    updateCargo(
-                                                        "itemType",
-                                                        event.target.value
-                                                    )
-                                                }
-                                                className="tayeb-input"
-                                                disabled={posting}
-                                            >
-                                                <option value="Bags/Sacks">
-                                                    Bags / Sacks
-                                                </option>
-
-                                                <option value="Crates/Boxes">
-                                                    Crates / Boxes
-                                                </option>
-
-                                                <option value="Drums/Oil">
-                                                    Drums / Oil
-                                                </option>
-
-                                                <option value="Furniture/Bulky">
-                                                    Furniture / Bulky
-                                                </option>
-                                            </select>
-
-                                        </div>
-
-                                    </div>
-
-
-                                    <div className="tayeb-span-6">
-
-                                        <div className="tayeb-form-group">
-
-                                            <label className="tayeb-label">
-                                                {t(
-                                                    "common.quantity"
-                                                )}
-                                            </label>
-
-                                            <input
-                                                type="number"
-                                                min="1"
-                                                value={
-                                                    cargo.quantity
-                                                }
-                                                onChange={(
-                                                    event
-                                                ) =>
-                                                    updateCargo(
-                                                        "quantity",
-                                                        event
-                                                            .target
-                                                            .value
-                                                    )
-                                                }
-                                                className="tayeb-input"
-                                                placeholder="Example: 3"
-                                                disabled={
-                                                    posting
-                                                }
-                                            />
-
-                                        </div>
-
-                                    </div>
-
-
-                                    <div className="tayeb-span-6">
-
-                                        <div className="tayeb-form-group">
-
-                                            <label className="tayeb-label">
-                                                {t(
-                                                    "shipper.pickupLocation"
-                                                )}
-                                            </label>
-
-                                            <CityAndArea
-                                                country={
-                                                    user.country ||
-                                                    "CM"
-                                                }
-                                                city={
-                                                    cargo.originCity
-                                                }
-                                                area={
-                                                    cargo.originArea
-                                                }
-                                                onCity={(value) =>
-                                                    updateCargo(
-                                                        "originCity",
-                                                        value
-                                                    )
-                                                }
-                                                onArea={(value) =>
-                                                    updateCargo(
-                                                        "originArea",
-                                                        value
-                                                    )
-                                                }
-                                                areaPlaceholder={t(
-                                                    "shipper.areaPickupExample"
-                                                )}
-                                                disabled={
-                                                    posting
-                                                }
-                                                t={t}
-                                            />
-
-                                        </div>
-
-                                    </div>
-
-
-                                    <div className="tayeb-span-6">
-
-                                        <div className="tayeb-form-group">
-
-                                            <label className="tayeb-label">
-                                                {t(
-                                                    "shipper.deliveryLocation"
-                                                )}
-                                            </label>
-
-                                            <select
-                                                className="tayeb-input"
-                                                value={
-                                                    cargo.destinationCountry ||
-                                                    user.country ||
-                                                    "CM"
-                                                }
-                                                onChange={(event) => {
-                                                    const nextCountry =
-                                                        event.target.value;
-
-                                                    setCargo((current) => ({
-                                                        ...current,
-                                                        destinationCountry:
-                                                            nextCountry,
-                                                        destinationCity:
-                                                            "",
-                                                    }));
-
-                                                    setRouteInfo(null);
-                                                }}
-                                                disabled={
-                                                    posting
-                                                }
-                                                aria-label={
-                                                    language === "fr"
-                                                        ? "Pays de livraison"
-                                                        : "Delivery country"
-                                                }
-                                                style={{
-                                                    marginBottom:
-                                                        "8px",
-                                                }}
-                                            >
-                                                {sortedCountries(language).map(
-                                                    (item) => (
-                                                        <option
-                                                            key={item.code}
-                                                            value={item.code}
-                                                        >
-                                                            {item.flag}{" "}
-                                                            {language === "fr"
-                                                                ? item.fr
-                                                                : item.en}
-                                                        </option>
-                                                    )
-                                                )}
-                                            </select>
-
-                                            <CityAndArea
-                                                country={
-                                                    cargo.destinationCountry ||
-                                                    user.country ||
-                                                    "CM"
-                                                }
-                                                city={
-                                                    cargo.destinationCity
-                                                }
-                                                area={
-                                                    cargo.destinationArea
-                                                }
-                                                onCity={(value) =>
-                                                    updateCargo(
-                                                        "destinationCity",
-                                                        value
-                                                    )
-                                                }
-                                                onArea={(value) =>
-                                                    updateCargo(
-                                                        "destinationArea",
-                                                        value
-                                                    )
-                                                }
-                                                areaPlaceholder={t(
-                                                    "shipper.areaDeliveryExample"
-                                                )}
-                                                disabled={
-                                                    posting
-                                                }
-                                                t={t}
-                                            />
-
-                                        </div>
-
-                                    </div>
-
-
-                                    <div className="tayeb-span-6">
-
-                                        <div className="tayeb-form-group">
-
-                                            <label className="tayeb-label">
-                                                {t(
-                                                    "shipper.yourPrice"
-                                                )}
-                                            </label>
-
-                                            <input
-                                                inputMode="numeric"
-                                                value={
-                                                    cargo.price
-                                                }
-                                                onChange={(
-                                                    event
-                                                ) =>
-                                                    updateCargo(
-                                                        "price",
-                                                        event
-                                                            .target
-                                                            .value
-                                                    )
-                                                }
-                                                className="tayeb-input"
-                                                placeholder="Example: 25000"
-                                                disabled={
-                                                    posting
-                                                }
-                                            />
-
-                                            <small
-                                                style={{
-                                                    color:
-                                                        "#9ca3af",
-                                                    fontSize:
-                                                        "13px",
-                                                }}
-                                            >
-                                                {t(
-                                                    "shipper.priceHint"
-                                                )}
-                                            </small>
-
-                                            {routeInfo?.hint && (
-                                                <small
-                                                    style={{
-                                                        display:
-                                                            "block",
-                                                        marginTop:
-                                                            "6px",
-                                                        color:
-                                                            "#c2410c",
-                                                        fontSize:
-                                                            "13px",
-                                                        fontWeight:
-                                                            800,
-                                                    }}
-                                                >
-                                                    💡{" "}
-                                                    {t(
-                                                        "common.usualPrice"
-                                                    )
-                                                        .replace(
-                                                            "{low}",
-                                                            formatMoney(
-                                                                routeInfo.hint.low,
-                                                                countryOrDefault(user?.country).currency
-                                                            )
-                                                        )
-                                                        .replace(
-                                                            "{high}",
-                                                            formatMoney(
-                                                                routeInfo.hint.high,
-                                                                countryOrDefault(user?.country).currency
-                                                            )
-                                                        )
-                                                        .replace(
-                                                            "{count}",
-                                                            routeInfo.hint.count
-                                                        )}
-                                                </small>
-                                            )}
-
-                                            {routeInfo?.route_km > 0 && (
-                                                <small
-                                                    style={{
-                                                        display:
-                                                            "block",
-                                                        marginTop:
-                                                            "4px",
-                                                        color:
-                                                            "#6b7280",
-                                                        fontSize:
-                                                            "13px",
-                                                    }}
-                                                >
-                                                    🛣️{" "}
-                                                    {t(
-                                                        "driver.routeKm"
-                                                    ).replace(
-                                                        "{km}",
-                                                        routeInfo.route_km
-                                                    )}
-                                                </small>
-                                            )}
-
-                                        </div>
-
-                                    </div>
-
-
-                                    <div className="tayeb-span-6">
-
-                                        <div className="tayeb-form-group">
-
-                                            <label className="tayeb-label">
-                                                {t(
-                                                    "shipper.receiverPhone"
-                                                )}{" "}
-                                                <span
-                                                    style={{
-                                                        color:
-                                                            "#9ca3af",
-                                                    }}
-                                                >
-                                                    (
-                                                    {t(
-                                                        "driver.optional"
-                                                    )}
-                                                    )
-                                                </span>
-                                            </label>
-
-                                            <input
-                                                type="tel"
-                                                value={
-                                                    cargo.receiverPhone
-                                                }
-                                                onChange={(
-                                                    event
-                                                ) =>
-                                                    updateCargo(
-                                                        "receiverPhone",
-                                                        event
-                                                            .target
-                                                            .value
-                                                    )
-                                                }
-                                                className="tayeb-input"
-                                                placeholder="6XX XXX XXX"
-                                                inputMode="tel"
-                                                disabled={
-                                                    posting
-                                                }
-                                            />
-
-                                            <small
-                                                style={{
-                                                    color:
-                                                        "#9ca3af",
-                                                    fontSize:
-                                                        "13px",
-                                                }}
-                                            >
-                                                {t(
-                                                    "shipper.receiverPhoneHint"
-                                                )}
-                                            </small>
-
-                                        </div>
-
-                                    </div>
-
-                                </div>
-
-
-                                <button
-                                    type="submit"
-                                    disabled={
-                                        posting
-                                    }
-                                    className="tayeb-button tayeb-button-primary tayeb-button-full"
-                                    style={{
-                                        marginTop:
-                                            "5px",
-                                    }}
-                                >
-
-                                    {posting ? (
-                                        <>
-                                            <span className="tayeb-spinner" />
-
-                                            {t(
-                                                "common.loading"
-                                            )}
-                                        </>
-                                    ) : (
-                                        <>
-                                            {t(
-                                                "shipper.sendCargo"
-                                            )}
-                                            →
-                                        </>
-                                    )}
-
-                                </button>
-
-                            </form>
-
-                        </section>
-                    )}
-
-
-                    {/* =================================================
-                        ACTIVE SHIPMENTS
-                    ================================================= */}
-
-                    <section>
-
-                        <div
-                            style={{
-                                display:
-                                    "flex",
-                                alignItems:
-                                    "center",
-                                justifyContent:
-                                    "space-between",
-                                gap:
-                                    "15px",
-                                marginBottom:
-                                    "15px",
-                            }}
-                        >
-
-                            <div>
-
-                                <span className="tayeb-section-label">
-                                    TAYEB
-                                </span>
-
-                                <h2
-                                    style={{
-                                        fontSize:
-                                            "22px",
-                                        fontWeight:
-                                            900,
-                                        color:
-                                            "#111827",
-                                    }}
-                                >
-                                    {t(
-                                        "shipper.activeShipments"
-                                    )}
-                                </h2>
-
-                            </div>
-
-                        </div>
-
-
-                        {activeShipments.length ===
-                            0 ? (
-                            <div className="tayeb-empty">
-
-                                <div className="tayeb-empty-icon">
-                                    📦
-                                </div>
-
-                                <h3>
-                                    {t(
-                                        "shipper.noOffers"
-                                    )}
-                                </h3>
-
-                                <p>
-                                    {t(
-                                        "shipper.waitingForOffers"
-                                    )}
-                                </p>
-
-                            </div>
-                        ) : (
-                            <div
-                                style={{
-                                    display:
-                                        "grid",
-                                    gap:
-                                        "18px",
-                                }}
-                            >
-
-                                {activeShipments.map(
-                                    (
-                                        shipment
-                                    ) => (
-                                        <ShipmentSection
-                                            key={
-                                                shipment.id
-                                            }
-                                            shipment={
-                                                shipment
-                                            }
-                                            bids={shipmentBids(
-                                                shipment.id
-                                            )}
-                                            statusText={
-                                                statusText
-                                            }
-                                            statusClass={
-                                                statusClass
-                                            }
-                                            formatPrice={
-                                                formatPrice
-                                            }
-                                            selectedBid={
-                                                selectedBid
-                                            }
-                                            setSelectedBid={
-                                                setSelectedBid
-                                            }
-                                            counterPrice={
-                                                counterPrice
-                                            }
-                                            setCounterPrice={
-                                                setCounterPrice
-                                            }
-                                            counterLoading={
-                                                counterLoading
-                                            }
-                                            suggestAnotherPrice={
-                                                suggestAnotherPrice
-                                            }
-                                            acceptBid={
-                                                acceptBid
-                                            }
-                                            updateShipmentStatus={
-                                                updateShipmentStatus
-                                            }
-                                            t={
-                                                t
-                                            }
-                                        />
-                                    )
-                                )}
-
-                            </div>
-                        )}
-
-                    </section>
-
-
-                    {/* =================================================
-                        HISTORY
-                    ================================================= */}
-
-                    <section
-                        style={{
-                            marginTop:
-                                "40px",
-                        }}
-                    >
-
-                        <span className="tayeb-section-label">
-                            TAYEB
-                        </span>
-
-                        <h2
-                            style={{
-                                fontSize:
-                                    "22px",
-                                fontWeight:
-                                    900,
-                                color:
-                                    "#111827",
-                                marginBottom:
-                                    "15px",
-                            }}
-                        >
-                            {t(
-                                "shipper.shipmentHistory"
+                            {market.ready && (
+                                <Link href="/market" className="ap-card" style={{ textDecoration: "none", background: "linear-gradient(135deg, #fff7ed, #ffffff)" }}>
+                                    <h3 className="ap-card-title">🌾 {a("s_marketTitle")}</h3>
+                                    <div className="ap-card-sub">{a("s_marketText")}</div>
+                                    <span className="ts-link">{a("s_goMarket")} →</span>
+                                </Link>
                             )}
-                        </h2>
-
-
-                        {completedShipments.length ===
-                            0 ? (
-                            <div
-                                style={{
-                                    padding:
-                                        "20px",
-                                    border:
-                                        "1px solid #e5e7eb",
-                                    borderRadius:
-                                        "20px",
-                                    background:
-                                        "white",
-                                    color:
-                                        "#9ca3af",
-                                    fontSize:
-                                        "14px",
-                                }}
-                            >
-                                {t(
-                                    "common.noResults"
-                                )}
-                            </div>
-                        ) : (
-                            <div
-                                style={{
-                                    display:
-                                        "grid",
-                                    gap:
-                                        "14px",
-                                }}
-                            >
-
-                                {completedShipments.map(
-                                    (
-                                        shipment
-                                    ) => (
-                                        <div
-                                            key={
-                                                shipment.id
-                                            }
-                                            className="tayeb-card"
-                                            style={{
-                                                padding:
-                                                    "18px",
-                                            }}
-                                        >
-
-                                            <div
-                                                style={{
-                                                    display:
-                                                        "flex",
-                                                    justifyContent:
-                                                        "space-between",
-                                                    gap:
-                                                        "15px",
-                                                    alignItems:
-                                                        "flex-start",
-                                                }}
-                                            >
-
-                                                <div>
-
-                                                    <strong
-                                                        style={{
-                                                            display:
-                                                                "block",
-                                                            color:
-                                                                "#111827",
-                                                            fontSize:
-                                                                "14px",
-                                                        }}
-                                                    >
-                                                        {
-                                                            shipment.item_type
-                                                        }
-                                                    </strong>
-
-                                                    <p
-                                                        style={{
-                                                            marginTop:
-                                                                "5px",
-                                                            color:
-                                                                "#6b7280",
-                                                            fontSize:
-                                                                "13px",
-                                                        }}
-                                                    >
-                                                        {
-                                                            shipment.origin
-                                                        }{" "}
-                                                        →
-                                                        {" "}
-                                                        {
-                                                            shipment.destination
-                                                        }
-                                                    </p>
-
-                                                </div>
-
-                                                <span className="tayeb-badge tayeb-badge-success">
-                                                    {t(
-                                                        "status.completed"
-                                                    )}
-                                                </span>
-
-                                            </div>
-
-                                            <RateDriver
-                                                shipment={
-                                                    shipment
-                                                }
-                                                onRate={
-                                                    rateDriver
-                                                }
-                                                t={t}
-                                            />
-
-                                        </div>
-                                    )
-                                )}
-
-                            </div>
-                        )}
-
-                    </section>
-
-                    {/* =================================================
-                        FOOTER
-                    ================================================= */}
-
-                    <footer
-                        style={{
-                            marginTop:
-                                "50px",
-                            paddingTop:
-                                "25px",
-                            borderTop:
-                                "1px solid #e5e7eb",
-                            textAlign:
-                                "center",
-                        }}
-                    >
-
-                        <BrandLogo
-                            width={95}
-                            height={36}
-                        />
-
-                        <p
-                            style={{
-                                marginTop:
-                                    "10px",
-                                color:
-                                    "#9ca3af",
-                                fontSize:
-                                    "12px",
-                                fontWeight:
-                                    700,
-                            }}
-                        >
-                            {t(
-                                "common.tagline"
-                            )}
-                        </p>
-
-                    </footer>
-
-                </div>
-
-
-                <DeleteAccount user={user} />
-
-            </main>
-        </>
-    );
-}
-
-
-/* =========================================================
-   STAT CARD
-========================================================= */
-
-function StatCard({
-    value,
-    label,
-    icon,
-}) {
-    return (
-        <div className="tayeb-span-3">
-
-            <div className="tayeb-stat-card">
-
-                <div className="tayeb-stat-card-top">
-
-                    <div className="tayeb-stat-icon">
-                        {icon}
-                    </div>
-
-                </div>
-
-                <div className="tayeb-stat-label">
-                    {label}
-                </div>
-
-                <div className="tayeb-stat-value">
-                    {value}
-                </div>
-
-            </div>
-
-        </div>
-    );
-}
-
-
-/* =========================================================
-   SHIPMENT SECTION
-========================================================= */
-
-function ShipmentSection({
-    shipment,
-    bids,
-    statusText,
-    statusClass,
-    formatPrice,
-    selectedBid,
-    setSelectedBid,
-    counterPrice,
-    setCounterPrice,
-    counterLoading,
-    suggestAnotherPrice,
-    acceptBid,
-    updateShipmentStatus,
-    t,
-}) {
-    const {
-        language,
-    } = useLanguage();
-
-    const matched =
-        shipment.driver;
-
-    return (
-        <article className="tayeb-shipment-card">
-
-            {/* =====================================================
-                SHIPMENT HEADER
-            ===================================================== */}
-
-            <div
-                style={{
-                    display:
-                        "flex",
-                    justifyContent:
-                        "space-between",
-                    alignItems:
-                        "flex-start",
-                    gap:
-                        "15px",
-                }}
-            >
-
-                <div>
-
-                    <span
-                        style={{
-                            display:
-                                "block",
-                            color:
-                                "#9ca3af",
-                            fontSize:
-                                "12px",
-                            fontWeight:
-                                800,
-                            textTransform:
-                                "uppercase",
-                            marginBottom:
-                                "5px",
-                        }}
-                    >
-                        {t(
-                            "common.cargo"
-                        )}
-                    </span>
-
-                    <h3
-                        style={{
-                            color:
-                                "#111827",
-                            fontSize:
-                                "17px",
-                            fontWeight:
-                                900,
-                        }}
-                    >
-                        {
-                            shipment.item_type
-                        }
-                    </h3>
-
-                    {shipment.is_produce && (
-                        <span
-                            className="mk-pill mk-pill-green"
-                            style={{
-                                marginTop:
-                                    "8px",
-                            }}
-                        >
-                            {language === "fr"
-                                ? "🌾 Commande Tayeb Marché"
-                                : "🌾 Tayeb Marché order"}
-                        </span>
-                    )}
-
-                </div>
-
-                <span
-                    className={statusClass(
-                        shipment.status
-                    )}
-                >
-                    {statusText(
-                        shipment.status
-                    )}
-                </span>
-
-            </div>
-
-
-            {/* =====================================================
-                ROUTE
-            ===================================================== */}
-
-            <div
-                className="tayeb-route"
-                style={{
-                    marginTop:
-                        "22px",
-                }}
-            >
-
-                <div className="tayeb-route-point">
-
-                    <span className="tayeb-route-label">
-                        {t(
-                            "shipper.pickupLocation"
-                        )}
-                    </span>
-
-                    <div className="tayeb-route-city">
-                        {
-                            shipment.origin
-                        }
-                    </div>
-
-                </div>
-
-                <div className="tayeb-route-arrow">
-                    →
-                </div>
-
-                <div className="tayeb-route-point">
-
-                    <span className="tayeb-route-label">
-                        {t(
-                            "shipper.deliveryLocation"
-                        )}
-                    </span>
-
-                    <div className="tayeb-route-city">
-                        {
-                            shipment.destination
-                        }
-                    </div>
-
-                </div>
-
-            </div>
-
-
-            {/* =====================================================
-                BASIC DETAILS
-            ===================================================== */}
-
-            <div
-                style={{
-                    display:
-                        "flex",
-                    flexWrap:
-                        "wrap",
-                    gap:
-                        "8px",
-                    marginTop:
-                        "17px",
-                }}
-            >
-
-                <span className="tayeb-badge tayeb-badge-gray">
-                    {t(
-                        "common.quantity"
-                    )}:{" "}
-                    {
-                        shipment.quantity
-                    }
-                </span>
-
-                <span className="tayeb-badge tayeb-badge-orange">
-                    {formatMoney(
-                        shipment.agreed_price ??
-                        shipment.initial_offer,
-                        shipment.currency
-                    )}
-                </span>
-
-            </div>
-
-
-            {/* =====================================================
-                MATCHED DRIVER
-            ===================================================== */}
-
-            {matched && (
-                <div
-                    style={{
-                        marginTop:
-                            "20px",
-                        padding:
-                            "18px",
-                        background:
-                            "#fff7ed",
-                        border:
-                            "1px solid #fed7aa",
-                        borderRadius:
-                            "20px",
-                    }}
-                >
-
-                    <div
-                        style={{
-                            display:
-                                "flex",
-                            alignItems:
-                                "center",
-                            gap:
-                                "12px",
-                        }}
-                    >
-
-                        <div className="tayeb-avatar">
-                            {matched.full_name
-                                ?.charAt(
-                                    0
-                                )
-                                ?.toUpperCase() ||
-                                "D"}
                         </div>
-
-                        <div
-                            style={{
-                                flex:
-                                    1,
-                                minWidth:
-                                    0,
-                            }}
-                        >
-
-                            <strong
-                                style={{
-                                    display:
-                                        "block",
-                                    color:
-                                        "#111827",
-                                    fontSize:
-                                        "15px",
-                                }}
-                            >
-                                {
-                                    matched.full_name
-                                }
-                            </strong>
-
-                            <span
-                                style={{
-                                    display:
-                                        "block",
-                                    marginTop:
-                                        "3px",
-                                    color:
-                                        "#6b7280",
-                                    fontSize:
-                                        "13px",
-                                }}
-                            >
-                                {matched.rating_count
-                                    ? `★ ${matched.rating} (${matched.rating_count})`
-                                    : t(
-                                        "shipper.newDriver"
-                                    )}
-                                {" · "}
-                                {
-                                    matched.vehicle_type ||
-                                    t(
-                                        "common.vehicle"
-                                    )
-                                }
-                            </span>
-
-                        </div>
-
-                        {(matched.plate_number ||
-                            matched.vehicle_number) && (
-                                <span className="tayeb-badge tayeb-badge-gray">
-                                    {matched.plate_number ||
-                                        matched.vehicle_number}
-                                </span>
-                            )}
-
                     </div>
-
-
-                    <div
-                        style={{
-                            display:
-                                "grid",
-                            gridTemplateColumns:
-                                "repeat(2, 1fr)",
-                            gap:
-                                "8px",
-                            marginTop:
-                                "15px",
-                        }}
-                    >
-
-                        <InfoBox
-                            label={
-                                t(
-                                    "common.phone"
-                                )
-                            }
-                            value={
-                                matched.phone_number ||
-                                shipment.driver_phone ? (
-                                    <a
-                                        href={telHref(
-                                            matched.phone_number ||
-                                            shipment.driver_phone
-                                        )}
-                                        style={{
-                                            color:
-                                                "#ea580c",
-                                        }}
-                                    >
-                                        {formatPhone(
-                                            matched.phone_number ||
-                                            shipment.driver_phone
-                                        )}
-                                    </a>
-                                ) : (
-                                    "—"
-                                )
-                            }
-                        />
-
-                        <InfoBox
-                            label={
-                                t(
-                                    "common.completed"
-                                )
-                            }
-                            value={
-                                matched.total_completed_shipments ??
-                                "0"
-                            }
-                        />
-
-                    </div>
-
-                </div>
+                </section>
             )}
 
 
-            {/* =====================================================
-                DELIVERY CODE
-            =====================================================
-             *
-             * The receiver gives this code to the driver when the
-             * goods arrive. Without it the driver can't finish.
-             */}
+            {/* =================================================
+                MY LOADS
+            ================================================= */}
 
-            {shipment.delivery_code &&
-                (shipment.status === "MATCHED" ||
-                    shipment.status === "DEPARTED" ||
-                    shipment.status === "ARRIVED") && (
-                    <div
-                        style={{
-                            marginTop:
-                                "15px",
-                            padding:
-                                "15px",
-                            borderRadius:
-                                "17px",
-                            background:
-                                "#eff6ff",
-                            border:
-                                "1px solid #bfdbfe",
-                        }}
-                    >
+            {tab === "loads" && (
+                <>
+                    <section className="ap-section ap-fade">
+                        <SectionHead title={a("s_loadsTitle")} count={toAnswer}>
+                            <button type="button" className="ts-btn ts-btn-light ts-btn-sm" onClick={() => setTab("send")}>
+                                ➕ {a("s_newLoad")}
+                            </button>
+                        </SectionHead>
 
-                        <div
-                            style={{
-                                display:
-                                    "flex",
-                                alignItems:
-                                    "center",
-                                justifyContent:
-                                    "space-between",
-                                gap:
-                                    "12px",
-                            }}
-                        >
+                        {live.length === 0 ? (
+                            <Empty icon="📦" title={a("s_noLoads")} text={a("s_noLoadsText")}>
+                                <button type="button" className="ts-btn ts-btn-primary" onClick={() => setTab("send")}>
+                                    ➕ {a("s_newLoad")}
+                                </button>
+                            </Empty>
+                        ) : (
+                            <div className="ap-stack">
+                                {live.map((shipment) => (
+                                    <LoadCard
+                                        key={shipment.id}
+                                        shipment={shipment}
+                                        bids={bidsFor(shipment.id)}
+                                        busy={busy}
+                                        onChoose={(bid) => choose(bid, shipment)}
+                                        onCounter={(bid) => setCounterFor({ bid, shipment })}
+                                        onStatus={(status) => setStatus(shipment, status)}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </section>
 
-                            <span
-                                style={{
-                                    color:
-                                        "#1e3a8a",
-                                    fontSize:
-                                        "14px",
-                                    fontWeight:
-                                        800,
-                                }}
-                            >
-                                🔑{" "}
-                                {t(
-                                    "shipper.deliveryCode"
-                                )}
-                            </span>
+                    {history.length > 0 && (
+                        <section className="ap-section">
+                            <SectionHead title={a("s_history")} />
+                            <div className="ap-grid">
+                                {history.slice(0, 40).map((shipment) => (
+                                    <article key={shipment.id} className="ap-card is-muted">
+                                        <div className="ap-card-head">
+                                            <div style={{ minWidth: 0 }}>
+                                                <h3 className="ap-card-title" style={{ fontSize: 16 }}>
+                                                    {cargoEmoji(shipment.item_type, shipment.is_produce)} {shipment.origin_city} → {shipment.destination_city}
+                                                </h3>
+                                                <div className="ap-card-sub">
+                                                    {shipment.quantity} × {cargoLabel(shipment.item_type, language)} · {timeAgo(shipment.completed_at || shipment.created_at, language, a)}
+                                                </div>
+                                            </div>
+                                            <span className={`ap-chip ${shipment.status === "COMPLETED" ? "ap-chip-green" : "ap-chip-red"}`}>
+                                                {a(`load_${shipment.status}`)}
+                                            </span>
+                                        </div>
 
-                            <strong
-                                style={{
-                                    color:
-                                        "#1e3a8a",
-                                    fontSize:
-                                        "24px",
-                                    letterSpacing:
-                                        "0.25em",
-                                    fontWeight:
-                                        900,
-                                }}
-                            >
-                                {
-                                    shipment.delivery_code
-                                }
-                            </strong>
+                                        {shipment.status === "COMPLETED" && (
+                                            <>
+                                                <div className="ap-row">
+                                                    <span className="ap-money" style={{ fontSize: 20 }}>{formatMoney(shipment.agreed_price, shipment.currency)}</span>
+                                                    {shipment.driver && <span className="ap-card-sub">🚚 {shipment.driver.full_name}</span>}
+                                                </div>
+                                                {shipment.driver_rating ? (
+                                                    <span className="ap-chip ap-chip-amber">{"★".repeat(shipment.driver_rating)} · {a("s_rated")}</span>
+                                                ) : shipment.driver ? (
+                                                    <div className="ap-field">
+                                                        <span className="ap-field-label">{a("s_rateTitle", { name: shipment.driver.full_name })}</span>
+                                                        <Stars disabled={busy === shipment.id} onRate={(stars) => rate(shipment, stars)} />
+                                                    </div>
+                                                ) : null}
+                                            </>
+                                        )}
+                                    </article>
+                                ))}
+                            </div>
+                        </section>
+                    )}
+                </>
+            )}
 
-                        </div>
 
-                        <p
-                            style={{
-                                margin:
-                                    "8px 0 0",
-                                color:
-                                    "#1e40af",
-                                fontSize:
-                                    "13px",
-                                lineHeight:
-                                    1.5,
-                            }}
-                        >
-                            {t(
-                                "shipper.deliveryCodeHint"
-                            )}
-                        </p>
+            {/* =================================================
+                PRODUCE ORDERS
+            ================================================= */}
 
-                        <a
-                            href={`${shipment.receiver_phone
-                                ? whatsappHref(shipment.receiver_phone)
-                                : "https://wa.me/"
-                                }?text=${encodeURIComponent(
-                                    t(
-                                        "shipper.codeMessage"
-                                    )
-                                        .replace(
-                                            "{item}",
-                                            shipment.item_type
-                                        )
-                                        .replace(
-                                            "{code}",
-                                            shipment.delivery_code
-                                        )
-                                )}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="tayeb-button tayeb-button-whatsapp tayeb-button-full"
-                            style={{
-                                marginTop:
-                                    "10px",
-                                textDecoration:
-                                    "none",
-                            }}
-                        >
-                            💬{" "}
-                            {shipment.receiver_phone
-                                ? t(
-                                    "shipper.sendCodeToReceiver"
-                                )
-                                : t(
-                                    "shipper.shareCode"
-                                )}
-                        </a>
+            {tab === "orders" && (
+                <>
+                    <section className="ap-section ap-fade" id="orders">
+                        <SectionHead title={a("s_ordersTitle")} count={liveOrders}>
+                            <Link href="/market" className="ts-btn ts-btn-light ts-btn-sm">🌾 {a("s_goMarket")}</Link>
+                        </SectionHead>
 
+                        {market.orders.length === 0 ? (
+                            <Empty icon="🧺" title={a("s_noOrders")} text={a("s_noOrdersText")}>
+                                <Link href="/market" className="ts-btn ts-btn-primary">🌾 {a("s_goMarket")}</Link>
+                            </Empty>
+                        ) : (
+                            <div className="ap-stack">
+                                {market.orders.slice(0, 40).map((order) => (
+                                    <OrderCard key={order.id} order={order} role="buyer" busy={busy === order.id} onAction={orderAction} />
+                                ))}
+                            </div>
+                        )}
+                    </section>
+
+                    {market.alerts?.length > 0 && (
+                        <section className="ap-section">
+                            <SectionHead title={`🔔 ${a("s_alertsTitle")}`} sub={a("s_alertsText")} />
+                            <div className="ap-grid">
+                                {market.alerts.map((alert) => (
+                                    <div key={alert.id} className="ap-card" style={{ gridTemplateColumns: "1fr auto", alignItems: "center" }}>
+                                        <div style={{ minWidth: 0 }}>
+                                            <strong style={{ color: "var(--ts-ink)" }}>
+                                                {productEmoji(alert.product)} {productName({ product: alert.product }, language)}
+                                            </strong>
+                                            <div className="ap-card-sub">
+                                                {findCountry(alert.country)?.flag} {alert.city || countryName(alert.country, language)}
+                                            </div>
+                                        </div>
+                                        <button type="button" className="ts-btn ts-btn-light ts-btn-sm" disabled={busy === alert.id} onClick={() => removeAlert(alert)}>
+                                            {a("s_alertRemove")}
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+                    )}
+                </>
+            )}
+
+
+            {/* =================================================
+                PROFILE
+            ================================================= */}
+
+            {tab === "profile" && (
+                <section className="ap-section ap-fade">
+                    <SectionHead title={a("s_tabProfile")} />
+                    <div style={{ maxWidth: 720 }}>
+                        <AccountPanel user={user} />
                     </div>
-                )}
+                </section>
+            )}
 
-
-            {/* =====================================================
-                LIVE TRACKING
-            ===================================================== */}
-
-            {shipment.tracking && (
-                <TrackingMap
-                    shipment={
-                        shipment
-                    }
-                    t={t}
+            {counterFor && (
+                <CounterSheet
+                    bid={counterFor.bid}
+                    shipment={counterFor.shipment}
+                    busy={busy === "counter"}
+                    onClose={() => setCounterFor(null)}
+                    onSend={(price) => sendCounter(counterFor.bid, price)}
                 />
             )}
 
-            {!shipment.tracking &&
-                shipment.status ===
-                "DEPARTED" && (
-                    <div
-                        style={{
-                            marginTop:
-                                "15px",
-                            padding:
-                                "13px",
-                            borderRadius:
-                                "14px",
-                            background:
-                                "#fff7ed",
-                            color:
-                                "#c2410c",
-                            fontSize:
-                                "13px",
-                            fontWeight:
-                                800,
-                            lineHeight:
-                                1.5,
-                        }}
-                    >
-                        🚚{" "}
-                        {t(
-                            "status.departed"
-                        )}
-                        {" · "}
-                        {t(
-                            "shipper.waitingForLocation"
-                        )}
-                    </div>
-                )}
-
-            {shipment.status ===
-                "ARRIVED" && (
-                    <div
-                        style={{
-                            marginTop:
-                                "15px",
-                            padding:
-                                "13px",
-                            borderRadius:
-                                "14px",
-                            background:
-                                "#f0fdf4",
-                            color:
-                                "#166534",
-                            fontSize:
-                                "13px",
-                            fontWeight:
-                                800,
-                        }}
-                    >
-                        ✓{" "}
-                        {t(
-                            "status.arrived"
-                        )}
-                    </div>
-                )}
+        </AppShell>
+    );
+}
 
 
-            {/* =====================================================
-                DELIVERY STATUS BUTTONS
-            ===================================================== */}
+/* =========================================================
+   POST A LOAD
+========================================================= */
 
-            {shipment.status ===
-                "MATCHED" && (
-                    <button
-                        type="button"
-                        onClick={() =>
-                            updateShipmentStatus(
-                                shipment,
-                                "DEPARTED"
-                            )
-                        }
-                        className="tayeb-button tayeb-button-primary tayeb-button-full"
-                        style={{
-                            marginTop:
-                                "15px",
-                        }}
-                    >
-                        📦{" "}
-                        {t(
-                            "shipper.goodsHandedOver"
-                        )}
-                    </button>
-                )}
+function PostForm({ user, busy, onPost }) {
+    const { language } = useLanguage();
 
-            {(shipment.status ===
-                "DEPARTED" ||
-                shipment.status ===
-                "ARRIVED") && (
-                    <button
-                        type="button"
-                        onClick={() =>
-                            updateShipmentStatus(
-                                shipment,
-                                "COMPLETED"
-                            )
-                        }
-                        className="tayeb-button tayeb-button-success tayeb-button-full"
-                        style={{
-                            marginTop:
-                                "12px",
-                        }}
-                    >
-                        ✓{" "}
-                        {t(
-                            "shipper.goodsReceived"
-                        )}
-                    </button>
-                )}
+    const a = useAppText();
 
+    const { toast } = useFeedback();
 
-            {/* =====================================================
-                DRIVER OFFERS
-            ===================================================== */}
+    const home = countryOrDefault(user.country).code;
 
-            {!matched &&
-                shipment.status ===
-                "OPEN" && (
-                    <div
-                        style={{
-                            marginTop:
-                                "24px",
-                        }}
-                    >
+    const [form, setForm] = useState({ ...EMPTY_FORM, originCountry: home, destinationCountry: home });
 
-                        <div
-                            style={{
-                                display:
-                                    "flex",
-                                justifyContent:
-                                    "space-between",
-                                alignItems:
-                                    "center",
-                                gap:
-                                    "10px",
-                                marginBottom:
-                                    "12px",
-                            }}
-                        >
+    const [route, setRoute] = useState(null);
 
-                            <h4
-                                style={{
-                                    color:
-                                        "#111827",
-                                    fontSize:
-                                        "15px",
-                                    fontWeight:
-                                        900,
-                                }}
-                            >
-                                {t(
-                                    "shipper.driverOffers"
-                                )}
-                            </h4>
+    const origin = countryOrDefault(form.originCountry);
 
-                            <span className="tayeb-badge tayeb-badge-orange">
-                                {
-                                    bids.length
-                                }
-                            </span>
+    const other = form.type === "OTHER";
 
-                        </div>
+    async function loadRoute(from, to) {
+        if (!from || !to) {
+            setRoute(null);
+            return;
+        }
 
+        try {
+            setRoute(await apiGet(`/api/shipper?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`));
+        } catch {
+            setRoute(null);
+        }
+    }
 
-                        {bids.length ===
-                            0 ? (
-                            <div
-                                style={{
-                                    padding:
-                                        "18px",
-                                    border:
-                                        "1px dashed #d1d5db",
-                                    borderRadius:
-                                        "17px",
-                                    background:
-                                        "#fafafa",
-                                    color:
-                                        "#9ca3af",
-                                    fontSize:
-                                        "13px",
-                                    textAlign:
-                                        "center",
-                                }}
-                            >
-                                {t(
-                                    "shipper.waitingForOffers"
-                                )}
-                            </div>
-                        ) : (
-                            <div
-                                style={{
-                                    display:
-                                        "grid",
-                                    gap:
-                                        "12px",
-                                }}
-                            >
+    function update(changes) {
+        const next = { ...form, ...changes };
 
-                                {bids
-                                    .filter(
-                                        (
-                                            bid
-                                        ) =>
-                                            bid.status !==
-                                            "REJECTED"
-                                    )
-                                    .map(
-                                        (
-                                            bid
-                                        ) => (
-                                            <BidCard
-                                                currency={
-                                                    shipment.currency
-                                                }
-                                                key={
-                                                    bid.id
-                                                }
-                                                bid={
-                                                    bid
-                                                }
-                                                formatPrice={
-                                                    formatPrice
-                                                }
-                                                selectedBid={
-                                                    selectedBid
-                                                }
-                                                setSelectedBid={
-                                                    setSelectedBid
-                                                }
-                                                counterPrice={
-                                                    counterPrice
-                                                }
-                                                setCounterPrice={
-                                                    setCounterPrice
-                                                }
-                                                counterLoading={
-                                                    counterLoading
-                                                }
-                                                suggestAnotherPrice={
-                                                    suggestAnotherPrice
-                                                }
-                                                acceptBid={
-                                                    acceptBid
-                                                }
-                                                t={
-                                                    t
-                                                }
-                                            />
-                                        )
-                                    )}
+        if (changes.originCountry && changes.originCountry !== form.originCountry) {
+            next.originCity = "";
+        }
 
-                            </div>
-                        )}
+        if (changes.destinationCountry && changes.destinationCountry !== form.destinationCountry) {
+            next.destinationCity = "";
+        }
 
+        setForm(next);
 
-                        {/* =============================================
-                            SHARE ON WHATSAPP
-                        ============================================= */}
+        if (next.originCity !== form.originCity || next.destinationCity !== form.destinationCity) {
+            loadRoute(next.originCity, next.destinationCity);
+        }
+    }
 
-                        <div
-                            style={{
-                                marginTop:
-                                    "14px",
-                                padding:
-                                    "14px",
-                                borderRadius:
-                                    "17px",
-                                background:
-                                    "#f0fdfa",
-                                border:
-                                    "1px solid #99f6e4",
-                            }}
-                        >
+    async function submit(event) {
+        event.preventDefault();
 
-                            <p
-                                style={{
-                                    margin:
-                                        0,
-                                    color:
-                                        "#115e59",
-                                    fontSize:
-                                        "13px",
-                                    lineHeight:
-                                        1.5,
-                                }}
-                            >
-                                {t(
-                                    "shipper.shareLoadHint"
-                                )}
-                            </p>
+        const itemType = other ? form.other.trim() : form.type;
 
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    shareLoadOnWhatsApp(
-                                        shipment,
-                                        language
-                                    )
-                                }
-                                className="tayeb-button tayeb-button-whatsapp tayeb-button-full"
-                                style={{
-                                    marginTop:
-                                        "10px",
-                                }}
-                            >
-                                💬{" "}
-                                {t(
-                                    "shipper.shareLoad"
-                                )}
-                            </button>
+        const quantity = Number(form.quantity);
 
-                        </div>
+        const price = Number(digits(form.price));
 
+        if (!itemType || !form.originCity || !form.destinationCity || !(quantity > 0) || !(price > 0)) {
+            toast(a("s_missing"), "error");
+            return;
+        }
 
-                        {/* USUAL PRICE (real past deals) */}
+        const done = await onPost({
+            itemType,
+            quantity,
+            price,
+            originCountry: form.originCountry,
+            originCity: form.originCity,
+            originArea: form.originArea,
+            destinationCountry: form.destinationCountry,
+            destinationCity: form.destinationCity,
+            destinationArea: form.destinationArea,
+            receiverPhone: form.receiverPhone.trim(),
+        });
 
-                        {shipment.price_hint && (
-                            <p
-                                style={{
-                                    marginTop:
-                                        "12px",
-                                    color:
-                                        "#6b7280",
-                                    fontSize:
-                                        "13px",
-                                    fontWeight:
-                                        700,
-                                }}
-                            >
-                                💡{" "}
-                                {t(
-                                    "common.usualPrice"
-                                )
-                                    .replace(
-                                        "{low}",
-                                        formatMoney(
-                                            shipment.price_hint.low,
-                                            shipment.currency
-                                        )
-                                    )
-                                    .replace(
-                                        "{high}",
-                                        formatMoney(
-                                            shipment.price_hint.high,
-                                            shipment.currency
-                                        )
-                                    )
-                                    .replace(
-                                        "{count}",
-                                        shipment.price_hint.count
-                                    )}
-                            </p>
-                        )}
+        if (done) {
+            setForm({ ...EMPTY_FORM, originCountry: home, destinationCountry: home });
+            setRoute(null);
+        }
+    }
 
+    const countries = sortedCountries(language);
 
+    return (
+        <form className="ap-card ap-form" onSubmit={submit}>
+
+            <div>
+                <span className="ap-label">{a("s_newLoad")}</span>
+                <h2 className="ap-card-title" style={{ fontSize: 24, marginTop: 4 }}>{a("s_formTitle")}</h2>
+                <div className="ap-card-sub">{a("s_formSub")}</div>
+            </div>
+
+            {/* What */}
+            <div className="ap-field">
+                <span className="ap-field-label">{a("s_type")}</span>
+                <div className="ap-choices">
+                    {CARGO_TYPES.map((item) => (
                         <button
+                            key={item.value}
                             type="button"
-                            onClick={() =>
-                                updateShipmentStatus(
-                                    shipment,
-                                    "CANCELLED"
-                                )
-                            }
-                            className="tayeb-button tayeb-button-light tayeb-button-full"
-                            style={{
-                                marginTop:
-                                    "12px",
-                            }}
+                            className={`ap-choice ${form.type === item.value ? "active" : ""}`}
+                            onClick={() => update({ type: item.value })}
+                            aria-pressed={form.type === item.value}
                         >
-                            ✕{" "}
-                            {t(
-                                "shipper.cancelLoad"
-                            )}
+                            <span aria-hidden="true">{item.emoji}</span>
+                            <span>{language === "fr" ? item.fr : item.en}</span>
                         </button>
-
-                    </div>
+                    ))}
+                    <button
+                        type="button"
+                        className={`ap-choice ${other ? "active" : ""}`}
+                        onClick={() => update({ type: "OTHER" })}
+                        aria-pressed={other}
+                    >
+                        <span aria-hidden="true">✏️</span>
+                        <span>{language === "fr" ? "Autre" : "Other"}</span>
+                    </button>
+                </div>
+                {other && (
+                    <input
+                        className="mk-input"
+                        value={form.other}
+                        maxLength={60}
+                        onChange={(event) => update({ other: event.target.value })}
+                        placeholder={a("s_typeOtherPlaceholder")}
+                        aria-label={a("s_typeOther")}
+                        autoFocus
+                    />
                 )}
+            </div>
+
+            <div className="ap-field">
+                <label htmlFor="cargo-quantity">{a("s_quantity")}</label>
+                <input
+                    id="cargo-quantity"
+                    className="mk-input"
+                    type="number"
+                    min="1"
+                    inputMode="numeric"
+                    value={form.quantity}
+                    onChange={(event) => update({ quantity: event.target.value })}
+                    placeholder={a("s_quantityPlaceholder")}
+                />
+            </div>
+
+            {/* Where */}
+            <div className="ap-form-grid">
+                {[
+                    ["origin", a("from"), "🟠"],
+                    ["destination", a("to"), "🟢"],
+                ].map(([side, label, dot]) => (
+                    <fieldset key={side} className="ap-card is-muted" style={{ padding: 14, margin: 0, gap: 10 }}>
+                        <legend className="ap-field-label" style={{ padding: 0 }}>{dot} {label}</legend>
+                        <select
+                            className="mk-select"
+                            value={form[`${side}Country`]}
+                            onChange={(event) => update({ [`${side}Country`]: event.target.value })}
+                            aria-label={`${label} · ${a("s_country")}`}
+                        >
+                            {countries.map((item) => (
+                                <option key={item.code} value={item.code}>
+                                    {item.flag} {language === "fr" ? item.fr : item.en}
+                                </option>
+                            ))}
+                        </select>
+                        <select
+                            className="mk-select"
+                            value={form[`${side}City`]}
+                            onChange={(event) => update({ [`${side}City`]: event.target.value })}
+                            aria-label={`${label} · ${a("s_city")}`}
+                            required
+                        >
+                            <option value="">{a("s_chooseCity")}</option>
+                            {cityNames(form[`${side}Country`]).map((city) => (
+                                <option key={city} value={city}>{city}</option>
+                            ))}
+                        </select>
+                        <input
+                            className="mk-input"
+                            value={form[`${side}Area`]}
+                            maxLength={80}
+                            onChange={(event) => update({ [`${side}Area`]: event.target.value })}
+                            placeholder={`${a("s_area")} (${a("optional")})`}
+                            aria-label={`${label} · ${a("s_area")}`}
+                        />
+                    </fieldset>
+                ))}
+            </div>
+
+            {route && (route.route_km > 0 || route.hint) && (
+                <div className="ap-note ap-note-blue">
+                    <span aria-hidden="true">🛣️</span>
+                    <span>
+                        {route.route_km > 0 && <strong>{a("s_route", { km: route.route_km })}</strong>}
+                        {route.hint && (
+                            <>
+                                {route.route_km > 0 ? " · " : ""}
+                                {a("usualPrice", {
+                                    low: formatMoney(route.hint.low, origin.currency),
+                                    high: formatMoney(route.hint.high, origin.currency),
+                                    count: route.hint.count,
+                                })}
+                            </>
+                        )}
+                    </span>
+                </div>
+            )}
+
+            {/* Price */}
+            <div className="ap-field">
+                <label htmlFor="cargo-price">{a("s_price", { currency: origin.currency })}</label>
+                <input
+                    id="cargo-price"
+                    className="mk-input ap-input-big"
+                    inputMode="numeric"
+                    value={form.price ? Number(digits(form.price)).toLocaleString("en-US") : ""}
+                    onChange={(event) => update({ price: digits(event.target.value).slice(0, 10) })}
+                    placeholder={route?.hint ? String(route.hint.median) : "25,000"}
+                />
+                <small>{a("s_priceHelp")}</small>
+            </div>
+
+            {/* Receiver */}
+            <div className="ap-field">
+                <label htmlFor="cargo-receiver">{a("s_receiver")} <small>({a("optional")})</small></label>
+                <PhoneInput
+                    id="cargo-receiver"
+                    country={form.destinationCountry}
+                    onCountry={(code) => update({ destinationCountry: code })}
+                    value={form.receiverPhone}
+                    onChange={(value) => update({ receiverPhone: value })}
+                    required={false}
+                />
+                <small>{a("s_receiverHelp")}</small>
+            </div>
+
+            <button type="submit" className="ts-btn ts-btn-primary ts-btn-lg" disabled={busy}>
+                {busy ? "…" : `${a("s_post")} →`}
+            </button>
+
+        </form>
+    );
+}
+
+
+/* =========================================================
+   ONE LOAD
+========================================================= */
+
+function LoadCard({ shipment, bids, busy, onChoose, onCounter, onStatus }) {
+    const { language } = useLanguage();
+
+    const a = useAppText();
+
+    const from = splitPlace(shipment.origin, shipment.origin_city);
+    const to = splitPlace(shipment.destination, shipment.destination_city);
+
+    const isOpen = shipment.status === "OPEN";
+
+    const driver = shipment.driver;
+
+    const toAnswer = bids.some((bid) => bid.last_offer_by !== "SHIPPER");
+
+    return (
+        <article className={`ap-card ${isOpen && toAnswer ? "is-hot" : !isOpen ? "is-green" : ""}`}>
+
+            <div className="ap-card-head">
+                <div style={{ minWidth: 0 }}>
+                    <h3 className="ap-card-title">
+                        {cargoEmoji(shipment.item_type, shipment.is_produce)} {shipment.quantity} × {cargoLabel(shipment.item_type, language)}
+                    </h3>
+                    <div className="ap-card-sub">{timeAgo(shipment.created_at, language, a)}</div>
+                </div>
+                <span className={`ap-chip ${isOpen ? "ap-chip-orange" : "ap-chip-green"}`}>{a(`load_${shipment.status}`)}</span>
+            </div>
+
+            {!isOpen && <DeliverySteps status={shipment.status} />}
+
+            <Route from={from.city} fromArea={from.area} to={to.city} toArea={to.area} />
+
+            <div className="ap-chips">
+                {shipment.is_produce && <span className="ap-chip ap-chip-green">🌾 {a("produceLoad")}</span>}
+                {shipment.route_km > 0 && <span className="ap-chip">🛣️ {a("km", { km: shipment.route_km })}</span>}
+                {shipment.receiver_phone && <span className="ap-chip">📞 {formatPhone(shipment.receiver_phone)}</span>}
+                <span className="ap-chip ap-chip-ink">{formatMoney(shipment.agreed_price ?? shipment.initial_offer, shipment.currency)}</span>
+            </div>
+
+            {/* ---------- waiting for a driver ---------- */}
+
+            {isOpen && (
+                <>
+                    {shipment.price_hint && (
+                        <div className="ap-note">
+                            <span aria-hidden="true">💡</span>
+                            <span>
+                                {a("usualPrice", {
+                                    low: formatMoney(shipment.price_hint.low, shipment.currency),
+                                    high: formatMoney(shipment.price_hint.high, shipment.currency),
+                                    count: shipment.price_hint.count,
+                                })}
+                            </span>
+                        </div>
+                    )}
+
+                    <div className="ap-row">
+                        <span className="ap-field-label">{a("s_prices")}</span>
+                        {bids.length > 0 && <span className="ap-count">{bids.length}</span>}
+                    </div>
+
+                    {bids.length === 0 ? (
+                        <div className="ap-note ap-note-orange">
+                            <span className="ts-pulse" aria-hidden="true" style={{ background: "var(--ts-orange)", marginTop: 6 }} />
+                            <span>{a("s_noBids")}</span>
+                        </div>
+                    ) : (
+                        <div className="ap-stack" style={{ gap: 10 }}>
+                            {[...bids]
+                                .sort((x, y) => Number(x.counter_price ?? x.proposed_price) - Number(y.counter_price ?? y.proposed_price))
+                                .map((bid) => (
+                                    <BidRow
+                                        key={bid.id}
+                                        bid={bid}
+                                        currency={shipment.currency}
+                                        busy={busy === bid.id}
+                                        onChoose={() => onChoose(bid)}
+                                        onCounter={() => onCounter(bid)}
+                                    />
+                                ))}
+                        </div>
+                    )}
+
+                    <div className="ap-actions">
+                        <button type="button" className="ts-btn ts-btn-whatsapp" onClick={() => shareLoadOnWhatsApp(shipment, language)}>
+                            💬 {a("s_share")}
+                        </button>
+                        <button type="button" className="ts-btn ts-btn-light" disabled={busy === shipment.id} onClick={() => onStatus("CANCELLED")}>
+                            ✕ {a("s_cancel")}
+                        </button>
+                    </div>
+                </>
+            )}
+
+            {/* ---------- driver chosen ---------- */}
+
+            {driver && (
+                <div className="ap-row" style={{ flexWrap: "wrap" }}>
+                    <Person
+                        name={driver.full_name}
+                        detail={[
+                            driver.rating_count ? `★ ${driver.rating} (${driver.rating_count})` : a("s_newDriver"),
+                            driver.vehicle_type,
+                            driver.plate_number,
+                        ].filter(Boolean).join(" · ")}
+                    />
+                    {(driver.phone_number || shipment.driver_phone) && (
+                        <a className="ts-btn ts-btn-light ts-btn-sm" href={telHref(driver.phone_number || shipment.driver_phone)}>
+                            📞 {formatPhone(driver.phone_number || shipment.driver_phone)}
+                        </a>
+                    )}
+                </div>
+            )}
+
+            {shipment.delivery_code && LIVE.includes(shipment.status) && (
+                <div className="ap-code">
+                    <strong style={{ color: "white" }}>🔑 {a("s_codeTitle")}</strong>
+                    <CodeDigits code={shipment.delivery_code} />
+                    <span>{a("s_codeText")}</span>
+                    <a
+                        className="ts-btn ts-btn-whatsapp"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        href={`${shipment.receiver_phone ? whatsappHref(shipment.receiver_phone) : "https://wa.me/"}?text=${encodeURIComponent(
+                            a("s_codeMessage", { item: `${shipment.quantity} × ${cargoLabel(shipment.item_type, language)}`, code: shipment.delivery_code })
+                        )}`}
+                    >
+                        💬 {shipment.receiver_phone ? a("s_sendCode") : a("s_shareCode")}
+                    </a>
+                </div>
+            )}
+
+            {shipment.tracking ? (
+                <TruckMap shipment={shipment} />
+            ) : shipment.status === "DEPARTED" ? (
+                <div className="ap-note ap-note-blue">
+                    <span aria-hidden="true">📡</span>
+                    <span>{a("s_waitingLocation")}</span>
+                </div>
+            ) : null}
+
+            {shipment.status === "MATCHED" && (
+                <button type="button" className="ts-btn ts-btn-primary ts-btn-lg" disabled={busy === shipment.id} onClick={() => onStatus("DEPARTED")}>
+                    📦 {a("s_handedOver")}
+                </button>
+            )}
+
+            {(shipment.status === "DEPARTED" || shipment.status === "ARRIVED") && (
+                <button type="button" className="ts-btn ts-btn-green ts-btn-lg" disabled={busy === shipment.id} onClick={() => onStatus("COMPLETED")}>
+                    ✓ {a("s_received")}
+                </button>
+            )}
 
         </article>
     );
@@ -3121,744 +919,136 @@ function ShipmentSection({
 
 
 /* =========================================================
-   TRACKING MAP
-=========================================================
- *
- * The truck's last position on an OpenStreetMap map (no API
- * key needed), with how long ago it was sent and the rough
- * distance left to the delivery city.
- */
-
-function TrackingMap({
-    shipment,
-    t,
-}) {
-    const {
-        lat,
-        lng,
-        minutes_ago: minutesAgo,
-        km_left: kmLeft,
-    } = shipment.tracking;
-
-    const box = [
-        lng - 0.06,
-        lat - 0.04,
-        lng + 0.06,
-        lat + 0.04,
-    ].join(",");
-
-    return (
-        <div
-            style={{
-                marginTop:
-                    "15px",
-                overflow:
-                    "hidden",
-                borderRadius:
-                    "17px",
-                border:
-                    "1px solid #e5e7eb",
-                background:
-                    "white",
-            }}
-        >
-
-            <iframe
-                title={t(
-                    "shipper.liveLocation"
-                )}
-                src={`https://www.openstreetmap.org/export/embed.html?bbox=${box}&layer=mapnik&marker=${lat},${lng}`}
-                loading="lazy"
-                style={{
-                    display:
-                        "block",
-                    width:
-                        "100%",
-                    height:
-                        "220px",
-                    border:
-                        0,
-                }}
-            />
-
-            <div
-                style={{
-                    display:
-                        "flex",
-                    flexWrap:
-                        "wrap",
-                    alignItems:
-                        "center",
-                    justifyContent:
-                        "space-between",
-                    gap:
-                        "8px",
-                    padding:
-                        "12px 14px",
-                }}
-            >
-
-                <div>
-
-                    <strong
-                        style={{
-                            display:
-                                "block",
-                            color:
-                                "#111827",
-                            fontSize:
-                                "14px",
-                        }}
-                    >
-                        📡{" "}
-                        {t(
-                            "shipper.liveLocation"
-                        )}
-                        {minutesAgo !== null &&
-                            ` · ${t(
-                                "shipper.updatedAgo"
-                            ).replace(
-                                "{minutes}",
-                                minutesAgo
-                            )}`}
-                    </strong>
-
-                    {kmLeft > 0 &&
-                        shipment.destination_city && (
-                            <span
-                                style={{
-                                    display:
-                                        "block",
-                                    marginTop:
-                                        "3px",
-                                    color:
-                                        "#6b7280",
-                                    fontSize:
-                                        "13px",
-                                }}
-                            >
-                                {t(
-                                    "shipper.kmLeft"
-                                )
-                                    .replace(
-                                        "{km}",
-                                        kmLeft
-                                    )
-                                    .replace(
-                                        "{city}",
-                                        shipment.destination_city
-                                    )}
-                            </span>
-                        )}
-
-                </div>
-
-                <a
-                    href={`https://www.google.com/maps?q=${lat},${lng}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="tayeb-button tayeb-button-light"
-                    style={{
-                        textDecoration:
-                            "none",
-                    }}
-                >
-                    🗺️{" "}
-                    {t(
-                        "shipper.openInMaps"
-                    )}
-                </a>
-
-            </div>
-
-        </div>
-    );
-}
-
-
-/* =========================================================
-   BID CARD
+   ONE DRIVER'S PRICE
 ========================================================= */
 
-function BidCard({
-    bid,
-    currency,
-    formatPrice,
-    selectedBid,
-    setSelectedBid,
-    counterPrice,
-    setCounterPrice,
-    counterLoading,
-    suggestAnotherPrice,
-    acceptBid,
-    t,
-}) {
-    const driver =
-        bid.driver;
+function BidRow({ bid, currency, busy, onChoose, onCounter }) {
+    const a = useAppText();
 
-    const price =
-        bid.counter_price ??
-        bid.proposed_price;
+    const driver = bid.driver || {};
 
-    const isSelected =
-        selectedBid?.id ===
-        bid.id;
+    const price = bid.counter_price ?? bid.proposed_price;
 
+    const waiting = bid.last_offer_by === "SHIPPER";
 
     return (
-        <div
-            className="tayeb-offer-card"
-            style={{
-                borderColor:
-                    isSelected
-                        ? "#fed7aa"
-                        : "#e5e7eb",
-                background:
-                    isSelected
-                        ? "#fffaf5"
-                        : "white",
-            }}
-        >
+        <div className={`ap-card ${waiting ? "is-muted" : ""}`} style={{ padding: 14, borderRadius: 18, boxShadow: "none" }}>
+            <Person
+                name={driver.full_name}
+                detail={[
+                    driver.rating_count ? `★ ${driver.rating} (${driver.rating_count})` : a("s_newDriver"),
+                    driver.vehicle_type,
+                    driver.total_completed_shipments ? a("s_trips", { count: driver.total_completed_shipments }) : null,
+                ].filter(Boolean).join(" · ")}
+            />
 
-            <div className="tayeb-offer-header">
-
-                <div className="tayeb-offer-user">
-
-                    <div className="tayeb-avatar">
-                        {driver?.full_name
-                            ?.charAt(
-                                0
-                            )
-                            ?.toUpperCase() ||
-                            "D"}
-                    </div>
-
-                    <div className="tayeb-offer-user-info">
-
-                        <div className="tayeb-offer-user-name">
-                            {
-                                driver?.full_name ||
-                                t(
-                                    "common.driver"
-                                )
-                            }
-                        </div>
-
-                        <div className="tayeb-offer-user-meta">
-                            {driver?.rating_count
-                                ? `★ ${driver.rating} (${driver.rating_count})`
-                                : t(
-                                    "shipper.newDriver"
-                                )}
-                            {" · "}
-                            {
-                                driver?.vehicle_type ||
-                                t(
-                                    "common.vehicle"
-                                )
-                            }
-                        </div>
-
-                    </div>
-
-                </div>
-
-
-                <div className="tayeb-price">
-
-                    {formatMoney(
-                        price,
-                        currency
-                    )}
-
-                </div>
-
+            <div className="ap-row" style={{ alignItems: "center" }}>
+                <div className="ap-money is-orange" style={{ fontSize: 24 }}>{formatMoney(price, currency)}</div>
+                {bid.eta && <span className="ap-chip">⏱ {a("s_driverEta")} : {bid.eta}</span>}
             </div>
-
-
-            {/* DETAILS */}
-
-            <div
-                style={{
-                    display:
-                        "grid",
-                    gridTemplateColumns:
-                        "repeat(2, 1fr)",
-                    gap:
-                        "8px",
-                    marginTop:
-                        "15px",
-                }}
-            >
-
-                <InfoBox
-                    label={
-                        t(
-                            "driver.arrivalTime"
-                        )
-                    }
-                    value={
-                        bid.eta ||
-                        "—"
-                    }
-                />
-
-                <InfoBox
-                    label={
-                        t(
-                            "common.completed"
-                        )
-                    }
-                    value={
-                        driver?.total_completed_shipments ??
-                        "0"
-                    }
-                />
-
-            </div>
-
 
             {bid.note && (
-                <div
-                    style={{
-                        marginTop:
-                            "10px",
-                        padding:
-                            "11px",
-                        borderRadius:
-                            "12px",
-                        background:
-                            "#f9fafb",
-                        color:
-                            "#6b7280",
-                        fontSize:
-                            "13px",
-                    }}
-                >
-                    {bid.note}
+                <div className="ap-note">
+                    <span aria-hidden="true">💬</span>
+                    <span>{bid.note}</span>
                 </div>
             )}
 
-
-            {/* ACTIONS */}
-
-            {bid.status ===
-                "COUNTERED" &&
-                bid.last_offer_by ===
-                "SHIPPER" && (
-                    <div
-                        style={{
-                            marginTop:
-                                "12px",
-                            padding:
-                                "10px",
-                            borderRadius:
-                                "12px",
-                            background:
-                                "#fff7ed",
-                            color:
-                                "#c2410c",
-                            fontSize:
-                                "13px",
-                            fontWeight:
-                                800,
-                        }}
-                    >
-                        {t(
-                            "status.countered"
-                        )}
-                    </div>
-                )}
-
-
-            <div
-                style={{
-                    display:
-                        "grid",
-                    gridTemplateColumns:
-                        "1fr 1fr",
-                    gap:
-                        "8px",
-                    marginTop:
-                        "15px",
-                }}
-            >
-
-                <button
-                    type="button"
-                    onClick={() =>
-                        acceptBid(
-                            bid
-                        )
-                    }
-                    className="tayeb-button tayeb-button-success"
-                    disabled={
-                        bid.status ===
-                        "COUNTERED"
-                        &&
-                        bid.last_offer_by ===
-                        "SHIPPER"
-                    }
-                >
-                    ✓{" "}
-                    {t(
-                        "shipper.acceptOffer"
-                    )}
-                </button>
-
-                <button
-                    type="button"
-                    onClick={() => {
-                        setSelectedBid(
-                            isSelected
-                                ? null
-                                : bid
-                        );
-
-                        setCounterPrice(
-                            ""
-                        );
-                    }}
-                    className="tayeb-button tayeb-button-light"
-                >
-                    {t(
-                        "shipper.suggestPrice"
-                    )}
-                </button>
-
-            </div>
-
-
-            {/* COUNTER PRICE */}
-
-            {isSelected && (
-                <div
-                    className="tayeb-fade-in"
-                    style={{
-                        marginTop:
-                            "12px",
-                        padding:
-                            "15px",
-                        borderRadius:
-                            "17px",
-                        background:
-                            "#fff7ed",
-                        border:
-                            "1px solid #fed7aa",
-                    }}
-                >
-
-                    <label className="tayeb-label">
-                        {t(
-                            "shipper.suggestedPrice"
-                        )}
-                    </label>
-
-                    <input
-                        inputMode="numeric"
-                        value={
-                            counterPrice
-                        }
-                        onChange={(
-                            event
-                        ) =>
-                            setCounterPrice(
-                                event
-                                    .target
-                                    .value
-                                    .replace(
-                                        /[^\d]/g,
-                                        ""
-                                    )
-                            )
-                        }
-                        className="tayeb-input"
-                        style={{
-                            marginTop:
-                                "8px",
-                        }}
-                        placeholder="Example: 20000"
-                        disabled={
-                            counterLoading
-                        }
-                    />
-
-                    <button
-                        type="button"
-                        onClick={() =>
-                            suggestAnotherPrice(
-                                bid
-                            )
-                        }
-                        disabled={
-                            counterLoading
-                        }
-                        className="tayeb-button tayeb-button-primary tayeb-button-full"
-                        style={{
-                            marginTop:
-                                "9px",
-                        }}
-                    >
-
-                        {counterLoading ? (
-                            <>
-                                <span className="tayeb-spinner" />
-                                {t(
-                                    "common.loading"
-                                )}
-                            </>
-                        ) : (
-                            t(
-                                "shipper.sendPrice"
-                            )
-                        )}
-
+            {waiting ? (
+                <div className="ap-note">
+                    <span aria-hidden="true">⏳</span>
+                    <span>{a("s_waitingDriver", { price: formatMoney(bid.counter_price, currency) })}</span>
+                </div>
+            ) : (
+                <div className="ap-actions">
+                    <button type="button" className="ts-btn ts-btn-primary ts-btn-sm" disabled={busy} onClick={onChoose}>
+                        ✓ {a("s_choose", { price: formatMoney(price, currency) })}
                     </button>
-
+                    <button type="button" className="ts-btn ts-btn-light ts-btn-sm" onClick={onCounter}>
+                        {a("s_counter")}
+                    </button>
                 </div>
             )}
-
         </div>
     );
 }
 
 
 /* =========================================================
-   INFO BOX
+   TRUCK ON THE MAP
 ========================================================= */
 
-function InfoBox({
-    label,
-    value,
-}) {
+function TruckMap({ shipment }) {
+    const a = useAppText();
+
+    const { lat, lng, minutes_ago: minutes, km_left: kmLeft } = shipment.tracking;
+
+    const box = [lng - 0.06, lat - 0.04, lng + 0.06, lat + 0.04].join(",");
+
     return (
-        <div
-            style={{
-                padding:
-                    "10px",
-                borderRadius:
-                    "12px",
-                background:
-                    "#f9fafb",
-            }}
-        >
-
-            <span
-                style={{
-                    display:
-                        "block",
-                    color:
-                        "#9ca3af",
-                    fontSize:
-                        "11px",
-                    fontWeight:
-                        800,
-                    textTransform:
-                        "uppercase",
-                    marginBottom:
-                        "3px",
-                }}
-            >
-                {label}
-            </span>
-
-            <strong
-                style={{
-                    display:
-                        "block",
-                    color:
-                        "#374151",
-                    fontSize:
-                        "13px",
-                }}
-            >
-                {value}
-            </strong>
-
-        </div>
-    );
-}
-
-/* =========================================================
-   CITY + AREA
-=========================================================
- *
- * The city comes from the list (used for matching drivers,
- * return loads and distances); the area is free text.
- */
-
-function CityAndArea({
-    country,
-    city,
-    area,
-    onCity,
-    onArea,
-    areaPlaceholder,
-    disabled,
-    t,
-}) {
-    return (
-        <div
-            style={{
-                display:
-                    "grid",
-                gap:
-                    "8px",
-            }}
-        >
-
-            <select
-                value={city}
-                onChange={(event) =>
-                    onCity(
-                        event.target.value
-                    )
-                }
-                className="tayeb-input"
-                required
-                disabled={disabled}
-            >
-                <option value="">
-                    {t(
-                        "shipper.chooseCity"
-                    )}
-                </option>
-
-                {cityNames(country).map(
-                    (cityName) => (
-                        <option
-                            key={cityName}
-                            value={cityName}
-                        >
-                            {cityName}
-                        </option>
-                    )
-                )}
-            </select>
-
-            <input
-                value={area}
-                onChange={(event) =>
-                    onArea(
-                        event.target.value
-                    )
-                }
-                className="tayeb-input"
-                placeholder={areaPlaceholder}
-                maxLength={80}
-                disabled={disabled}
+        <div className="ap-map">
+            <iframe
+                title={a("s_truck")}
+                src={`https://www.openstreetmap.org/export/embed.html?bbox=${box}&layer=mapnik&marker=${lat},${lng}`}
+                loading="lazy"
             />
-
+            <div className="ap-map-foot">
+                <span>
+                    <strong style={{ color: "var(--ts-ink)" }}>🚚 {a("s_truck")}</strong>
+                    {minutes !== null && minutes !== undefined && ` · ${a("s_updated", { n: minutes })}`}
+                    {kmLeft > 0 && ` · ${a("s_kmLeft", { km: kmLeft, city: shipment.destination_city })}`}
+                </span>
+                <a className="ts-link" href={`https://www.google.com/maps?q=${lat},${lng}`} target="_blank" rel="noopener noreferrer">
+                    {a("s_openMaps")} ↗
+                </a>
+            </div>
         </div>
     );
 }
 
 
 /* =========================================================
-   RATE THE DRIVER
-=========================================================
- *
- * One rating per delivery. Ratings build the driver's
- * public score that other shippers see on offers.
- */
+   PROPOSE A PRICE TO A DRIVER
+========================================================= */
 
-function RateDriver({
-    shipment,
-    onRate,
-    t,
-}) {
-    if (!shipment.driver_id) {
-        return null;
-    }
+function CounterSheet({ bid, shipment, busy, onClose, onSend }) {
+    const a = useAppText();
 
-    if (shipment.driver_rating) {
-        return (
-            <p
-                style={{
-                    marginTop:
-                        "12px",
-                    color:
-                        "#92400e",
-                    fontSize:
-                        "14px",
-                    fontWeight:
-                        800,
-                }}
-            >
-                {"★".repeat(
-                    shipment.driver_rating
-                )}
-                {"☆".repeat(
-                    5 -
-                    shipment.driver_rating
-                )}{" "}
-                {t(
-                    "shipper.yourRating"
-                )}
-            </p>
-        );
+    const [price, setPrice] = useState("");
+
+    const currency = shipment.currency || "XAF";
+
+    function submit(event) {
+        event.preventDefault();
+        onSend(Number(digits(price)));
     }
 
     return (
-        <div
-            style={{
-                display:
-                    "flex",
-                flexWrap:
-                    "wrap",
-                alignItems:
-                    "center",
-                gap:
-                    "6px",
-                marginTop:
-                    "12px",
-            }}
-        >
-
-            <span
-                style={{
-                    color:
-                        "#374151",
-                    fontSize:
-                        "14px",
-                    fontWeight:
-                        800,
-                    marginRight:
-                        "4px",
-                }}
-            >
-                {t(
-                    "shipper.rateDriver"
-                )}
-            </span>
-
-            {[1, 2, 3, 4, 5].map(
-                (stars) => (
-                    <button
-                        key={stars}
-                        type="button"
-                        onClick={() =>
-                            onRate(
-                                shipment,
-                                stars
-                            )
-                        }
-                        aria-label={`${stars} / 5`}
-                        className="tayeb-button tayeb-button-light"
-                        style={{
-                            minHeight:
-                                "36px",
-                            padding:
-                                "0 10px",
-                            fontSize:
-                                "15px",
-                        }}
-                    >
-                        {stars} ★
-                    </button>
-                )
-            )}
-
-        </div>
+        <Sheet title={a("s_counterSheet", { name: bid.driver?.full_name || "" })} onClose={onClose} busy={busy}>
+            <form className="ap-form" onSubmit={submit}>
+                <div className="ap-note ap-note-orange">
+                    <span aria-hidden="true">🚚</span>
+                    <span>
+                        {bid.driver?.full_name} · <strong>{formatMoney(bid.counter_price ?? bid.proposed_price, currency)}</strong>
+                    </span>
+                </div>
+                <div className="ap-field">
+                    <label htmlFor="shipper-counter">{a("d_priceLabel", { currency })}</label>
+                    <input
+                        id="shipper-counter"
+                        className="mk-input ap-input-big"
+                        inputMode="numeric"
+                        value={price ? Number(digits(price)).toLocaleString("en-US") : ""}
+                        onChange={(event) => setPrice(digits(event.target.value).slice(0, 10))}
+                        autoFocus
+                        required
+                    />
+                </div>
+                <button type="submit" className="ts-btn ts-btn-primary ts-btn-lg" disabled={busy || !Number(digits(price))}>
+                    {busy ? "…" : a("send")}
+                </button>
+            </form>
+        </Sheet>
     );
 }
+

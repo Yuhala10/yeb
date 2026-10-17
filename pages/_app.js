@@ -2,9 +2,11 @@ import Head from "next/head";
 import "../styles/globals.css";
 import "../styles/market.css";
 import "../styles/site.css";
+import "../styles/app.css";
 
 import { LanguageProvider } from "../lib/LanguageContext";
 import ServiceWorkerRegistration from "../components/ServiceWorkerRegistration";
+import { FeedbackProvider } from "../components/App/Feedback";
 
 export default function App({ Component, pageProps }) {
 
@@ -67,7 +69,9 @@ export default function App({ Component, pageProps }) {
 
       <ServiceWorkerRegistration />
 
-      <Component {...pageProps} />
+      <FeedbackProvider>
+        <Component {...pageProps} />
+      </FeedbackProvider>
 
     </LanguageProvider>
   );

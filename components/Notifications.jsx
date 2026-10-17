@@ -1,1164 +1,229 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+
 import { apiGet, apiPost, pollWhileVisible } from "../lib/api";
+import { useAppText } from "../lib/appText";
 import { useLanguage } from "../lib/LanguageContext";
-
-export default function Notifications({
-    userId,
-}) {
-    const { language } = useLanguage();
-
-    const [notifications, setNotifications] =
-        useState([]);
-
-    const [loading, setLoading] =
-        useState(true);
-
-    const [open, setOpen] =
-        useState(false);
-
-    const [audioReady, setAudioReady] =
-        useState(false);
-
-    const audioRef =
-        useRef(null);
-
-    const initializedRef =
-        useRef(false);
-
-    const previousIdsRef =
-        useRef(new Set());
-
-    /* =========================================================
-       LANGUAGE
-    ========================================================= */
-
-    const isFrench =
-        language === "fr";
-
-    const text = {
-        title: isFrench
-            ? "Notifications"
-            : "Notifications",
-
-        noNotifications: isFrench
-            ? "Aucune notification pour le moment."
-            : "No notifications yet.",
-
-        loading: isFrench
-            ? "Chargement..."
-            : "Loading...",
-
-        markRead: isFrench
-            ? "Marquer comme lu"
-            : "Mark as read",
-
-        markAllRead: isFrench
-            ? "Tout marquer comme lu"
-            : "Mark all as read",
-
-        newNotification: isFrench
-            ? "Nouvelle notification"
-            : "New notification",
-
-        close: isFrench
-            ? "Fermer"
-            : "Close",
-
-        open: isFrench
-            ? "Ouvrir"
-            : "Open",
-    };
-
-
-    /* =========================================================
-       CREATE AUDIO
-    ========================================================= */
-
-    useEffect(() => {
-        if (
-            typeof window ===
-            "undefined"
-        ) {
-            return;
-        }
-
-        const audio =
-            new Audio(
-                "/sounds/notification.mp3"
-            );
-
-        audio.preload = "auto";
-
-        audioRef.current =
-            audio;
-
-        /*
-         * Browsers may block sound until
-         * the user interacts with the app.
-         *
-         * We prepare the audio here.
-         */
-
-        const unlockAudio =
-            () => {
-                if (
-                    !audioRef.current
-                ) {
-                    return;
-                }
-
-                audioRef.current
-                    .play()
-                    .then(() => {
-                        audioRef.current.pause();
-
-                        audioRef.current.currentTime =
-                            0;
-
-                        setAudioReady(
-                            true
-                        );
-                    })
-                    .catch(() => {
-                        /*
-                         * Browser still has
-                         * audio locked.
-                         *
-                         * That's okay.
-                         */
-                    });
-            };
-
-        window.addEventListener(
-            "click",
-            unlockAudio,
-            {
-                once: true,
-            }
-        );
-
-        window.addEventListener(
-            "touchstart",
-            unlockAudio,
-            {
-                once: true,
-            }
-        );
-
-        window.addEventListener(
-            "keydown",
-            unlockAudio,
-            {
-                once: true,
-            }
-        );
-
-        return () => {
-            window.removeEventListener(
-                "click",
-                unlockAudio
-            );
-
-            window.removeEventListener(
-                "touchstart",
-                unlockAudio
-            );
-
-            window.removeEventListener(
-                "keydown",
-                unlockAudio
-            );
-
-            if (
-                audioRef.current
-            ) {
-                audioRef.current.pause();
-                audioRef.current = null;
-            }
-        };
-    }, []);
-
-
-    /* =========================================================
-       FETCH
-    ========================================================= */
-
-    async function fetchNotifications() {
-        if (!userId) {
-            return;
-        }
-
-        try {
-            const {
-                notifications: data,
-            } = await apiGet(
-                "/api/notifications"
-            );
-
-            const safeData =
-                data || [];
-
-            /*
-             * On the first load we do NOT
-             * play sound.
-             *
-             * Otherwise every page refresh
-             * could make the notification sound.
-             */
-
-            const hasNew =
-                initializedRef.current &&
-                safeData.some(
-                    (
-                        item
-                    ) =>
-                        !previousIdsRef.current.has(
-                            item.id
-                        )
-                );
-
-            previousIdsRef.current =
-                new Set(
-                    safeData.map(
-                        (
-                            item
-                        ) =>
-                            item.id
-                    )
-                );
-
-            initializedRef.current =
-                true;
-
-            setNotifications(
-                safeData
-            );
-
-            if (hasNew) {
-                playNotificationSound();
-            }
-        } catch (error) {
-            console.error(
-                "Notification error:",
-                error
-            );
-        } finally {
-            setLoading(false);
-        }
-    }
-
-
-    /* =========================================================
-       PLAY SOUND
-    ========================================================= */
-
-    async function playNotificationSound() {
-        if (
-            typeof window ===
-            "undefined"
-        ) {
-            return;
-        }
-
-        if (
-            !audioRef.current
-        ) {
-            audioRef.current =
-                new Audio(
-                    "/sounds/notification.mp3"
-                );
-
-            audioRef.current.preload =
-                "auto";
-        }
-
-        const audio =
-            audioRef.current;
-
-        try {
-            audio.currentTime =
-                0;
-
-            audio.volume =
-                0.85;
-
-            await audio.play();
-
-            setAudioReady(
-                true
-            );
-        } catch (error) {
-            /*
-             * The browser may block
-             * sound until the user has
-             * interacted with the app.
-             *
-             * We don't break the
-             * notification system if
-             * that happens.
-             */
-
-            console.log(
-                "Notification sound waiting for user interaction."
-            );
-        }
-    }
-
-
-    /* =========================================================
-       FETCH NOTIFICATIONS
-    ========================================================= */
-
-    useEffect(() => {
-        if (!userId) {
-            return;
-        }
-
-        /*
-         * Check for new notifications now, then every 20
-         * seconds while the page is open.
-         */
-
-        return pollWhileVisible(
-            fetchNotifications,
-            20000
-        );
-        // fetchNotifications only reads refs and sets state.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [userId]);
-
-
-    /* =========================================================
-       MARK ONE READ
-    ========================================================= */
-
-    async function markRead(
-        notificationId
-    ) {
-        if (
-            !notificationId
-        ) {
-            return;
-        }
-
-        try {
-            await apiPost(
-                "/api/notifications",
-                {
-                    id: notificationId,
-                }
-            );
-
-            setNotifications(
-                (
-                    current
-                ) =>
-                    current.map(
-                        (
-                            item
-                        ) =>
-                            item.id ===
-                                notificationId
-                                ? {
-                                    ...item,
-                                    read: true,
-                                }
-                                : item
-                    )
-            );
-        } catch (error) {
-            console.error(
-                "Mark notification read error:",
-                error
-            );
-        }
-    }
-
-
-    /* =========================================================
-       MARK ALL READ
-    ========================================================= */
-
-    async function markAllRead() {
-        if (!userId) {
-            return;
-        }
-
-        const unread =
-            notifications.filter(
-                (
-                    item
-                ) =>
-                    !item.read
-            );
-
-        if (
-            unread.length ===
-            0
-        ) {
-            return;
-        }
-
-        try {
-            await apiPost(
-                "/api/notifications",
-                {}
-            );
-
-            setNotifications(
-                (
-                    current
-                ) =>
-                    current.map(
-                        (
-                            item
-                        ) => ({
-                            ...item,
-                            read: true,
-                        })
-                    )
-            );
-        } catch (error) {
-            console.error(
-                "Mark all notifications read error:",
-                error
-            );
-        }
-    }
-
-
-    /* =========================================================
-       TOGGLE
-    ========================================================= */
-
-    function toggleNotifications() {
-        setOpen(
-            (
-                current
-            ) => !current
-        );
-    }
-
-
-    /* =========================================================
-       COUNTS
-    ========================================================= */
-
-    const unreadCount =
-        notifications.filter(
-            (
-                item
-            ) =>
-                !item.read
-        ).length;
-
-
-    /* =========================================================
-       TIME
-    ========================================================= */
-
-    function formatTime(
-        value
-    ) {
-        if (!value) {
-            return "";
-        }
-
-        const date =
-            new Date(value);
-
-        if (
-            Number.isNaN(
-                date.getTime()
-            )
-        ) {
-            return "";
-        }
-
-        return date.toLocaleString(
-            isFrench
-                ? "fr-FR"
-                : "en-US",
-            {
-                dateStyle:
-                    "short",
-                timeStyle:
-                    "short",
-            }
-        );
-    }
-
-
-    /* =========================================================
-       RENDER
-    ========================================================= */
-
-    if (!userId) {
-        return null;
-    }
-
-
-    return (
-        <div
-            className="tayeb-notification-wrapper"
-        >
-
-            {/* =================================================
-                BELL
-            ================================================= */}
-
-            <button
-                type="button"
-                className="tayeb-notification-button"
-                onClick={
-                    toggleNotifications
-                }
-                aria-label={
-                    text.title
-                }
-                aria-expanded={
-                    open
-                }
-            >
-
-                <span
-                    style={{
-                        fontSize:
-                            "18px",
-                        lineHeight:
-                            1,
-                    }}
-                >
-                    🔔
-                </span>
-
-
-                {unreadCount >
-                    0 && (
-                        <span className="tayeb-notification-dot">
-                            {unreadCount >
-                                99
-                                ? "99+"
-                                : unreadCount}
-                        </span>
-                    )}
-
-            </button>
-
-
-            {/* =================================================
-                PANEL
-            ================================================= */}
-
-            {open && (
-                <>
-
-                    {/* MOBILE BACKDROP */}
-
-                    <div
-                        onClick={() =>
-                            setOpen(
-                                false
-                            )
-                        }
-                        style={{
-                            position:
-                                "fixed",
-                            inset:
-                                0,
-                            zIndex:
-                                998,
-                            background:
-                                "rgba(17,24,39,0.20)",
-                        }}
-                    />
-
-
-                    <div
-                        className="tayeb-notification-panel"
-                        style={{
-                            position:
-                                "absolute",
-                            top:
-                                "calc(100% + 10px)",
-                            right:
-                                0,
-                            zIndex:
-                                999,
-                            width:
-                                "min(390px, calc(100vw - 24px))",
-                            maxHeight:
-                                "min(600px, calc(100vh - 95px))",
-                            overflow:
-                                "hidden",
-                            background:
-                                "white",
-                            border:
-                                "1px solid #e5e7eb",
-                            borderRadius:
-                                "22px",
-                            boxShadow:
-                                "0 25px 70px rgba(17,24,39,0.18)",
-                        }}
-                    >
-
-                        {/* =================================================
-                            PANEL HEADER
-                        ================================================= */}
-
-                        <div
-                            style={{
-                                display:
-                                    "flex",
-                                alignItems:
-                                    "center",
-                                justifyContent:
-                                    "space-between",
-                                gap:
-                                    "10px",
-                                padding:
-                                    "16px",
-                                borderBottom:
-                                    "1px solid #f1f5f9",
-                            }}
-                        >
-
-                            <div>
-
-                                <div
-                                    style={{
-                                        display:
-                                            "flex",
-                                        alignItems:
-                                            "center",
-                                        gap:
-                                            "7px",
-                                    }}
-                                >
-
-                                    <span
-                                        style={{
-                                            color:
-                                                "#f97316",
-                                            fontSize:
-                                                "16px",
-                                        }}
-                                    >
-                                        🔔
-                                    </span>
-
-                                    <strong
-                                        style={{
-                                            color:
-                                                "#111827",
-                                            fontSize:
-                                                "14px",
-                                            fontWeight:
-                                                900,
-                                        }}
-                                    >
-                                        {
-                                            text.title
-                                        }
-                                    </strong>
-
-                                    {unreadCount >
-                                        0 && (
-                                            <span
-                                                style={{
-                                                    minWidth:
-                                                        "20px",
-                                                    height:
-                                                        "20px",
-                                                    padding:
-                                                        "0 5px",
-                                                    display:
-                                                        "inline-flex",
-                                                    alignItems:
-                                                        "center",
-                                                    justifyContent:
-                                                        "center",
-                                                    borderRadius:
-                                                        "999px",
-                                                    background:
-                                                        "#f97316",
-                                                    color:
-                                                        "white",
-                                                    fontSize:
-                                                        "11px",
-                                                    fontWeight:
-                                                        900,
-                                                }}
-                                            >
-                                                {
-                                                    unreadCount
-                                                }
-                                            </span>
-                                        )}
-
-                                </div>
-
-                            </div>
-
-
-                            {unreadCount >
-                                0 && (
-                                    <button
-                                        type="button"
-                                        onClick={
-                                            markAllRead
-                                        }
-                                        style={{
-                                            border:
-                                                "0",
-                                            background:
-                                                "transparent",
-                                            color:
-                                                "#ea580c",
-                                            fontSize:
-                                                "12px",
-                                            fontWeight:
-                                                800,
-                                            cursor:
-                                                "pointer",
-                                        }}
-                                    >
-                                        {
-                                            text.markAllRead
-                                        }
-                                    </button>
-                                )}
-
-                        </div>
-
-
-                        {/* =================================================
-                            CONTENT
-                        ================================================= */}
-
-                        <div
-                            style={{
-                                maxHeight:
-                                    "510px",
-                                overflowY:
-                                    "auto",
-                                padding:
-                                    "10px",
-                            }}
-                        >
-
-                            {loading ? (
-                                <div
-                                    style={{
-                                        minHeight:
-                                            "130px",
-                                        display:
-                                            "grid",
-                                        placeItems:
-                                            "center",
-                                        color:
-                                            "#9ca3af",
-                                        fontSize:
-                                            "13px",
-                                    }}
-                                >
-                                    {
-                                        text.loading
-                                    }
-                                </div>
-                            ) : notifications.length ===
-                                0 ? (
-                                <div
-                                    style={{
-                                        minHeight:
-                                            "190px",
-                                        display:
-                                            "flex",
-                                        flexDirection:
-                                            "column",
-                                        alignItems:
-                                            "center",
-                                        justifyContent:
-                                            "center",
-                                        textAlign:
-                                            "center",
-                                        padding:
-                                            "20px",
-                                    }}
-                                >
-
-                                    <div
-                                        style={{
-                                            width:
-                                                "55px",
-                                            height:
-                                                "55px",
-                                            display:
-                                                "grid",
-                                            placeItems:
-                                                "center",
-                                            borderRadius:
-                                                "18px",
-                                            background:
-                                                "#fff7ed",
-                                            fontSize:
-                                                "23px",
-                                            marginBottom:
-                                                "12px",
-                                        }}
-                                    >
-                                        🔔
-                                    </div>
-
-                                    <strong
-                                        style={{
-                                            color:
-                                                "#374151",
-                                            fontSize:
-                                                "14px",
-                                        }}
-                                    >
-                                        {
-                                            text.noNotifications
-                                        }
-                                    </strong>
-
-                                </div>
-                            ) : (
-                                notifications.map(
-                                    (
-                                        item
-                                    ) => (
-                                        <NotificationItem
-                                            key={
-                                                item.id
-                                            }
-                                            item={
-                                                item
-                                            }
-                                            time={formatTime(
-                                                item.created_at
-                                            )}
-                                            markRead={
-                                                markRead
-                                            }
-                                            text={
-                                                text
-                                            }
-                                        />
-                                    )
-                                )
-                            )}
-
-                        </div>
-
-
-                        {/* =================================================
-                            SOUND STATUS
-                        ================================================= */}
-
-                        {unreadCount >
-                            0 &&
-                            !audioReady && (
-                                <div
-                                    style={{
-                                        padding:
-                                            "9px 13px",
-                                        borderTop:
-                                            "1px solid #f1f5f9",
-                                        background:
-                                            "#fffaf5",
-                                        color:
-                                            "#9a3412",
-                                        fontSize:
-                                            "11px",
-                                        textAlign:
-                                            "center",
-                                    }}
-                                >
-                                    🔊{" "}
-                                    {isFrench
-                                        ? "Touchez l'écran pour activer le son."
-                                        : "Tap the screen to activate notification sound."}
-                                </div>
-                            )}
-
-                    </div>
-
-                </>
-            )}
-
-        </div>
-    );
-}
-
-
-/* =========================================================
-   NOTIFICATION ITEM
-========================================================= */
-
-function NotificationItem({
-    item,
-    time,
-    markRead,
-    text,
-}) {
-    const unread =
-        !item.read;
-
-    return (
-        <div
-            className="tayeb-fade-in"
-            style={{
-                position:
-                    "relative",
-                padding:
-                    "13px",
-                marginBottom:
-                    "7px",
-                borderRadius:
-                    "16px",
-                background:
-                    unread
-                        ? "#fff7ed"
-                        : "#ffffff",
-                border:
-                    unread
-                        ? "1px solid #fed7aa"
-                        : "1px solid #f1f5f9",
-            }}
-        >
-
-            <div
-                style={{
-                    display:
-                        "flex",
-                    gap:
-                        "10px",
-                }}
-            >
-
-                {/* ICON */}
-
-                <div
-                    style={{
-                        width:
-                            "34px",
-                        height:
-                            "34px",
-                        flex:
-                            "0 0 34px",
-                        display:
-                            "grid",
-                        placeItems:
-                            "center",
-                        borderRadius:
-                            "11px",
-                        background:
-                            unread
-                                ? "#f97316"
-                                : "#f3f4f6",
-                        color:
-                            unread
-                                ? "white"
-                                : "#6b7280",
-                        fontSize:
-                            "14px",
-                    }}
-                >
-                    🔔
-                </div>
-
-
-                {/* CONTENT */}
-
-                <div
-                    style={{
-                        flex:
-                            1,
-                        minWidth:
-                            0,
-                    }}
-                >
-
-                    <div
-                        style={{
-                            display:
-                                "flex",
-                            justifyContent:
-                                "space-between",
-                            gap:
-                                "8px",
-                            alignItems:
-                                "flex-start",
-                        }}
-                    >
-
-                        <strong
-                            style={{
-                                color:
-                                    "#111827",
-                                fontSize:
-                                    "13px",
-                                fontWeight:
-                                    900,
-                                lineHeight:
-                                    1.35,
-                            }}
-                        >
-                            {
-                                item.title
-                            }
-                        </strong>
-
-                        {unread && (
-                            <span
-                                style={{
-                                    width:
-                                        "7px",
-                                    height:
-                                        "7px",
-                                    flex:
-                                        "0 0 7px",
-                                    borderRadius:
-                                        "50%",
-                                    background:
-                                        "#f97316",
-                                    marginTop:
-                                        "4px",
-                                }}
-                            />
-                        )}
-
-                    </div>
-
-
-                    <p
-                        style={{
-                            margin:
-                                "5px 0 0",
-                            color:
-                                "#6b7280",
-                            fontSize:
-                                "13px",
-                            lineHeight:
-                                1.55,
-                        }}
-                    >
-                        {
-                            item.message
-                        }
-                    </p>
-
-                    {safeLink(item.link) && (
-                        <Link
-                            href={safeLink(item.link)}
-                            onClick={() =>
-                                markRead(
-                                    item.id
-                                )
-                            }
-                            style={{
-                                display:
-                                    "inline-block",
-                                marginTop:
-                                    "8px",
-                                color:
-                                    "#ea580c",
-                                fontSize:
-                                    "15px",
-                                fontWeight:
-                                    800,
-                                textDecoration:
-                                    "none",
-                            }}
-                        >
-                            {text.open} →
-                        </Link>
-                    )}
-
-
-                    <div
-                        style={{
-                            display:
-                                "flex",
-                            alignItems:
-                                "center",
-                            justifyContent:
-                                "space-between",
-                            gap:
-                                "8px",
-                            marginTop:
-                                "9px",
-                        }}
-                    >
-
-                        <span
-                            style={{
-                                color:
-                                    "#9ca3af",
-                                fontSize:
-                                    "11px",
-                            }}
-                        >
-                            {
-                                time
-                            }
-                        </span>
-
-
-                        {unread && (
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    markRead(
-                                        item.id
-                                    )
-                                }
-                                style={{
-                                    border:
-                                        "0",
-                                    background:
-                                        "transparent",
-                                    color:
-                                        "#ea580c",
-                                    fontSize:
-                                        "11px",
-                                    fontWeight:
-                                        800,
-                                    cursor:
-                                        "pointer",
-                                    padding:
-                                        "2px",
-                                }}
-                            >
-                                {
-                                    text.markRead
-                                }
-                            </button>
-                        )}
-
-                    </div>
-
-                </div>
-
-            </div>
-
-        </div>
-    );
-}
+import { timeAgo } from "./App/Bits";
 
 /*
- * Only links inside Tayeb ("/market/…"), never another site
- * or a "javascript:" address.
+ * ============================================================
+ * NOTIFICATIONS (bell + panel)
+ * ============================================================
+ *
+ * Checked now and every 20 seconds while the page is open.
+ * A short sound plays when something new arrives (never on
+ * the first load, and only once the browser allows sound).
+ */
+
+const SOUND = "/sounds/notification.mp3";
+
+/*
+ * Only links inside Tayeb: "/driver", "/market/abc"… never
+ * "//evil.com" or "https://…".
  */
 function safeLink(link) {
     const value = String(link || "");
 
-    if (!value.startsWith("/") || value.startsWith("//") || value.includes("\\")) {
-        return null;
+    return value.startsWith("/") && !value.startsWith("//") && !value.includes("\\") ? value : null;
+}
+
+export default function Notifications({ userId }) {
+    const { language } = useLanguage();
+
+    const a = useAppText();
+
+    const [items, setItems] = useState([]);
+
+    const [open, setOpen] = useState(false);
+
+    const box = useRef(null);
+
+    const audio = useRef(null);
+
+    const known = useRef(null);
+
+    /* ---------------- sound ---------------- */
+
+    useEffect(() => {
+        const sound = new Audio(SOUND);
+
+        sound.preload = "auto";
+        audio.current = sound;
+
+        // Browsers allow sound only after a first tap or key.
+        function unlock() {
+            sound.muted = true;
+            sound.play().then(() => {
+                sound.pause();
+                sound.currentTime = 0;
+                sound.muted = false;
+            }).catch(() => {
+                sound.muted = false;
+            });
+        }
+
+        window.addEventListener("pointerdown", unlock, { once: true });
+        window.addEventListener("keydown", unlock, { once: true });
+
+        return () => {
+            window.removeEventListener("pointerdown", unlock);
+            window.removeEventListener("keydown", unlock);
+            sound.pause();
+            audio.current = null;
+        };
+    }, []);
+
+    /* ---------------- polling ---------------- */
+
+    useEffect(() => {
+        if (!userId) {
+            return;
+        }
+
+        async function check() {
+            try {
+                const { notifications } = await apiGet("/api/notifications");
+
+                const list = notifications || [];
+
+                const isNew = known.current && list.some((item) => !known.current.has(item.id));
+
+                known.current = new Set(list.map((item) => item.id));
+
+                setItems(list);
+
+                if (isNew && audio.current) {
+                    audio.current.currentTime = 0;
+                    audio.current.volume = 0.85;
+                    audio.current.play().catch(() => {});
+                }
+            } catch {
+                // A missed check is fine: the next one catches up.
+            }
+        }
+
+        return pollWhileVisible(check, 20000);
+    }, [userId]);
+
+    /* ---------------- open / close ---------------- */
+
+    useEffect(() => {
+        if (!open) {
+            return;
+        }
+
+        function close(event) {
+            if (box.current && !box.current.contains(event.target)) {
+                setOpen(false);
+            }
+        }
+
+        function escape(event) {
+            if (event.key === "Escape") {
+                setOpen(false);
+            }
+        }
+
+        document.addEventListener("pointerdown", close);
+        document.addEventListener("keydown", escape);
+
+        return () => {
+            document.removeEventListener("pointerdown", close);
+            document.removeEventListener("keydown", escape);
+        };
+    }, [open]);
+
+    /* ---------------- read ---------------- */
+
+    function markRead(item) {
+        if (item.read) {
+            return;
+        }
+
+        setItems((list) => list.map((entry) => (entry.id === item.id ? { ...entry, read: true } : entry)));
+
+        apiPost("/api/notifications", { id: item.id }).catch(() => {});
     }
 
-    return value;
+    function markAllRead() {
+        setItems((list) => list.map((entry) => ({ ...entry, read: true })));
+
+        apiPost("/api/notifications", {}).catch(() => {});
+    }
+
+    const unread = items.filter((item) => !item.read).length;
+
+    return (
+        <div className="ap-popover" ref={box}>
+
+            <button
+                type="button"
+                className="ap-icon-btn"
+                onClick={() => setOpen((current) => !current)}
+                aria-expanded={open}
+                aria-label={`${a("notifications")}${unread ? ` (${unread})` : ""}`}
+            >
+                <span aria-hidden="true">🔔</span>
+                {unread > 0 && <span className="ap-dot">{unread > 9 ? "9+" : unread}</span>}
+            </button>
+
+            {open && (
+                <div className="ap-notifs" role="dialog" aria-label={a("notifications")}>
+
+                    <div className="ap-notifs-head">
+                        <strong>{a("notifications")}</strong>
+                        {unread > 0 && (
+                            <button type="button" onClick={markAllRead}>
+                                {a("markAllRead")}
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="ap-notifs-list">
+                        {items.length === 0 ? (
+                            <div className="ap-empty" style={{ border: 0, background: "transparent" }}>
+                                <div className="ap-empty-icon" aria-hidden="true">🔔</div>
+                                <p>{a("noNotifications")}</p>
+                            </div>
+                        ) : (
+                            items.map((item) => {
+                                const link = safeLink(item.link);
+
+                                return (
+                                    <div
+                                        key={item.id}
+                                        className={`ap-notif ${item.read ? "" : "unread"}`}
+                                        role="button"
+                                        tabIndex={0}
+                                        onClick={() => markRead(item)}
+                                        onKeyDown={(event) => event.key === "Enter" && markRead(item)}
+                                    >
+                                        <i aria-hidden="true" />
+                                        <div>
+                                            <strong>{item.title}</strong>
+                                            {item.message && <p>{item.message}</p>}
+                                            <small>
+                                                {timeAgo(item.created_at, language, a)}
+                                                {link && (
+                                                    <>
+                                                        {" · "}
+                                                        <Link href={link} onClick={() => setOpen(false)}>
+                                                            {a("open")} →
+                                                        </Link>
+                                                    </>
+                                                )}
+                                            </small>
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+
+                </div>
+            )}
+
+        </div>
+    );
 }

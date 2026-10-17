@@ -1,3923 +1,662 @@
-import Head from "next/head";
-import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
+import { useEffect, useMemo, useState } from "react";
 
-import { apiGet } from "../lib/api";
-import { formatMoney } from "../lib/money";
-import BrandLogo from "../components/BrandLogo";
+import AppShell from "../components/App/AppShell";
+import { AppLoading, Empty, SectionHead, timeAgo } from "../components/App/Bits";
+import { apiGet, pollWhileVisible } from "../lib/api";
+import { useAppText } from "../lib/appText";
+import { cargoLabel } from "../lib/cargo";
+import { countryName, findCountry } from "../lib/countries";
 import { useLanguage } from "../lib/LanguageContext";
+import { formatMoney } from "../lib/money";
+import { formatPhone, telHref } from "../lib/phone";
+import { formatAmount, orderReference, productEmoji, productName, unitName } from "../lib/produce";
+import { leaveDashboard, useRoleUser } from "../lib/useSession";
 
-export default function AdminDashboard() {
+/*
+ * ============================================================
+ * TAYEB CONSOLE (staff only)
+ * ============================================================
+ *
+ * Reached from the unlisted staff entrance. Read-only view
+ * of the whole platform: growth, conversion from load to
+ * delivery, the market, and every record, searchable.
+ * Refreshes every minute while open.
+ */
+
+const T = {
+    en: {
+        title: "Tayeb console",
+        sub: "Everything happening on the platform, live.",
+        overview: "Overview",
+        overviewShort: "Overview",
+        users: "People",
+        loads: "Loads",
+        market: "Market",
+        activity: "Activity",
+        refresh: "Refresh",
+        updated: "Updated {when}",
+        people: "people",
+        drivers: "drivers",
+        availableDrivers: "{count} available",
+        openLoads: "open loads",
+        onRoad: "on the road",
+        delivered: "delivered",
+        sales: "market sales",
+        funnel: "From load to delivery",
+        funnelSub: "How many loads reach each step.",
+        posted: "Posted",
+        gotPrices: "Got prices",
+        matched: "Driver chosen",
+        completed: "Delivered",
+        roles: "People by role",
+        countries: "People by country",
+        last14: "Last 14 days",
+        last14Sub: "New people and new loads each day.",
+        newPeople: "New people",
+        newLoads: "New loads",
+        recentPeople: "Newest people",
+        recentLoads: "Newest loads",
+        search: "Search a name, number, city…",
+        all: "All",
+        name: "Name",
+        role: "Role",
+        phone: "Phone",
+        country: "Country",
+        city: "City",
+        vehicle: "Vehicle",
+        rating: "Rating",
+        trips: "Trips",
+        joined: "Joined",
+        seen: "Last seen",
+        route: "Route",
+        cargo: "Cargo",
+        price: "Price",
+        status: "Status",
+        shipper: "Shipper",
+        driver: "Driver",
+        offers: "Prices",
+        posted_at: "Posted",
+        products: "Products",
+        orders: "Orders",
+        product: "Product",
+        farmer: "Farmer",
+        stock: "Stock",
+        photos: "Photos",
+        total: "Total",
+        buyer: "Buyer",
+        delivery: "Delivery",
+        bids: "Driver prices",
+        notifications: "Notifications sent",
+        nothing: "Nothing here yet.",
+        noMatch: "Nothing matches this search.",
+        pickup: "Pickup",
+        available: "Available",
+    },
+    fr: {
+        title: "Console Tayeb",
+        sub: "Tout ce qui se passe sur la plateforme, en direct.",
+        overview: "Vue d'ensemble",
+        overviewShort: "Aperçu",
+        users: "Personnes",
+        loads: "Chargements",
+        market: "Marché",
+        activity: "Activité",
+        refresh: "Actualiser",
+        updated: "Mis à jour {when}",
+        people: "personnes",
+        drivers: "chauffeurs",
+        availableDrivers: "{count} disponibles",
+        openLoads: "chargements ouverts",
+        onRoad: "en route",
+        delivered: "livrés",
+        sales: "ventes du marché",
+        funnel: "Du chargement à la livraison",
+        funnelSub: "Combien de chargements atteignent chaque étape.",
+        posted: "Publiés",
+        gotPrices: "Avec des prix",
+        matched: "Chauffeur choisi",
+        completed: "Livrés",
+        roles: "Personnes par rôle",
+        countries: "Personnes par pays",
+        last14: "14 derniers jours",
+        last14Sub: "Nouvelles personnes et nouveaux chargements par jour.",
+        newPeople: "Nouvelles personnes",
+        newLoads: "Nouveaux chargements",
+        recentPeople: "Derniers inscrits",
+        recentLoads: "Derniers chargements",
+        search: "Chercher un nom, un numéro, une ville…",
+        all: "Tous",
+        name: "Nom",
+        role: "Rôle",
+        phone: "Téléphone",
+        country: "Pays",
+        city: "Ville",
+        vehicle: "Véhicule",
+        rating: "Note",
+        trips: "Trajets",
+        joined: "Inscrit",
+        seen: "Vu",
+        route: "Trajet",
+        cargo: "Marchandise",
+        price: "Prix",
+        status: "Statut",
+        shipper: "Expéditeur",
+        driver: "Chauffeur",
+        offers: "Prix",
+        posted_at: "Publié",
+        products: "Produits",
+        orders: "Commandes",
+        product: "Produit",
+        farmer: "Producteur",
+        stock: "Stock",
+        photos: "Photos",
+        total: "Total",
+        buyer: "Acheteur",
+        delivery: "Livraison",
+        bids: "Prix des chauffeurs",
+        notifications: "Notifications envoyées",
+        nothing: "Rien pour l'instant.",
+        noMatch: "Aucun résultat pour cette recherche.",
+        pickup: "Retrait",
+        available: "Disponible",
+    },
+};
+
+const ROLE_ICONS = { SHIPPER: "📦", DRIVER: "🚚", FARMER: "🌾" };
+
+const LOAD_TONES = { OPEN: "ap-chip-orange", MATCHED: "ap-chip-blue", DEPARTED: "ap-chip-blue", ARRIVED: "ap-chip-blue", COMPLETED: "ap-chip-green", CANCELLED: "ap-chip-red" };
+
+const ORDER_TONES = { PENDING: "ap-chip-orange", CONFIRMED: "ap-chip-blue", COMPLETED: "ap-chip-green", DECLINED: "ap-chip-red", CANCELLED: "ap-chip-red", EXPIRED: "" };
+
+function matches(query, ...values) {
+    const q = query.trim().toLowerCase();
+
+    return !q || values.some((value) => String(value ?? "").toLowerCase().includes(q));
+}
+
+function dayKey(value) {
+    return String(value || "").slice(0, 10);
+}
+
+export default function AdminPage() {
     const router = useRouter();
 
-    const {
-        language,
-        changeLanguage,
-    } = useLanguage();
+    const { language } = useLanguage();
 
-    const isFrench =
-        language === "fr";
+    const a = useAppText();
 
-    const [admin, setAdmin] =
-        useState(null);
+    const t = (key, vars) => {
+        let text = T[language === "en" ? "en" : "fr"][key] ?? key;
 
-    const [users, setUsers] =
-        useState([]);
+        for (const [name, value] of Object.entries(vars || {})) {
+            text = text.replace(`{${name}}`, value);
+        }
 
-    const [shipments, setShipments] =
-        useState([]);
-
-    const [bids, setBids] =
-        useState([]);
-
-    const [notifications, setNotifications] =
-        useState([]);
-
-    const [products, setProducts] =
-        useState([]);
-
-    const [orders, setOrders] =
-        useState([]);
-
-    const [loading, setLoading] =
-        useState(true);
-
-    const [refreshing, setRefreshing] =
-        useState(false);
-
-    const [activeSection, setActiveSection] =
-        useState("overview");
-
-    const [search, setSearch] =
-        useState("");
-
-    const [errorMessage, setErrorMessage] =
-        useState("");
-
-
-    /* =========================================================
-       TEXT
-    ========================================================= */
-
-    const text = {
-        admin: isFrench
-            ? "Administrateur"
-            : "Administrator",
-
-        dashboard: isFrench
-            ? "Tableau de bord"
-            : "Dashboard",
-
-        overview: isFrench
-            ? "Vue générale"
-            : "Overview",
-
-        users: isFrench
-            ? "Utilisateurs"
-            : "Users",
-
-        drivers: isFrench
-            ? "Chauffeurs"
-            : "Drivers",
-
-        shippers: isFrench
-            ? "Expéditeurs"
-            : "Shippers",
-
-        shipments: isFrench
-            ? "Colis"
-            : "Shipments",
-
-        offers: isFrench
-            ? "Offres"
-            : "Offers",
-
-        matches: isFrench
-            ? "Correspondances"
-            : "Matches",
-
-        notifications: isFrench
-            ? "Notifications"
-            : "Notifications",
-
-        welcome: isFrench
-            ? "Bienvenue"
-            : "Welcome",
-
-        platformOverview: isFrench
-            ? "Voici ce qui se passe sur Tayeb."
-            : "Here's what's happening across Tayeb.",
-
-        totalUsers: isFrench
-            ? "Tous les utilisateurs"
-            : "Total users",
-
-        totalDrivers: isFrench
-            ? "Chauffeurs"
-            : "Drivers",
-
-        totalShippers: isFrench
-            ? "Expéditeurs"
-            : "Shippers",
-
-        totalShipments: isFrench
-            ? "Tous les colis"
-            : "Total shipments",
-
-        openShipments: isFrench
-            ? "Colis disponibles"
-            : "Open shipments",
-
-        activeShipments: isFrench
-            ? "Livraisons en cours"
-            : "Active deliveries",
-
-        completed: isFrench
-            ? "Livrés"
-            : "Completed",
-
-        totalOffers: isFrench
-            ? "Offres reçues"
-            : "Total offers",
-
-        matched: isFrench
-            ? "Correspondances réussies"
-            : "Successful matches",
-
-        availableDrivers: isFrench
-            ? "Chauffeurs disponibles"
-            : "Available drivers",
-
-        unreadNotifications: isFrench
-            ? "Non lues"
-            : "Unread",
-
-        farmerRole: isFrench
-            ? "Agriculteur"
-            : "Farmer",
-
-        farmers: isFrench
-            ? "Agriculteurs"
-            : "Farmers",
-
-        productsOnSale: isFrench
-            ? "Produits en vente"
-            : "Products on sale",
-
-        marketOrders: isFrench
-            ? "Commandes Marché"
-            : "Market orders",
-
-        marketSales: isFrench
-            ? "Ventes terminées"
-            : "Completed sales",
-
-        recentShipments: isFrench
-            ? "Colis récents"
-            : "Recent shipments",
-
-        recentUsers: isFrench
-            ? "Nouveaux utilisateurs"
-            : "Recent users",
-
-        recentOffers: isFrench
-            ? "Offres récentes"
-            : "Recent offers",
-
-        allUsers: isFrench
-            ? "Tous les utilisateurs"
-            : "All users",
-
-        allShipments: isFrench
-            ? "Tous les colis"
-            : "All shipments",
-
-        allOffers: isFrench
-            ? "Toutes les offres"
-            : "All offers",
-
-        noData: isFrench
-            ? "Aucune donnée."
-            : "No data available.",
-
-        loading: isFrench
-            ? "Chargement..."
-            : "Loading...",
-
-        refresh: isFrench
-            ? "Actualiser"
-            : "Refresh",
-
-        logout: isFrench
-            ? "Se déconnecter"
-            : "Log out",
-
-        search: isFrench
-            ? "Rechercher..."
-            : "Search...",
-
-        name: isFrench
-            ? "Nom"
-            : "Name",
-
-        phone: isFrench
-            ? "Téléphone"
-            : "Phone",
-
-        role: isFrench
-            ? "Rôle"
-            : "Role",
-
-        vehicle: isFrench
-            ? "Véhicule"
-            : "Vehicle",
-
-        availability: isFrench
-            ? "Disponibilité"
-            : "Availability",
-
-        available: isFrench
-            ? "Disponible"
-            : "Available",
-
-        busy: isFrench
-            ? "Occupé"
-            : "Busy",
-
-        from: isFrench
-            ? "Départ"
-            : "From",
-
-        to: isFrench
-            ? "Destination"
-            : "To",
-
-        price: isFrench
-            ? "Prix"
-            : "Price",
-
-        driver: isFrench
-            ? "Chauffeur"
-            : "Driver",
-
-        shipper: isFrench
-            ? "Expéditeur"
-            : "Shipper",
-
-        status: isFrench
-            ? "Statut"
-            : "Status",
-
-        date: isFrench
-            ? "Date"
-            : "Date",
-
-        noUsers: isFrench
-            ? "Aucun utilisateur trouvé."
-            : "No users found.",
-
-        noShipments: isFrench
-            ? "Aucun colis trouvé."
-            : "No shipments found.",
-
-        noOffers: isFrench
-            ? "Aucune offre trouvée."
-            : "No offers found.",
-
-        accessDenied: isFrench
-            ? "Accès refusé."
-            : "Access denied.",
-
-        loadError: isFrench
-            ? "Impossible de charger les données."
-            : "Could not load the data.",
-
-        platformFree: isFrench
-            ? "Tayeb est gratuit pour le moment."
-            : "Tayeb is free for now.",
+        return text;
     };
 
+    const [user] = useRoleUser("ADMIN");
 
-    /* =========================================================
-       ADMIN ACCESS
-    ========================================================= */
+    const [data, setData] = useState(null);
+
+    const [updatedAt, setUpdatedAt] = useState(null);
+
+    const [tab, setTab] = useState("overview");
+
+    const [query, setQuery] = useState("");
+
+    const [filter, setFilter] = useState("ALL");
+
+    async function load() {
+        try {
+            setData(await apiGet("/api/admin/dashboard"));
+            setUpdatedAt(new Date().toISOString());
+        } catch (error) {
+            if (error?.status === 401 || error?.status === 403) {
+                leaveDashboard(router, "ADMIN");
+            }
+        }
+    }
+
+    const isAdmin = user?.role === "ADMIN";
 
     useEffect(() => {
-        if (
-            typeof window ===
-            "undefined"
-        ) {
+        if (!isAdmin) {
             return;
         }
 
-        /*
-         * The server session decides who is admin. The
-         * browser's saved user can be edited by anyone.
-         */
-
-        async function checkAdmin() {
-            try {
-                const {
-                    user,
-                } = await apiGet(
-                    "/api/session/me"
-                );
-
-                if (
-                    user?.role !==
-                    "ADMIN"
-                ) {
-                    setErrorMessage(
-                        text.accessDenied
-                    );
-
-                    setTimeout(() => {
-                        router.replace(
-                            "/"
-                        );
-                    }, 900);
-
-                    return;
-                }
-
-                setAdmin(
-                    user
-                );
-
-                loadDashboard();
-
-            } catch (error) {
-                console.error(
-                    "Admin session error:",
-                    error
-                );
-
-                router.replace(
-                    "/login"
-                );
-            }
-        }
-
-        checkAdmin();
-        // Runs on first load and when the language changes.
+        return pollWhileVisible(load, 60000);
+        // load only sets state.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [router, language]);
+    }, [isAdmin]);
 
-
-    /* =========================================================
-       LOAD DASHBOARD
-    ========================================================= */
-
-    async function loadDashboard() {
-        setLoading(true);
-        setErrorMessage("");
-
-        try {
-            const data =
-                await apiGet(
-                    "/api/admin/dashboard"
-                );
-
-            setUsers(
-                data.users ||
-                []
-            );
-
-            setShipments(
-                data.shipments ||
-                []
-            );
-
-            setBids(
-                data.bids ||
-                []
-            );
-
-            setNotifications(
-                data.notifications ||
-                []
-            );
-
-            setProducts(
-                data.products ||
-                []
-            );
-
-            setOrders(
-                data.orders ||
-                []
-            );
-
-        } catch (error) {
-            console.error(
-                "Admin dashboard error:",
-                error
-            );
-
-            setErrorMessage(
-                error?.message ||
-                text.loadError
-            );
-        } finally {
-            setLoading(false);
-        }
+    function pick(next) {
+        setTab(next);
+        setQuery("");
+        setFilter("ALL");
     }
 
-
     /* =========================================================
-       REFRESH
+       NUMBERS
     ========================================================= */
 
-    async function refreshDashboard() {
-        setRefreshing(true);
-
-        await loadDashboard();
-
-        setRefreshing(false);
-    }
-
-
-    /* =========================================================
-       LOGOUT
-    ========================================================= */
-
-    function logout() {
-        localStorage.removeItem(
-            "tayebUser"
-        );
-
-        localStorage.removeItem(
-            "selectedRole"
-        );
-
-        router.replace(
-            "/login"
-        );
-    }
-
-
-    /* =========================================================
-       USER MAPS
-    ========================================================= */
-
-    const userMap =
-        useMemo(() => {
-            const map = {};
-
-            users.forEach(
-                (user) => {
-                    map[user.id] =
-                        user;
-                }
-            );
-
-            return map;
-        }, [users]);
-
-
-    /* =========================================================
-       STATS
-    ========================================================= */
-
-    const stats =
-        useMemo(() => {
-            const drivers =
-                users.filter(
-                    (user) =>
-                        user.role ===
-                        "DRIVER"
-                );
-
-            const shippers =
-                users.filter(
-                    (user) =>
-                        user.role ===
-                        "SHIPPER"
-                );
-
-            const open =
-                shipments.filter(
-                    (shipment) =>
-                        shipment.status ===
-                        "OPEN"
-                );
-
-            const active =
-                shipments.filter(
-                    (shipment) =>
-                        [
-                            "MATCHED",
-                            "DEPARTED",
-                            "ARRIVED",
-                        ].includes(
-                            shipment.status
-                        )
-                );
-
-            const completed =
-                shipments.filter(
-                    (shipment) =>
-                        shipment.status ===
-                        "COMPLETED"
-                );
-
-            const matched =
-                shipments.filter(
-                    (shipment) =>
-                        [
-                            "MATCHED",
-                            "DEPARTED",
-                            "ARRIVED",
-                            "COMPLETED",
-                        ].includes(
-                            shipment.status
-                        )
-                );
-
-            const availableDrivers =
-                drivers.filter(
-                    (driver) =>
-                        driver.is_available ===
-                        true
-                );
-
-            const unread =
-                notifications.filter(
-                    (notification) =>
-                        !notification.read
-                );
-
-            return {
-                users:
-                    users.length,
-
-                drivers:
-                    drivers.length,
-
-                shippers:
-                    shippers.length,
-
-                shipments:
-                    shipments.length,
-
-                open:
-                    open.length,
-
-                active:
-                    active.length,
-
-                completed:
-                    completed.length,
-
-                matched:
-                    matched.length,
-
-                offers:
-                    bids.length,
-
-                availableDrivers:
-                    availableDrivers.length,
-
-                unread:
-                    unread.length,
-
-                // Tayeb Marché
-                farmers:
-                    users.filter(
-                        (user) =>
-                            user.role ===
-                            "FARMER"
-                    ).length,
-                productsOnSale:
-                    products.filter(
-                        (product) =>
-                            product.status ===
-                            "ACTIVE"
-                    ).length,
-                marketOrders:
-                    orders.length,
-                // One total per currency: FCFA and naira don't add up.
-                marketSales:
-                    Object.entries(
-                        orders
-                            .filter(
-                                (order) =>
-                                    order.status ===
-                                    "COMPLETED"
-                            )
-                            .reduce(
-                                (sums, order) => {
-                                    const code =
-                                        order.currency ||
-                                        "XAF";
-
-                                    sums[code] =
-                                        (sums[code] || 0) +
-                                        Number(
-                                            order.total_price ||
-                                            0
-                                        );
-
-                                    return sums;
-                                },
-                                {}
-                            )
-                    )
-                        .map(
-                            ([code, total]) =>
-                                formatMoney(
-                                    total,
-                                    code
-                                )
-                        )
-                        .join(" · ") ||
-                    "0",
-            };
-        }, [
-            users,
-            shipments,
-            bids,
-            notifications,
-            products,
-            orders,
-        ]);
-
-
-    /* =========================================================
-       SEARCH
-    ========================================================= */
-
-    const normalizedSearch =
-        search
-            .trim()
-            .toLowerCase();
-
-
-    const filteredUsers =
-        useMemo(() => {
-            if (
-                !normalizedSearch
-            ) {
-                return users;
-            }
-
-            return users.filter(
-                (user) =>
-                    String(
-                        user.full_name ||
-                        ""
-                    )
-                        .toLowerCase()
-                        .includes(
-                            normalizedSearch
-                        ) ||
-                    String(
-                        user.phone_number ||
-                        ""
-                    )
-                        .toLowerCase()
-                        .includes(
-                            normalizedSearch
-                        ) ||
-                    String(
-                        user.role ||
-                        ""
-                    )
-                        .toLowerCase()
-                        .includes(
-                            normalizedSearch
-                        )
-            );
-        }, [
-            users,
-            normalizedSearch,
-        ]);
-
-
-    const filteredShipments =
-        useMemo(() => {
-            if (
-                !normalizedSearch
-            ) {
-                return shipments;
-            }
-
-            return shipments.filter(
-                (shipment) =>
-                    String(
-                        shipment.item_type ||
-                        shipment.itemType ||
-                        ""
-                    )
-                        .toLowerCase()
-                        .includes(
-                            normalizedSearch
-                        ) ||
-                    String(
-                        shipment.origin ||
-                        ""
-                    )
-                        .toLowerCase()
-                        .includes(
-                            normalizedSearch
-                        ) ||
-                    String(
-                        shipment.destination ||
-                        ""
-                    )
-                        .toLowerCase()
-                        .includes(
-                            normalizedSearch
-                        ) ||
-                    String(
-                        shipment.status ||
-                        ""
-                    )
-                        .toLowerCase()
-                        .includes(
-                            normalizedSearch
-                        )
-            );
-        }, [
-            shipments,
-            normalizedSearch,
-        ]);
-
-
-    const filteredBids =
-        useMemo(() => {
-            if (
-                !normalizedSearch
-            ) {
-                return bids;
-            }
-
-            return bids.filter(
-                (bid) => {
-                    const driver =
-                        userMap[
-                        bid.driver_id
-                        ];
-
-                    return (
-                        String(
-                            driver?.full_name ||
-                            ""
-                        )
-                            .toLowerCase()
-                            .includes(
-                                normalizedSearch
-                            ) ||
-                        String(
-                            bid.status ||
-                            ""
-                        )
-                            .toLowerCase()
-                            .includes(
-                                normalizedSearch
-                            ) ||
-                        String(
-                            bid.proposed_price ||
-                            ""
-                        )
-                            .includes(
-                                normalizedSearch
-                            )
-                    );
-                }
-            );
-        }, [
-            bids,
-            userMap,
-            normalizedSearch,
-        ]);
-
-
-    /* =========================================================
-       HELPERS
-    ========================================================= */
-
-    function formatPrice(
-        value
-    ) {
-        const number =
-            Number(value);
-
-        if (
-            !Number.isFinite(
-                number
-            )
-        ) {
-            return "—";
-        }
-
-        return `${number.toLocaleString(
-            "en-US"
-        )} FCFA`;
-    }
-
-
-    function formatDate(
-        value
-    ) {
-        if (!value) {
-            return "—";
-        }
-
-        const date =
-            new Date(value);
-
-        if (
-            Number.isNaN(
-                date.getTime()
-            )
-        ) {
-            return "—";
-        }
-
-        return date.toLocaleString(
-            isFrench
-                ? "fr-FR"
-                : "en-US",
-            {
-                dateStyle:
-                    "short",
-                timeStyle:
-                    "short",
-            }
-        );
-    }
-
-
-    function statusLabel(
-        status
-    ) {
-        const labels = {
-            OPEN: isFrench
-                ? "Disponible"
-                : "Open",
-
-            PENDING: isFrench
-                ? "En attente"
-                : "Pending",
-
-            COUNTERED: isFrench
-                ? "Nouveau prix"
-                : "New price",
-
-            ACCEPTED: isFrench
-                ? "Acceptée"
-                : "Accepted",
-
-            MATCHED: isFrench
-                ? "Correspondance"
-                : "Matched",
-
-            DEPARTED: isFrench
-                ? "En route"
-                : "On the way",
-
-            ARRIVED: isFrench
-                ? "Arrivé"
-                : "Arrived",
-
-            COMPLETED: isFrench
-                ? "Livré"
-                : "Completed",
-
-            REJECTED: isFrench
-                ? "Refusée"
-                : "Rejected",
+    const users = useMemo(() => data?.users || [], [data]);
+    const shipments = useMemo(() => data?.shipments || [], [data]);
+    const bids = useMemo(() => data?.bids || [], [data]);
+    const products = useMemo(() => data?.products || [], [data]);
+    const orders = useMemo(() => data?.orders || [], [data]);
+    const notifications = useMemo(() => data?.notifications || [], [data]);
+
+    const byId = useMemo(() => new Map(users.map((item) => [item.id, item])), [users]);
+
+    const bidCount = useMemo(() => {
+        const counts = new Map();
+        bids.forEach((bid) => counts.set(bid.shipment_id, (counts.get(bid.shipment_id) || 0) + 1));
+        return counts;
+    }, [bids]);
+
+    const stats = useMemo(() => {
+        const count = (list, test) => list.filter(test).length;
+
+        const salesByCurrency = orders
+            .filter((order) => order.status === "COMPLETED")
+            .reduce((sums, order) => {
+                const code = order.currency || "XAF";
+                sums[code] = (sums[code] || 0) + Number(order.total_price || 0);
+                return sums;
+            }, {});
+
+        // Counted back from the last refresh (not "now"): a render
+        // must give the same result every time.
+        const base = updatedAt ? Date.parse(updatedAt) : 0;
+
+        const days = [...Array(14)].map((_, index) => new Date(base - (13 - index) * 86400000).toISOString().slice(0, 10));
+
+        const perDay = (list) => days.map((day) => list.filter((item) => dayKey(item.created_at) === day).length);
+
+        const byRole = ["SHIPPER", "DRIVER", "FARMER"].map((role) => [role, count(users, (item) => item.role === role)]);
+
+        const countries = Object.entries(
+            users.reduce((map, item) => {
+                const code = item.country || "CM";
+                map[code] = (map[code] || 0) + 1;
+                return map;
+            }, {})
+        ).sort((x, y) => y[1] - x[1]).slice(0, 8);
+
+        const nonCancelled = shipments.filter((item) => item.status !== "CANCELLED" || bidCount.get(item.id));
+
+        return {
+            people: users.length,
+            drivers: count(users, (item) => item.role === "DRIVER"),
+            available: count(users, (item) => item.role === "DRIVER" && item.is_available),
+            open: count(shipments, (item) => item.status === "OPEN"),
+            road: count(shipments, (item) => ["MATCHED", "DEPARTED", "ARRIVED"].includes(item.status)),
+            done: count(shipments, (item) => item.status === "COMPLETED"),
+            sales: Object.entries(salesByCurrency).map(([code, total]) => formatMoney(total, code)).join(" · "),
+            funnel: [
+                [t("posted"), nonCancelled.length],
+                [t("gotPrices"), count(nonCancelled, (item) => bidCount.get(item.id) > 0)],
+                [t("matched"), count(nonCancelled, (item) => ["MATCHED", "DEPARTED", "ARRIVED", "COMPLETED"].includes(item.status))],
+                [t("completed"), count(nonCancelled, (item) => item.status === "COMPLETED")],
+            ],
+            days,
+            newPeople: perDay(users),
+            newLoads: perDay(shipments),
+            byRole,
+            countries,
         };
-
-        return (
-            labels[status] ||
-            status ||
-            "—"
-        );
-    }
-
-
-    function roleLabel(
-        role
-    ) {
-        if (
-            role ===
-            "DRIVER"
-        ) {
-            return text.driver;
-        }
-
-        if (
-            role ===
-            "SHIPPER"
-        ) {
-            return text.shipper;
-        }
-
-        if (role === "FARMER") {
-            return text.farmerRole;
-        }
-
-        if (
-            role ===
-            "ADMIN"
-        ) {
-            return text.admin;
-        }
-
-        return role ||
-            "—";
-    }
-
+        // t only reads the language.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [users, shipments, orders, bidCount, language, updatedAt]);
 
     /* =========================================================
-       NAV
+       SCREEN
     ========================================================= */
 
-    const navItems = [
-        {
-            id: "overview",
-            label: text.overview,
-            icon: "📊",
-        },
+    if (!user || !data) {
+        return <AppLoading />;
+    }
 
-        {
-            id: "users",
-            label: text.users,
-            icon: "👥",
-        },
-
-        {
-            id: "shipments",
-            label: text.shipments,
-            icon: "📦",
-        },
-
-        {
-            id: "offers",
-            label: text.offers,
-            icon: "💰",
-        },
-
-        {
-            id: "notifications",
-            label: text.notifications,
-            icon: "🔔",
-        },
+    const tabs = [
+        { key: "overview", label: t("overviewShort"), icon: "📊" },
+        { key: "users", label: t("users"), icon: "👥", count: 0 },
+        { key: "loads", label: t("loads"), icon: "🚚", count: stats.open },
+        { key: "market", label: t("market"), icon: "🌾" },
+        { key: "activity", label: t("activity"), icon: "⚡" },
     ];
 
-
-    /* =========================================================
-       RENDER
-    ========================================================= */
-
-    if (
-        errorMessage &&
-        !admin
-    ) {
-        return (
-            <div className="tayeb-admin-page">
-                <div className="tayeb-admin-access-error">
-                    <BrandLogo
-                        width={130}
-                        height={48}
-                    />
-
-                    <div className="tayeb-admin-error-icon">
-                        !
-                    </div>
-
-                    <h1>
-                        {text.accessDenied}
-                    </h1>
-
-                    <p>
-                        {errorMessage}
-                    </p>
-                </div>
-            </div>
-        );
-    }
-
-
-    if (!admin) {
-        return (
-            <div className="tayeb-admin-loading">
-                <BrandLogo
-                    width={130}
-                    height={48}
-                />
-
-                <span className="tayeb-admin-spinner" />
-
-                <p>
-                    {text.loading}
-                </p>
-            </div>
-        );
-    }
-
+    const max = (list) => Math.max(1, ...list);
 
     return (
-        <>
-            <Head>
-                <title>
-                    Tayeb —{" "}
-                    {text.dashboard}
-                </title>
-
-                <meta
-                    name="description"
-                    content={
-                        text.platformOverview
-                    }
-                />
-
-                <meta
-                    name="theme-color"
-                    content="#f97316"
-                />
-            </Head>
-
-
-            <div className="tayeb-admin-page">
-
-                {/* =================================================
-                   TOP BAR
-                ================================================= */}
-
-                <header className="tayeb-admin-topbar">
-
-                    <div className="tayeb-admin-brand">
-                        <BrandLogo
-                            width={115}
-                            height={44}
-                        />
-
-                        <div className="tayeb-admin-brand-title">
-                            <strong>
-                                {text.dashboard}
-                            </strong>
-
-                            <span>
-                                {text.admin}
-                            </span>
-                        </div>
-                    </div>
-
-
-                    <div className="tayeb-admin-top-actions">
-
-                        {/* LANGUAGE */}
-
-                        <div className="tayeb-admin-language">
-
-                            <button
-                                type="button"
-                                className={
-                                    language ===
-                                        "en"
-                                        ? "active"
-                                        : ""
-                                }
-                                onClick={() =>
-                                    changeLanguage(
-                                        "en"
-                                    )
-                                }
-                            >
-                                EN
-                            </button>
-
-                            <button
-                                type="button"
-                                className={
-                                    language ===
-                                        "fr"
-                                        ? "active"
-                                        : ""
-                                }
-                                onClick={() =>
-                                    changeLanguage(
-                                        "fr"
-                                    )
-                                }
-                            >
-                                FR
-                            </button>
-
-                        </div>
-
-
-                        <button
-                            type="button"
-                            className="tayeb-admin-refresh"
-                            onClick={
-                                refreshDashboard
-                            }
-                            disabled={
-                                refreshing
-                            }
-                        >
-                            {refreshing
-                                ? "↻"
-                                : "⟳"}
-
-                            <span>
-                                {
-                                    text.refresh
-                                }
-                            </span>
-                        </button>
-
-
-                        <div className="tayeb-admin-avatar">
-                            A
-                        </div>
-
-                    </div>
-
-                </header>
-
-
-                {/* =================================================
-                   LAYOUT
-                ================================================= */}
-
-                <div className="tayeb-admin-layout">
-
-                    {/* =================================================
-                       SIDEBAR
-                    ================================================= */}
-
-                    <aside className="tayeb-admin-sidebar">
-
-                        <div className="tayeb-admin-sidebar-title">
-                            TAYEB
-                        </div>
-
-
-                        <nav>
-                            {navItems.map(
-                                (
-                                    item
-                                ) => (
-                                    <button
-                                        key={
-                                            item.id
-                                        }
-                                        type="button"
-                                        className={
-                                            activeSection ===
-                                                item.id
-                                                ? "active"
-                                                : ""
-                                        }
-                                        onClick={() =>
-                                            setActiveSection(
-                                                item.id
-                                            )
-                                        }
-                                    >
-                                        <span>
-                                            {
-                                                item.icon
-                                            }
-                                        </span>
-
-                                        {
-                                            item.label
-                                        }
-                                    </button>
-                                )
-                            )}
-                        </nav>
-
-
-                        <div className="tayeb-admin-sidebar-bottom">
-
-                            <div className="tayeb-admin-free-card">
-
-                                <span>
-                                    ✓
-                                </span>
-
-                                <div>
-                                    <strong>
-                                        TAYEB
-                                    </strong>
-
-                                    <small>
-                                        {
-                                            text.platformFree
-                                        }
-                                    </small>
-                                </div>
-
-                            </div>
-
-
-                            <button
-                                type="button"
-                                className="tayeb-admin-logout"
-                                onClick={
-                                    logout
-                                }
-                            >
-                                ↪{" "}
-                                {
-                                    text.logout
-                                }
-                            </button>
-
-                        </div>
-
-                    </aside>
-
-
-                    {/* =================================================
-                       MAIN
-                    ================================================= */}
-
-                    <main className="tayeb-admin-main">
-
-                        <div className="tayeb-admin-mobile-nav">
-
-                            {navItems.map(
-                                (
-                                    item
-                                ) => (
-                                    <button
-                                        key={
-                                            item.id
-                                        }
-                                        type="button"
-                                        className={
-                                            activeSection ===
-                                                item.id
-                                                ? "active"
-                                                : ""
-                                        }
-                                        onClick={() =>
-                                            setActiveSection(
-                                                item.id
-                                            )
-                                        }
-                                    >
-                                        {
-                                            item.icon
-                                        }
-
-                                        <span>
-                                            {
-                                                item.label
-                                            }
-                                        </span>
-                                    </button>
-                                )
-                            )}
-
-                        </div>
-
-
-                        {/* =================================================
-                           HEADING
-                        ================================================= */}
-
-                        <div className="tayeb-admin-heading">
-
-                            <div>
-
-                                <span>
-                                    TAYEB
-                                </span>
-
-                                <h1>
-                                    {
-                                        text.welcome
-                                    }
-                                    ,{" "}
-                                    {
-                                        admin.full_name ||
-                                        "Admin"
-                                    }
-                                </h1>
-
-                                <p>
-                                    {
-                                        text.platformOverview
-                                    }
-                                </p>
-
-                            </div>
-
-                        </div>
-
-
-                        {/* ERROR */}
-
-                        {errorMessage && (
-                            <div className="tayeb-admin-inline-error">
-                                !
-                                <span>
-                                    {
-                                        errorMessage
-                                    }
-                                </span>
-                            </div>
-                        )}
-
-
-                        {/* =================================================
-                           OVERVIEW
-                        ================================================= */}
-
-                        {activeSection ===
-                            "overview" && (
-                                <Overview
-                                    stats={
-                                        stats
-                                    }
-                                    shipments={
-                                        shipments
-                                    }
-                                    users={
-                                        users
-                                    }
-                                    bids={
-                                        bids
-                                    }
-                                    userMap={
-                                        userMap
-                                    }
-                                    text={
-                                        text
-                                    }
-                                    formatPrice={
-                                        formatPrice
-                                    }
-                                    formatDate={
-                                        formatDate
-                                    }
-                                    statusLabel={
-                                        statusLabel
-                                    }
-                                />
-                            )}
-
-
-                        {/* =================================================
-                           USERS
-                        ================================================= */}
-
-                        {activeSection ===
-                            "users" && (
-                                <section>
-
-                                    <SectionHeader
-                                        title={
-                                            text.allUsers
-                                        }
-                                        count={
-                                            filteredUsers.length
-                                        }
-                                        search={
-                                            search
-                                        }
-                                        setSearch={
-                                            setSearch
-                                        }
-                                        placeholder={
-                                            text.search
-                                        }
-                                    />
-
-
-                                    <UsersTable
-                                        users={
-                                            filteredUsers
-                                        }
-                                        text={
-                                            text
-                                        }
-                                        formatDate={
-                                            formatDate
-                                        }
-                                    />
-
-                                </section>
-                            )}
-
-
-                        {/* =================================================
-                           SHIPMENTS
-                        ================================================= */}
-
-                        {activeSection ===
-                            "shipments" && (
-                                <section>
-
-                                    <SectionHeader
-                                        title={
-                                            text.allShipments
-                                        }
-                                        count={
-                                            filteredShipments.length
-                                        }
-                                        search={
-                                            search
-                                        }
-                                        setSearch={
-                                            setSearch
-                                        }
-                                        placeholder={
-                                            text.search
-                                        }
-                                    />
-
-
-                                    <ShipmentsTable
-                                        shipments={
-                                            filteredShipments
-                                        }
-                                        userMap={
-                                            userMap
-                                        }
-                                        text={
-                                            text
-                                        }
-                                        formatPrice={
-                                            formatPrice
-                                        }
-                                        formatDate={
-                                            formatDate
-                                        }
-                                        statusLabel={
-                                            statusLabel
-                                        }
-                                    />
-
-                                </section>
-                            )}
-
-
-                        {/* =================================================
-                           OFFERS
-                        ================================================= */}
-
-                        {activeSection ===
-                            "offers" && (
-                                <section>
-
-                                    <SectionHeader
-                                        title={
-                                            text.allOffers
-                                        }
-                                        count={
-                                            filteredBids.length
-                                        }
-                                        search={
-                                            search
-                                        }
-                                        setSearch={
-                                            setSearch
-                                        }
-                                        placeholder={
-                                            text.search
-                                        }
-                                    />
-
-
-                                    <OffersTable
-                                        bids={
-                                            filteredBids
-                                        }
-                                        shipments={
-                                            shipments
-                                        }
-                                        userMap={
-                                            userMap
-                                        }
-                                        text={
-                                            text
-                                        }
-                                        formatPrice={
-                                            formatPrice
-                                        }
-                                        formatDate={
-                                            formatDate
-                                        }
-                                        statusLabel={
-                                            statusLabel
-                                        }
-                                    />
-
-                                </section>
-                            )}
-
-
-                        {/* =================================================
-                           NOTIFICATIONS
-                        ================================================= */}
-
-                        {activeSection ===
-                            "notifications" && (
-                                <section>
-
-                                    <div className="tayeb-admin-section-head">
-
-                                        <div>
-                                            <span>
-                                                TAYEB
-                                            </span>
-
-                                            <h2>
-                                                {
-                                                    text.notifications
-                                                }
-                                            </h2>
-                                        </div>
-
-                                        <div className="tayeb-admin-count">
-                                            {
-                                                notifications.length
-                                            }
-                                        </div>
-
-                                    </div>
-
-
-                                    {notifications.length ===
-                                        0 ? (
-                                        <EmptyState
-                                            text={
-                                                text.noData
-                                            }
-                                        />
-                                    ) : (
-                                        <div className="tayeb-admin-notifications">
-
-                                            {notifications
-                                                .slice(
-                                                    0,
-                                                    100
-                                                )
-                                                .map(
-                                                    (
-                                                        notification
-                                                    ) => {
-                                                        const owner =
-                                                            userMap[
-                                                            notification.user_id
-                                                            ];
-
-                                                        return (
-                                                            <div
-                                                                key={
-                                                                    notification.id
-                                                                }
-                                                                className={
-                                                                    notification.read
-                                                                        ? "tayeb-admin-notification"
-                                                                        : "tayeb-admin-notification unread"
-                                                                }
-                                                            >
-
-                                                                <div className="tayeb-admin-notification-icon">
-                                                                    🔔
-                                                                </div>
-
-                                                                <div className="tayeb-admin-notification-content">
-
-                                                                    <strong>
-                                                                        {
-                                                                            notification.title
-                                                                        }
-                                                                    </strong>
-
-                                                                    <p>
-                                                                        {
-                                                                            notification.message
-                                                                        }
-                                                                    </p>
-
-                                                                    <small>
-                                                                        {
-                                                                            owner?.full_name ||
-                                                                            owner?.phone_number ||
-                                                                            "—"
-                                                                        }
-                                                                        {" · "}
-                                                                        {
-                                                                            formatDate(
-                                                                                notification.created_at
-                                                                            )
-                                                                        }
-                                                                    </small>
-
-                                                                </div>
-
-                                                            </div>
-                                                        );
-                                                    }
-                                                )}
-
-                                        </div>
-                                    )}
-
-                                </section>
-                            )}
-
-                    </main>
-
-                </div>
-
-            </div>
-        </>
-    );
-}
-
-
-/* =========================================================
-   OVERVIEW
-========================================================= */
-
-function Overview({
-    stats,
-    shipments,
-    users,
-    bids,
-    userMap,
-    text,
-    formatPrice,
-    formatDate,
-    statusLabel,
-}) {
-    return (
-        <div>
-
-            <div className="tayeb-admin-stat-grid">
-
-                <AdminStat
-                    icon="👥"
-                    value={
-                        stats.users
-                    }
-                    label={
-                        text.totalUsers
-                    }
-                />
-
-                <AdminStat
-                    icon="🚚"
-                    value={
-                        stats.drivers
-                    }
-                    label={
-                        text.totalDrivers
-                    }
-                />
-
-                <AdminStat
-                    icon="📦"
-                    value={
-                        stats.shippers
-                    }
-                    label={
-                        text.totalShippers
-                    }
-                />
-
-                <AdminStat
-                    icon="📋"
-                    value={
-                        stats.shipments
-                    }
-                    label={
-                        text.totalShipments
-                    }
-                />
-
-                <AdminStat
-                    icon="🟠"
-                    value={
-                        stats.open
-                    }
-                    label={
-                        text.openShipments
-                    }
-                />
-
-                <AdminStat
-                    icon="🚚"
-                    value={
-                        stats.active
-                    }
-                    label={
-                        text.activeShipments
-                    }
-                />
-
-                <AdminStat
-                    icon="✓"
-                    value={
-                        stats.completed
-                    }
-                    label={
-                        text.completed
-                    }
-                />
-
-                <AdminStat
-                    icon="🤝"
-                    value={
-                        stats.matched
-                    }
-                    label={
-                        text.matched
-                    }
-                />
-
-            </div>
-
-
-            <div className="tayeb-admin-mini-grid">
-
-                <MiniStat
-                    icon="💰"
-                    value={
-                        stats.offers
-                    }
-                    label={
-                        text.totalOffers
-                    }
-                />
-
-                <MiniStat
-                    icon="🟢"
-                    value={
-                        stats.availableDrivers
-                    }
-                    label={
-                        text.availableDrivers
-                    }
-                />
-
-                <MiniStat
-                    icon="🔔"
-                    value={
-                        stats.unread
-                    }
-                    label={
-                        text.unreadNotifications
-                    }
-                />
-
-            </div>
-
-
-            {/* TAYEB MARCHÉ */}
-
-            <div className="tayeb-admin-mini-grid">
-
-                <MiniStat
-                    icon="👨🏾‍🌾"
-                    value={
-                        stats.farmers
-                    }
-                    label={
-                        text.farmers
-                    }
-                />
-
-                <MiniStat
-                    icon="🧺"
-                    value={
-                        stats.productsOnSale
-                    }
-                    label={
-                        text.productsOnSale
-                    }
-                />
-
-                <MiniStat
-                    icon="🛒"
-                    value={
-                        stats.marketOrders
-                    }
-                    label={
-                        text.marketOrders
-                    }
-                />
-
-                <MiniStat
-                    icon="🌾"
-                    value={
-                        stats.marketSales
-                    }
-                    label={
-                        text.marketSales
-                    }
-                />
-
-            </div>
-
-
-            <div className="tayeb-admin-two-column">
-
-                <div className="tayeb-admin-panel">
-
-                    <div className="tayeb-admin-panel-head">
-
-                        <div>
-                            <span>
-                                TAYEB
-                            </span>
-
-                            <h2>
-                                {
-                                    text.recentShipments
-                                }
-                            </h2>
-                        </div>
-
-                    </div>
-
-
-                    {shipments.length ===
-                        0 ? (
-                        <EmptyState
-                            text={
-                                text.noShipments
-                            }
-                        />
-                    ) : (
-                        <div className="tayeb-admin-list">
-
-                            {shipments
-                                .slice(
-                                    0,
-                                    6
-                                )
-                                .map(
-                                    (
-                                        shipment
-                                    ) => {
-                                        const shipper =
-                                            userMap[
-                                            shipment.shipper_id
-                                            ];
-
-                                        const driver =
-                                            userMap[
-                                            shipment.driver_id
-                                            ];
-
-                                        return (
-                                            <div
-                                                key={
-                                                    shipment.id
-                                                }
-                                                className="tayeb-admin-list-item"
-                                            >
-
-                                                <div className="tayeb-admin-list-icon">
-                                                    📦
-                                                </div>
-
-                                                <div className="tayeb-admin-list-main">
-
-                                                    <strong>
-                                                        {
-                                                            shipment.item_type ||
-                                                            shipment.itemType ||
-                                                            "Cargo"
-                                                        }
-                                                    </strong>
-
-                                                    <span>
-                                                        {
-                                                            shipment.origin ||
-                                                            "—"
-                                                        }
-                                                        {" → "}
-                                                        {
-                                                            shipment.destination ||
-                                                            "—"
-                                                        }
-                                                    </span>
-
-                                                    <small>
-                                                        {
-                                                            shipper?.full_name ||
-                                                            "—"
-                                                        }
-
-                                                        {driver &&
-                                                            ` · ${driver.full_name}`}
-                                                    </small>
-
-                                                </div>
-
-                                                <div className="tayeb-admin-list-side">
-
-                                                    <strong>
-                                                        {
-                                                            formatPrice(
-                                                                shipment.agreed_price ??
-                                                                shipment.price
-                                                            )
-                                                        }
-                                                    </strong>
-
-                                                    <StatusBadge
-                                                        status={
-                                                            shipment.status
-                                                        }
-                                                        label={
-                                                            statusLabel(
-                                                                shipment.status
-                                                            )
-                                                        }
-                                                    />
-
-                                                </div>
-
-                                            </div>
-                                        );
-                                    }
-                                )}
-
-                        </div>
-                    )}
-
-                </div>
-
-
-                <div className="tayeb-admin-panel">
-
-                    <div className="tayeb-admin-panel-head">
-
-                        <div>
-                            <span>
-                                TAYEB
-                            </span>
-
-                            <h2>
-                                {
-                                    text.recentUsers
-                                }
-                            </h2>
-                        </div>
-
-                    </div>
-
-
-                    {users.length ===
-                        0 ? (
-                        <EmptyState
-                            text={
-                                text.noUsers
-                            }
-                        />
-                    ) : (
-                        <div className="tayeb-admin-list">
-
-                            {users
-                                .slice(
-                                    0,
-                                    6
-                                )
-                                .map(
-                                    (
-                                        user
-                                    ) => (
-                                        <div
-                                            key={
-                                                user.id
-                                            }
-                                            className="tayeb-admin-list-item"
-                                        >
-
-                                            <div className="tayeb-admin-user-avatar">
-                                                {user.full_name
-                                                    ?.charAt(
-                                                        0
-                                                    )
-                                                    ?.toUpperCase() ||
-                                                    "T"}
-                                            </div>
-
-                                            <div className="tayeb-admin-list-main">
-
-                                                <strong>
-                                                    {
-                                                        user.full_name ||
-                                                        "—"
-                                                    }
-                                                </strong>
-
-                                                <span>
-                                                    {
-                                                        user.phone_number ||
-                                                        "—"
-                                                    }
-                                                </span>
-
-                                                <small>
-                                                    {
-                                                        roleLabelSimple(
-                                                            user.role,
-                                                            text
-                                                        )
-                                                    }
-                                                </small>
-
-                                            </div>
-
-                                            <div className="tayeb-admin-list-side">
-
-                                                {user.role ===
-                                                    "DRIVER" && (
-                                                        <span
-                                                            className={
-                                                                user.is_available
-                                                                    ? "tayeb-dot-status available"
-                                                                    : "tayeb-dot-status"
-                                                            }
-                                                        >
-                                                            ●
-                                                        </span>
-                                                    )}
-
-                                                <small>
-                                                    {
-                                                        formatDate(
-                                                            user.created_at
-                                                        )
-                                                    }
-                                                </small>
-
-                                            </div>
-
-                                        </div>
-                                    )
-                                )}
-
-                        </div>
-                    )}
-
-                </div>
-
-            </div>
-
-
-            <div className="tayeb-admin-panel">
-
-                <div className="tayeb-admin-panel-head">
-
-                    <div>
-                        <span>
-                            TAYEB
-                        </span>
-
-                        <h2>
-                            {
-                                text.recentOffers
-                            }
-                        </h2>
-                    </div>
-
-                </div>
-
-
-                {bids.length ===
-                    0 ? (
-                    <EmptyState
-                        text={
-                            text.noOffers
-                        }
-                    />
-                ) : (
-                    <div className="tayeb-admin-list">
-
-                        {bids
-                            .slice(
-                                0,
-                                8
-                            )
-                            .map(
-                                (
-                                    bid
-                                ) => {
-                                    const driver =
-                                        userMap[
-                                        bid.driver_id
-                                        ];
-
-                                    return (
-                                        <div
-                                            key={
-                                                bid.id
-                                            }
-                                            className="tayeb-admin-list-item"
-                                        >
-
-                                            <div className="tayeb-admin-list-icon">
-                                                💰
-                                            </div>
-
-                                            <div className="tayeb-admin-list-main">
-
-                                                <strong>
-                                                    {
-                                                        driver?.full_name ||
-                                                        "Driver"
-                                                    }
-                                                </strong>
-
-                                                <span>
-                                                    {
-                                                        formatPrice(
-                                                            bid.counter_price ??
-                                                            bid.proposed_price
-                                                        )
-                                                    }
-                                                </span>
-
-                                                <small>
-                                                    {
-                                                        formatDate(
-                                                            bid.created_at
-                                                        )
-                                                    }
-                                                </small>
-
-                                            </div>
-
-                                            <StatusBadge
-                                                status={
-                                                    bid.status
-                                                }
-                                                label={
-                                                    statusLabel(
-                                                        bid.status
-                                                    )
-                                                }
-                                            />
-
-                                        </div>
-                                    );
-                                }
-                            )}
-
-                    </div>
-                )}
-
-            </div>
-
-        </div>
-    );
-}
-
-
-/* =========================================================
-   STAT CARD
-========================================================= */
-
-function AdminStat({
-    icon,
-    value,
-    label,
-}) {
-    return (
-        <div className="tayeb-admin-stat">
-
-            <div className="tayeb-admin-stat-icon">
-                {icon}
-            </div>
-
-            <div>
-                <strong>
-                    {value}
-                </strong>
-
-                <span>
-                    {label}
-                </span>
-            </div>
-
-        </div>
-    );
-}
-
-
-/* =========================================================
-   MINI STAT
-========================================================= */
-
-function MiniStat({
-    icon,
-    value,
-    label,
-}) {
-    return (
-        <div className="tayeb-admin-mini-stat">
-
-            <span>
-                {icon}
-            </span>
-
-            <div>
-                <strong>
-                    {value}
-                </strong>
-
-                <small>
-                    {label}
-                </small>
-            </div>
-
-        </div>
-    );
-}
-
-
-/* =========================================================
-   SECTION HEADER
-========================================================= */
-
-function SectionHeader({
-    title,
-    count,
-    search,
-    setSearch,
-    placeholder,
-}) {
-    return (
-        <div className="tayeb-admin-section-head">
-
-            <div>
-                <span>
-                    TAYEB
-                </span>
-
-                <h2>
-                    {title}
-                </h2>
-            </div>
-
-
-            <div className="tayeb-admin-section-actions">
-
-                <div className="tayeb-admin-count">
-                    {count}
-                </div>
-
-                <input
-                    value={
-                        search
-                    }
-                    onChange={(
-                        event
-                    ) =>
-                        setSearch(
-                            event
-                                .target
-                                .value
-                        )
-                    }
-                    placeholder={
-                        placeholder
-                    }
-                    className="tayeb-admin-search"
-                />
-
-            </div>
-
-        </div>
-    );
-}
-
-
-/* =========================================================
-   USERS TABLE
-========================================================= */
-
-function UsersTable({
-    users,
-    text,
-    formatDate,
-}) {
-    if (
-        users.length ===
-        0
-    ) {
-        return (
-            <EmptyState
-                text={
-                    text.noUsers
-                }
-            />
-        );
-    }
-
-    return (
-        <div className="tayeb-admin-table-wrap">
-
-            <table className="tayeb-admin-table">
-
-                <thead>
-                    <tr>
-                        <th>
-                            {text.name}
-                        </th>
-
-                        <th>
-                            {text.phone}
-                        </th>
-
-                        <th>
-                            {text.role}
-                        </th>
-
-                        <th>
-                            {text.vehicle}
-                        </th>
-
-                        <th>
-                            {text.availability}
-                        </th>
-
-                        <th>
-                            {text.date}
-                        </th>
-                    </tr>
-                </thead>
-
-
-                <tbody>
-
-                    {users.map(
-                        (
-                            user
-                        ) => (
-                            <tr
-                                key={
-                                    user.id
-                                }
-                            >
-
-                                <td>
-                                    <div className="tayeb-table-user">
-
-                                        <div className="tayeb-admin-user-avatar">
-                                            {user.full_name
-                                                ?.charAt(
-                                                    0
-                                                )
-                                                ?.toUpperCase() ||
-                                                "T"}
-                                        </div>
-
-                                        <strong>
-                                            {
-                                                user.full_name ||
-                                                "—"
-                                            }
-                                        </strong>
-
-                                    </div>
-                                </td>
-
-                                <td>
-                                    {
-                                        user.phone_number ||
-                                        "—"
-                                    }
-                                </td>
-
-                                <td>
-                                    <RoleBadge
-                                        role={
-                                            user.role
-                                        }
-                                        text={
-                                            text
-                                        }
-                                    />
-                                </td>
-
-                                <td>
-                                    {
-                                        user.vehicle_type ||
-                                        "—"
-                                    }
-
-                                    {user.plate_number && (
-                                        <small className="tayeb-table-sub">
-                                            {
-                                                user.plate_number
-                                            }
-                                        </small>
-                                    )}
-                                </td>
-
-                                <td>
-                                    {user.role ===
-                                        "DRIVER" ? (
-                                        <span
-                                            className={
-                                                user.is_available
-                                                    ? "tayeb-availability available"
-                                                    : "tayeb-availability busy"
-                                            }
-                                        >
-                                            ●{" "}
-                                            {user.is_available
-                                                ? text.available
-                                                : text.busy}
-                                        </span>
-                                    ) : (
-                                        "—"
-                                    )}
-                                </td>
-
-                                <td>
-                                    {
-                                        formatDate(
-                                            user.created_at
-                                        )
-                                    }
-                                </td>
-
-                            </tr>
-                        )
-                    )}
-
-                </tbody>
-
-            </table>
-
-        </div>
-    );
-}
-
-
-/* =========================================================
-   SHIPMENTS TABLE
-========================================================= */
-
-function ShipmentsTable({
-    shipments,
-    userMap,
-    text,
-    formatPrice,
-    formatDate,
-    statusLabel,
-}) {
-    if (
-        shipments.length ===
-        0
-    ) {
-        return (
-            <EmptyState
-                text={
-                    text.noShipments
-                }
-            />
-        );
-    }
-
-    return (
-        <div className="tayeb-admin-table-wrap">
-
-            <table className="tayeb-admin-table">
-
-                <thead>
-                    <tr>
-                        <th>
-                            {text.shipments}
-                        </th>
-
-                        <th>
-                            {text.shipper}
-                        </th>
-
-                        <th>
-                            {text.driver}
-                        </th>
-
-                        <th>
-                            {text.price}
-                        </th>
-
-                        <th>
-                            {text.status}
-                        </th>
-
-                        <th>
-                            {text.date}
-                        </th>
-                    </tr>
-                </thead>
-
-
-                <tbody>
-
-                    {shipments.map(
-                        (
-                            shipment
-                        ) => {
-                            const shipper =
-                                userMap[
-                                shipment.shipper_id
-                                ];
-
-                            const driver =
-                                userMap[
-                                shipment.driver_id
-                                ];
-
-                            return (
-                                <tr
-                                    key={
-                                        shipment.id
-                                    }
-                                >
-
-                                    <td>
-                                        <strong>
-                                            {
-                                                shipment.item_type ||
-                                                shipment.itemType ||
-                                                "Cargo"
-                                            }
-                                        </strong>
-
-                                        <small className="tayeb-table-sub">
-                                            {
-                                                shipment.origin ||
-                                                "—"
-                                            }
-                                            {" → "}
-                                            {
-                                                shipment.destination ||
-                                                "—"
-                                            }
-                                        </small>
-                                    </td>
-
-                                    <td>
-                                        {
-                                            shipper?.full_name ||
-                                            "—"
-                                        }
-                                    </td>
-
-                                    <td>
-                                        {
-                                            driver?.full_name ||
-                                            shipment.driver_name ||
-                                            "—"
-                                        }
-                                    </td>
-
-                                    <td>
-                                        {
-                                            formatPrice(
-                                                shipment.agreed_price ??
-                                                shipment.price
-                                            )
-                                        }
-                                    </td>
-
-                                    <td>
-                                        <StatusBadge
-                                            status={
-                                                shipment.status
-                                            }
-                                            label={
-                                                statusLabel(
-                                                    shipment.status
-                                                )
-                                            }
-                                        />
-                                    </td>
-
-                                    <td>
-                                        {
-                                            formatDate(
-                                                shipment.created_at
-                                            )
-                                        }
-                                    </td>
-
-                                </tr>
-                            );
-                        }
-                    )}
-
-                </tbody>
-
-            </table>
-
-        </div>
-    );
-}
-
-
-/* =========================================================
-   OFFERS TABLE
-========================================================= */
-
-function OffersTable({
-    bids,
-    shipments,
-    userMap,
-    text,
-    formatPrice,
-    formatDate,
-    statusLabel,
-}) {
-    const shipmentMap =
-        {};
-
-    shipments.forEach(
-        (
-            shipment
-        ) => {
-            shipmentMap[
-                shipment.id
-            ] =
-                shipment;
-        }
-    );
-
-
-    if (
-        bids.length ===
-        0
-    ) {
-        return (
-            <EmptyState
-                text={
-                    text.noOffers
-                }
-            />
-        );
-    }
-
-
-    return (
-        <div className="tayeb-admin-table-wrap">
-
-            <table className="tayeb-admin-table">
-
-                <thead>
-                    <tr>
-                        <th>
-                            {text.driver}
-                        </th>
-
-                        <th>
-                            {text.shipments}
-                        </th>
-
-                        <th>
-                            {text.price}
-                        </th>
-
-                        <th>
-                            {text.status}
-                        </th>
-
-                        <th>
-                            {text.date}
-                        </th>
-                    </tr>
-                </thead>
-
-
-                <tbody>
-
-                    {bids.map(
-                        (
-                            bid
-                        ) => {
-                            const driver =
-                                userMap[
-                                bid.driver_id
-                                ];
-
-                            const shipment =
-                                shipmentMap[
-                                bid.shipment_id
-                                ];
-
-                            return (
-                                <tr
-                                    key={
-                                        bid.id
-                                    }
-                                >
-
-                                    <td>
-                                        <div className="tayeb-table-user">
-
-                                            <div className="tayeb-admin-user-avatar">
-                                                {driver?.full_name
-                                                    ?.charAt(
-                                                        0
-                                                    )
-                                                    ?.toUpperCase() ||
-                                                    "D"}
-                                            </div>
-
-                                            <div>
-                                                <strong>
-                                                    {
-                                                        driver?.full_name ||
-                                                        "Driver"
-                                                    }
-                                                </strong>
-
-                                                <small className="tayeb-table-sub">
-                                                    {
-                                                        driver?.phone_number ||
-                                                        "—"
-                                                    }
-                                                </small>
-                                            </div>
-
-                                        </div>
-                                    </td>
-
-                                    <td>
-                                        <strong>
-                                            {
-                                                shipment?.item_type ||
-                                                shipment?.itemType ||
-                                                "Cargo"
-                                            }
-                                        </strong>
-
-                                        <small className="tayeb-table-sub">
-                                            {
-                                                shipment?.origin ||
-                                                "—"
-                                            }
-                                            {" → "}
-                                            {
-                                                shipment?.destination ||
-                                                "—"
-                                            }
-                                        </small>
-                                    </td>
-
-                                    <td>
-                                        {
-                                            formatPrice(
-                                                bid.counter_price ??
-                                                bid.proposed_price
-                                            )
-                                        }
-                                    </td>
-
-                                    <td>
-                                        <StatusBadge
-                                            status={
-                                                bid.status
-                                            }
-                                            label={
-                                                statusLabel(
-                                                    bid.status
-                                                )
-                                            }
-                                        />
-                                    </td>
-
-                                    <td>
-                                        {
-                                            formatDate(
-                                                bid.created_at
-                                            )
-                                        }
-                                    </td>
-
-                                </tr>
-                            );
-                        }
-                    )}
-
-                </tbody>
-
-            </table>
-
-        </div>
-    );
-}
-
-
-/* =========================================================
-   BADGES
-========================================================= */
-
-function StatusBadge({
-    status,
-    label,
-}) {
-    let className =
-        "tayeb-status-badge";
-
-    if (
-        [
-            "MATCHED",
-            "ACCEPTED",
-            "COMPLETED",
-        ].includes(
-            status
-        )
-    ) {
-        className +=
-            " success";
-    } else if (
-        [
-            "OPEN",
-            "PENDING",
-            "COUNTERED",
-            "DEPARTED",
-            "ARRIVED",
-        ].includes(
-            status
-        )
-    ) {
-        className +=
-            " orange";
-    } else if (
-        status ===
-        "REJECTED"
-    ) {
-        className +=
-            " danger";
-    }
-
-    return (
-        <span
-            className={
-                className
+        <AppShell
+            user={user}
+            pageTitle={t("title")}
+            eyebrow={`🛡️ ${a("role_ADMIN")}`}
+            title={<em>{t("title")}</em>}
+            subtitle={`${t("sub")} ${updatedAt ? `· ${t("updated", { when: timeAgo(updatedAt, language, a) })}` : ""}`}
+            actions={
+                <button type="button" className="ts-btn ts-btn-glass" onClick={load}>
+                    ↻ {t("refresh")}
+                </button>
             }
+            stats={[
+                { value: stats.people, label: t("people") },
+                { value: stats.drivers, label: t("drivers"), small: t("availableDrivers", { count: stats.available }) },
+                { value: stats.open, label: t("openLoads"), hot: stats.open > 0 },
+                { value: stats.road, label: t("onRoad") },
+                { value: stats.done, label: t("delivered") },
+                ...(stats.sales ? [{ value: stats.sales, label: t("sales") }] : []),
+            ]}
+            tabs={tabs}
+            tab={tab}
+            onTab={pick}
         >
-            {label}
-        </span>
+
+            {/* =================================================
+                OVERVIEW
+            ================================================= */}
+
+            {tab === "overview" && (
+                <div className="ap-fade">
+                    <div className="ap-two">
+
+                        <section className="ap-card">
+                            <SectionHead title={t("funnel")} sub={t("funnelSub")} />
+                            <div className="ap-bars">
+                                {stats.funnel.map(([label, value], index) => (
+                                    <div key={label} className="ap-bar">
+                                        <span>{label}</span>
+                                        <div><i style={{ width: `${(value / max(stats.funnel.map((item) => item[1]))) * 100}%`, opacity: 1 - index * 0.12 }} /></div>
+                                        <b>
+                                            {value}
+                                            {index > 0 && stats.funnel[0][1] > 0 && (
+                                                <small style={{ color: "var(--ts-muted)", marginLeft: 6 }}>
+                                                    {Math.round((value / stats.funnel[0][1]) * 100)}%
+                                                </small>
+                                            )}
+                                        </b>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+
+                        <section className="ap-card">
+                            <SectionHead title={t("roles")} />
+                            <div className="ap-bars">
+                                {stats.byRole.map(([role, value]) => (
+                                    <div key={role} className="ap-bar">
+                                        <span>{ROLE_ICONS[role]} {a(`role_${role}`)}</span>
+                                        <div><i style={{ width: `${(value / max(stats.byRole.map((item) => item[1]))) * 100}%` }} /></div>
+                                        <b>{value}</b>
+                                    </div>
+                                ))}
+                            </div>
+                            {stats.countries.length > 0 && (
+                                <>
+                                    <hr className="ap-divider" />
+                                    <span className="ap-label">{t("countries")}</span>
+                                    <div className="ap-chips">
+                                        {stats.countries.map(([code, value]) => (
+                                            <span key={code} className="ap-chip">{findCountry(code)?.flag} {countryName(code, language)} · {value}</span>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
+                        </section>
+
+                    </div>
+
+                    <section className="ap-card" style={{ marginTop: 20 }}>
+                        <SectionHead title={t("last14")} sub={t("last14Sub")} />
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(14, minmax(0, 1fr))", gap: 6, alignItems: "end", height: 150 }}>
+                            {stats.days.map((day, index) => (
+                                <div key={day} title={`${day} · ${stats.newPeople[index]} / ${stats.newLoads[index]}`} style={{ display: "grid", gap: 3, alignItems: "end", height: "100%" }}>
+                                    <div style={{ display: "flex", gap: 2, alignItems: "flex-end", height: "100%" }}>
+                                        <i style={{ flex: 1, height: `${(stats.newPeople[index] / max([...stats.newPeople, ...stats.newLoads])) * 100}%`, minHeight: 3, borderRadius: 4, background: "var(--ts-orange)" }} />
+                                        <i style={{ flex: 1, height: `${(stats.newLoads[index] / max([...stats.newPeople, ...stats.newLoads])) * 100}%`, minHeight: 3, borderRadius: 4, background: "var(--ts-ink)" }} />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="ap-chips">
+                            <span className="ap-chip ap-chip-orange">■ {t("newPeople")}</span>
+                            <span className="ap-chip ap-chip-ink">■ {t("newLoads")}</span>
+                        </div>
+                    </section>
+
+                    <div className="ap-two" style={{ marginTop: 20 }}>
+                        <section className="ap-card">
+                            <SectionHead title={t("recentPeople")} />
+                            {users.length === 0 ? <p className="ap-card-sub">{t("nothing")}</p> : users.slice(0, 6).map((item) => (
+                                <div key={item.id} className="ap-row">
+                                    <span><strong style={{ color: "var(--ts-ink)" }}>{ROLE_ICONS[item.role] || "👤"} {item.full_name}</strong> <span className="ap-card-sub">· {item.base_city || countryName(item.country, language)}</span></span>
+                                    <span className="ap-card-sub">{timeAgo(item.created_at, language, a)}</span>
+                                </div>
+                            ))}
+                        </section>
+                        <section className="ap-card">
+                            <SectionHead title={t("recentLoads")} />
+                            {shipments.length === 0 ? <p className="ap-card-sub">{t("nothing")}</p> : shipments.slice(0, 6).map((item) => (
+                                <div key={item.id} className="ap-row">
+                                    <span><strong style={{ color: "var(--ts-ink)" }}>{item.origin_city || item.origin} → {item.destination_city || item.destination}</strong> <span className={`ap-chip ${LOAD_TONES[item.status] || ""}`}>{a(`load_${item.status}`)}</span></span>
+                                    <span className="ap-card-sub">{timeAgo(item.created_at, language, a)}</span>
+                                </div>
+                            ))}
+                        </section>
+                    </div>
+                </div>
+            )}
+
+
+            {/* =================================================
+                PEOPLE
+            ================================================= */}
+
+            {tab === "users" && (
+                <section className="ap-section ap-fade">
+                    <Toolbar query={query} setQuery={setQuery} placeholder={t("search")} filter={filter} setFilter={setFilter}
+                        options={[["ALL", t("all")], ["SHIPPER", a("role_SHIPPER")], ["DRIVER", a("role_DRIVER")], ["FARMER", a("role_FARMER")]]} />
+                    <Table
+                        empty={t("noMatch")}
+                        head={[t("name"), t("role"), t("phone"), t("country"), t("vehicle"), t("rating"), t("trips"), t("joined"), t("seen")]}
+                        rows={users
+                            .filter((item) => filter === "ALL" || item.role === filter)
+                            .filter((item) => matches(query, item.full_name, item.phone_number, item.base_city, item.plate_number, item.vehicle_type))
+                            .map((item) => [
+                                item.id,
+                                <><strong>{item.full_name}</strong>{item.base_city && <div className="ap-card-sub">📍 {item.base_city}</div>}</>,
+                                <span key="c467" className="ap-chip">{ROLE_ICONS[item.role]} {a(`role_${item.role}`)}</span>,
+                                <a key="c468" href={telHref(item.phone_number)} className="ts-link">{formatPhone(item.phone_number)}</a>,
+                                `${findCountry(item.country)?.flag || ""} ${item.country || "CM"}`,
+                                item.role === "DRIVER" ? <>{item.vehicle_type || "—"}<div className="ap-card-sub">{item.plate_number}{item.is_available ? ` · ✅ ${t("available")}` : ""}</div></> : "—",
+                                item.rating_count ? `★ ${item.rating} (${item.rating_count})` : "—",
+                                item.total_completed_shipments || 0,
+                                timeAgo(item.created_at, language, a),
+                                item.last_seen ? timeAgo(item.last_seen, language, a) : "—",
+                            ])}
+                    />
+                </section>
+            )}
+
+
+            {/* =================================================
+                LOADS
+            ================================================= */}
+
+            {tab === "loads" && (
+                <section className="ap-section ap-fade">
+                    <Toolbar query={query} setQuery={setQuery} placeholder={t("search")} filter={filter} setFilter={setFilter}
+                        options={[["ALL", t("all")], ...["OPEN", "MATCHED", "DEPARTED", "ARRIVED", "COMPLETED", "CANCELLED"].map((status) => [status, a(`load_${status}`)])]} />
+                    <Table
+                        empty={t("noMatch")}
+                        head={[t("route"), t("cargo"), t("price"), t("status"), t("offers"), t("shipper"), t("driver"), t("posted_at")]}
+                        rows={shipments
+                            .filter((item) => filter === "ALL" || item.status === filter)
+                            .filter((item) => matches(query, item.origin, item.destination, item.item_type, item.shipper_name, item.driver_name, item.shipper_phone))
+                            .map((item) => [
+                                item.id,
+                                <><strong>{item.origin_city || item.origin} → {item.destination_city || item.destination}</strong>{item.order_id && <div className="ap-card-sub">🌾 Marché</div>}</>,
+                                `${item.quantity} × ${cargoLabel(item.item_type, language)}`,
+                                <span key="c499" className="num">{formatMoney(item.agreed_price ?? item.initial_offer, item.currency)}</span>,
+                                <span key="c500" className={`ap-chip ${LOAD_TONES[item.status] || ""}`}>{a(`load_${item.status}`)}</span>,
+                                bidCount.get(item.id) || 0,
+                                item.shipper_name || byId.get(item.shipper_id)?.full_name || "—",
+                                item.driver_name || "—",
+                                timeAgo(item.created_at, language, a),
+                            ])}
+                    />
+                </section>
+            )}
+
+
+            {/* =================================================
+                MARKET
+            ================================================= */}
+
+            {tab === "market" && (
+                <>
+                    <section className="ap-section ap-fade">
+                        <SectionHead title={`🧺 ${t("products")}`} count={products.length} />
+                        <Table
+                            empty={t("nothing")}
+                            head={[t("product"), t("farmer"), t("city"), t("price"), t("stock"), t("photos"), t("status")]}
+                            rows={products.map((item) => [
+                                item.id,
+                                <strong key="c524">{productEmoji(item.product)} {productName(item, language)}</strong>,
+                                byId.get(item.farmer_id)?.full_name || "—",
+                                `${findCountry(item.country)?.flag || ""} ${item.city}`,
+                                <span key="c527" className="num">{formatMoney(item.price_per_unit, item.currency)} / {unitName(item.unit, language)}</span>,
+                                `${formatAmount(item.quantity_available)} ${unitName(item.unit, language, item.quantity_available)}`,
+                                item.photo_count || 0,
+                                <span key="c530" className="ap-chip">{item.status}</span>,
+                            ])}
+                        />
+                    </section>
+
+                    <section className="ap-section">
+                        <SectionHead title={`🛒 ${t("orders")}`} count={orders.length} />
+                        <Table
+                            empty={t("nothing")}
+                            head={["#", t("product"), t("total"), t("status"), t("buyer"), t("farmer"), t("delivery"), t("posted_at")]}
+                            rows={orders.map((item) => [
+                                item.id,
+                                <strong key="c542">{orderReference(item.id)}</strong>,
+                                `${formatAmount(item.quantity)} ${unitName(item.unit, language, item.quantity)} · ${productName(item, language)}`,
+                                <span key="c544" className="num">{formatMoney(item.total_price, item.currency)}</span>,
+                                <span key="c545" className={`ap-chip ${ORDER_TONES[item.status] || ""}`}>{item.status}</span>,
+                                item.buyer_name || byId.get(item.buyer_id)?.full_name || "—",
+                                item.farmer_name || byId.get(item.farmer_id)?.full_name || "—",
+                                item.delivery_method === "PICKUP" ? t("pickup") : `🚚 ${item.delivery_city || ""}`,
+                                timeAgo(item.created_at, language, a),
+                            ])}
+                        />
+                    </section>
+                </>
+            )}
+
+
+            {/* =================================================
+                ACTIVITY
+            ================================================= */}
+
+            {tab === "activity" && (
+                <div className="ap-two ap-fade">
+                    <section>
+                        <SectionHead title={`💬 ${t("bids")}`} count={bids.length} />
+                        <Table
+                            empty={t("nothing")}
+                            head={[t("driver"), t("price"), t("status"), t("posted_at")]}
+                            rows={bids.slice(0, 200).map((bid) => {
+                                const load = shipments.find((item) => item.id === bid.shipment_id);
+                                return [
+                                    bid.id,
+                                    <>{byId.get(bid.driver_id)?.full_name || "—"}<div className="ap-card-sub">{load ? `${load.origin_city} → ${load.destination_city}` : ""}</div></>,
+                                    <span key="c573" className="num">{formatMoney(bid.counter_price ?? bid.proposed_price, load?.currency)}</span>,
+                                    <span key="c574" className="ap-chip">{bid.status}</span>,
+                                    timeAgo(bid.created_at, language, a),
+                                ];
+                            })}
+                        />
+                    </section>
+                    <section>
+                        <SectionHead title={`🔔 ${t("notifications")}`} count={notifications.length} />
+                        <div className="ap-card" style={{ gap: 0, padding: 8 }}>
+                            {notifications.length === 0 ? <Empty icon="🔔" title={t("nothing")} /> : notifications.slice(0, 60).map((item) => (
+                                <div key={item.id} className="ap-notif" style={{ cursor: "default" }}>
+                                    <i aria-hidden="true" style={{ background: item.read ? "transparent" : "var(--ts-orange)" }} />
+                                    <div>
+                                        <strong>{item.title}</strong>
+                                        {item.message && <p>{item.message}</p>}
+                                        <small>{byId.get(item.user_id)?.full_name || "—"} · {timeAgo(item.created_at, language, a)}</small>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                </div>
+            )}
+
+        </AppShell>
     );
-}
-
-
-function RoleBadge({
-    role,
-    text,
-}) {
-    let label =
-        role;
-
-    if (
-        role ===
-        "DRIVER"
-    ) {
-        label =
-            text.driver;
-    }
-
-    if (
-        role ===
-        "SHIPPER"
-    ) {
-        label =
-            text.shipper;
-    }
-
-    if (role === "FARMER") {
-        label = text.farmerRole;
-    }
-
-    if (
-        role ===
-        "ADMIN"
-    ) {
-        label =
-            text.admin;
-    }
-
-    return (
-        <span className="tayeb-role-badge">
-            {label}
-        </span>
-    );
-}
-
-
-function roleLabelSimple(
-    role,
-    text
-) {
-    if (
-        role ===
-        "DRIVER"
-    ) {
-        return text.driver;
-    }
-
-    if (
-        role ===
-        "SHIPPER"
-    ) {
-        return text.shipper;
-    }
-
-    if (role === "FARMER") {
-        return text.farmerRole;
-    }
-
-    if (
-        role ===
-        "ADMIN"
-    ) {
-        return text.admin;
-    }
-
-    return role ||
-        "—";
 }
 
 
 /* =========================================================
-   EMPTY
+   PIECES
 ========================================================= */
 
-function EmptyState({
-    text,
-}) {
+function Toolbar({ query, setQuery, placeholder, filter, setFilter, options }) {
     return (
-        <div className="tayeb-admin-empty">
-
-            <div>
-                📭
+        <div className="ap-section-head" style={{ alignItems: "center" }}>
+            <input
+                className="mk-input ap-search"
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={placeholder}
+                aria-label={placeholder}
+            />
+            <div className="ap-chips">
+                {options.map(([key, label]) => (
+                    <button
+                        key={key}
+                        type="button"
+                        className={`ap-chip ${filter === key ? "ap-chip-ink" : ""}`}
+                        style={{ border: 0, cursor: "pointer" }}
+                        onClick={() => setFilter(key)}
+                        aria-pressed={filter === key}
+                    >
+                        {label}
+                    </button>
+                ))}
             </div>
-
-            <p>
-                {text}
-            </p>
-
         </div>
     );
 }
 
-
-/* =========================================================
-   GLOBAL STYLES
-========================================================= */
-
-const adminStyles = `
-    .tayeb-admin-page {
-        min-height: 100vh;
-        background: #f8fafc;
-        color: #111827;
-    }
-
-    .tayeb-admin-loading,
-    .tayeb-admin-access-error {
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 16px;
-        padding: 30px;
-        background: #ffffff;
-        text-align: center;
-    }
-
-    .tayeb-admin-loading p,
-    .tayeb-admin-access-error p {
-        margin: 0;
-        color: #9ca3af;
-        font-size: 13px;
-    }
-
-    .tayeb-admin-spinner {
-        width: 22px;
-        height: 22px;
-        border: 3px solid #fed7aa;
-        border-top-color: #f97316;
-        border-radius: 50%;
-        animation: tayebAdminSpin .7s linear infinite;
-    }
-
-    @keyframes tayebAdminSpin {
-        to {
-            transform: rotate(360deg);
-        }
-    }
-
-    .tayeb-admin-error-icon {
-        width: 48px;
-        height: 48px;
-        display: grid;
-        place-items: center;
-        border-radius: 16px;
-        background: #fef2f2;
-        color: #dc2626;
-        font-size: 18px;
-        font-weight: 900;
-    }
-
-    .tayeb-admin-access-error h1 {
-        margin: 0;
-        font-size: 24px;
-        font-weight: 900;
-    }
-
-    .tayeb-admin-topbar {
-        position: sticky;
-        top: 0;
-        z-index: 100;
-        min-height: 72px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 20px;
-        padding: 10px clamp(15px, 4vw, 45px);
-        background: rgba(255,255,255,.96);
-        border-bottom: 1px solid #e5e7eb;
-        backdrop-filter: blur(18px);
-    }
-
-    .tayeb-admin-brand,
-    .tayeb-admin-top-actions {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-
-    .tayeb-admin-brand-title {
-        display: flex;
-        flex-direction: column;
-        gap: 3px;
-    }
-
-    .tayeb-admin-brand-title strong {
-        color: #111827;
-        font-size: 14px;
-        font-weight: 900;
-    }
-
-    .tayeb-admin-brand-title span {
-        color: #9ca3af;
-        font-size: 10px;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: .12em;
-    }
-
-    .tayeb-admin-language {
-        display: flex;
-        gap: 3px;
-        padding: 3px;
-        background: #f8fafc;
-        border: 1px solid #e5e7eb;
-        border-radius: 10px;
-    }
-
-    .tayeb-admin-language button {
-        border: 0;
-        background: transparent;
-        color: #9ca3af;
-        padding: 6px 8px;
-        border-radius: 7px;
-        font-size: 11px;
-        font-weight: 900;
-        cursor: pointer;
-    }
-
-    .tayeb-admin-language button.active {
-        background: #fff7ed;
-        color: #f97316;
-    }
-
-    .tayeb-admin-refresh {
-        min-height: 35px;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 0 11px;
-        border: 1px solid #e5e7eb;
-        border-radius: 10px;
-        background: #ffffff;
-        color: #374151;
-        font-size: 11px;
-        font-weight: 800;
-        cursor: pointer;
-    }
-
-    .tayeb-admin-refresh:hover {
-        color: #ea580c;
-        border-color: #fed7aa;
-        background: #fffaf5;
-    }
-
-    .tayeb-admin-refresh:disabled {
-        opacity: .55;
-        cursor: not-allowed;
-    }
-
-    .tayeb-admin-avatar,
-    .tayeb-admin-user-avatar {
-        display: grid;
-        place-items: center;
-        border-radius: 50%;
-        background: #f97316;
-        color: #ffffff;
-        font-weight: 900;
-    }
-
-    .tayeb-admin-avatar {
-        width: 36px;
-        height: 36px;
-        font-size: 13px;
-    }
-
-    .tayeb-admin-layout {
-        min-height: calc(100vh - 72px);
-        display: grid;
-        grid-template-columns: 215px minmax(0, 1fr);
-    }
-
-    .tayeb-admin-sidebar {
-        position: sticky;
-        top: 72px;
-        height: calc(100vh - 72px);
-        display: flex;
-        flex-direction: column;
-        padding: 25px 13px;
-        background: #ffffff;
-        border-right: 1px solid #e5e7eb;
-    }
-
-    .tayeb-admin-sidebar-title {
-        padding: 0 12px 15px;
-        color: #f97316;
-        font-size: 11px;
-        font-weight: 900;
-        letter-spacing: .2em;
-    }
-
-    .tayeb-admin-sidebar nav {
-        display: grid;
-        gap: 4px;
-    }
-
-    .tayeb-admin-sidebar nav button {
-        min-height: 43px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 0 12px;
-        border: 0;
-        border-radius: 12px;
-        background: transparent;
-        color: #6b7280;
-        text-align: left;
-        font-size: 12px;
-        font-weight: 800;
-        cursor: pointer;
-    }
-
-    .tayeb-admin-sidebar nav button:hover {
-        background: #fff7ed;
-        color: #ea580c;
-    }
-
-    .tayeb-admin-sidebar nav button.active {
-        background: #fff7ed;
-        color: #ea580c;
-    }
-
-    .tayeb-admin-sidebar nav button span {
-        width: 25px;
-        text-align: center;
-        font-size: 14px;
-    }
-
-    .tayeb-admin-sidebar-bottom {
-        margin-top: auto;
-    }
-
-    .tayeb-admin-free-card {
-        display: flex;
-        gap: 9px;
-        padding: 12px;
-        margin-bottom: 10px;
-        border: 1px solid #fed7aa;
-        border-radius: 15px;
-        background: #fffaf5;
-    }
-
-    .tayeb-admin-free-card > span {
-        width: 25px;
-        height: 25px;
-        flex: 0 0 25px;
-        display: grid;
-        place-items: center;
-        border-radius: 8px;
-        background: #f97316;
-        color: white;
-        font-size: 12px;
-        font-weight: 900;
-    }
-
-    .tayeb-admin-free-card strong {
-        display: block;
-        color: #374151;
-        font-size: 11px;
-        font-weight: 900;
-    }
-
-    .tayeb-admin-free-card small {
-        display: block;
-        margin-top: 3px;
-        color: #9ca3af;
-        font-size: 10px;
-        line-height: 1.4;
-    }
-
-    .tayeb-admin-logout {
-        width: 100%;
-        min-height: 40px;
-        border: 1px solid #e5e7eb;
-        border-radius: 11px;
-        background: #ffffff;
-        color: #6b7280;
-        font-size: 11px;
-        font-weight: 800;
-        cursor: pointer;
-    }
-
-    .tayeb-admin-logout:hover {
-        color: #dc2626;
-        border-color: #fecaca;
-        background: #fef2f2;
-    }
-
-    .tayeb-admin-main {
-        min-width: 0;
-        padding: clamp(22px, 4vw, 42px);
-    }
-
-    .tayeb-admin-mobile-nav {
-        display: none;
-    }
-
-    .tayeb-admin-heading {
-        display: flex;
-        align-items: flex-end;
-        justify-content: space-between;
-        gap: 20px;
-        margin-bottom: 28px;
-    }
-
-    .tayeb-admin-heading > div > span,
-    .tayeb-admin-section-head > div > span,
-    .tayeb-admin-panel-head > div > span {
-        color: #f97316;
-        font-size: 11px;
-        font-weight: 900;
-        letter-spacing: .18em;
-    }
-
-    .tayeb-admin-heading h1 {
-        margin: 7px 0 0;
-        color: #111827;
-        font-size: clamp(28px, 4vw, 43px);
-        line-height: 1;
-        letter-spacing: -.055em;
-        font-weight: 900;
-    }
-
-    .tayeb-admin-heading p {
-        margin: 10px 0 0;
-        color: #6b7280;
-        font-size: 13px;
-    }
-
-    .tayeb-admin-inline-error {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        padding: 11px 13px;
-        margin-bottom: 20px;
-        border: 1px solid #fecaca;
-        border-radius: 12px;
-        background: #fef2f2;
-        color: #b91c1c;
-        font-size: 12px;
-        font-weight: 800;
-    }
-
-    .tayeb-admin-stat-grid {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 11px;
-        margin-bottom: 12px;
-    }
-
-    .tayeb-admin-stat {
-        min-height: 105px;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 16px;
-        background: #ffffff;
-        border: 1px solid #e5e7eb;
-        border-radius: 18px;
-        box-shadow: 0 7px 22px rgba(17,24,39,.04);
-    }
-
-    .tayeb-admin-stat-icon {
-        width: 42px;
-        height: 42px;
-        flex: 0 0 42px;
-        display: grid;
-        place-items: center;
-        border-radius: 13px;
-        background: #fff7ed;
-        font-size: 18px;
-    }
-
-    .tayeb-admin-stat strong {
-        display: block;
-        color: #111827;
-        font-size: 25px;
-        line-height: 1;
-        font-weight: 900;
-    }
-
-    .tayeb-admin-stat span {
-        display: block;
-        margin-top: 5px;
-        color: #9ca3af;
-        font-size: 10px;
-        font-weight: 800;
-    }
-
-    .tayeb-admin-mini-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 10px;
-        margin-bottom: 18px;
-    }
-
-    .tayeb-admin-mini-stat {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 13px 15px;
-        border: 1px solid #e5e7eb;
-        border-radius: 15px;
-        background: #ffffff;
-    }
-
-    .tayeb-admin-mini-stat > span {
-        font-size: 15px;
-    }
-
-    .tayeb-admin-mini-stat strong {
-        display: block;
-        color: #111827;
-        font-size: 15px;
-        font-weight: 900;
-    }
-
-    .tayeb-admin-mini-stat small {
-        display: block;
-        margin-top: 2px;
-        color: #9ca3af;
-        font-size: 10px;
-        font-weight: 800;
-    }
-
-    .tayeb-admin-two-column {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 15px;
-        margin-bottom: 15px;
-    }
-
-    .tayeb-admin-panel {
-        margin-bottom: 15px;
-        padding: 20px;
-        background: #ffffff;
-        border: 1px solid #e5e7eb;
-        border-radius: 20px;
-        box-shadow: 0 7px 22px rgba(17,24,39,.04);
-    }
-
-    .tayeb-admin-panel-head {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 14px;
-    }
-
-    .tayeb-admin-panel-head h2,
-    .tayeb-admin-section-head h2 {
-        margin: 6px 0 0;
-        color: #111827;
-        font-size: 18px;
-        font-weight: 900;
-    }
-
-    .tayeb-admin-list {
-        display: grid;
-    }
-
-    .tayeb-admin-list-item {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 12px 0;
-        border-bottom: 1px solid #f1f5f9;
-    }
-
-    .tayeb-admin-list-item:last-child {
-        border-bottom: 0;
-    }
-
-    .tayeb-admin-list-icon,
-    .tayeb-admin-user-avatar {
-        width: 36px;
-        height: 36px;
-        flex: 0 0 36px;
-    }
-
-    .tayeb-admin-list-icon {
-        display: grid;
-        place-items: center;
-        border-radius: 11px;
-        background: #fff7ed;
-        font-size: 15px;
-    }
-
-    .tayeb-admin-user-avatar {
-        font-size: 12px;
-    }
-
-    .tayeb-admin-list-main {
-        flex: 1;
-        min-width: 0;
-    }
-
-    .tayeb-admin-list-main strong {
-        display: block;
-        overflow: hidden;
-        color: #111827;
-        font-size: 12px;
-        font-weight: 900;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    .tayeb-admin-list-main span {
-        display: block;
-        margin-top: 3px;
-        overflow: hidden;
-        color: #6b7280;
-        font-size: 11px;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    .tayeb-admin-list-main small {
-        display: block;
-        margin-top: 3px;
-        color: #9ca3af;
-        font-size: 10px;
-    }
-
-    .tayeb-admin-list-side {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-end;
-        gap: 5px;
-        flex-shrink: 0;
-    }
-
-    .tayeb-admin-list-side strong {
-        color: #ea580c;
-        font-size: 12px;
-        font-weight: 900;
-    }
-
-    .tayeb-admin-list-side small {
-        color: #9ca3af;
-        font-size: 10px;
-    }
-
-    .tayeb-dot-status {
-        color: #9ca3af;
-        font-size: 13px;
-    }
-
-    .tayeb-dot-status.available {
-        color: #16a34a;
-    }
-
-    .tayeb-status-badge,
-    .tayeb-role-badge,
-    .tayeb-availability {
-        display: inline-flex;
-        align-items: center;
-        min-height: 22px;
-        padding: 0 8px;
-        border-radius: 999px;
-        font-size: 10px;
-        font-weight: 900;
-        white-space: nowrap;
-    }
-
-    .tayeb-status-badge.orange {
-        background: #fff7ed;
-        color: #ea580c;
-    }
-
-    .tayeb-status-badge.success {
-        background: #f0fdf4;
-        color: #16a34a;
-    }
-
-    .tayeb-status-badge.danger {
-        background: #fef2f2;
-        color: #dc2626;
-    }
-
-    .tayeb-role-badge {
-        background: #f8fafc;
-        color: #475569;
-    }
-
-    .tayeb-availability.available {
-        background: #f0fdf4;
-        color: #16a34a;
-    }
-
-    .tayeb-availability.busy {
-        background: #f3f4f6;
-        color: #6b7280;
-    }
-
-    .tayeb-admin-section-head {
-        display: flex;
-        align-items: flex-end;
-        justify-content: space-between;
-        gap: 15px;
-        margin-bottom: 20px;
-    }
-
-    .tayeb-admin-section-actions {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .tayeb-admin-count {
-        min-width: 31px;
-        height: 31px;
-        display: grid;
-        place-items: center;
-        padding: 0 8px;
-        border-radius: 10px;
-        background: #fff7ed;
-        color: #ea580c;
-        font-size: 12px;
-        font-weight: 900;
-    }
-
-    .tayeb-admin-search {
-        width: min(230px, 35vw);
-        height: 35px;
-        padding: 0 11px;
-        border: 1px solid #e5e7eb;
-        border-radius: 10px;
-        outline: none;
-        background: white;
-        color: #111827;
-        font-size: 11px;
-    }
-
-    .tayeb-admin-search:focus {
-        border-color: #f97316;
-        box-shadow: 0 0 0 3px rgba(249,115,22,.08);
-    }
-
-    .tayeb-admin-table-wrap {
-        overflow-x: auto;
-        background: #ffffff;
-        border: 1px solid #e5e7eb;
-        border-radius: 19px;
-        box-shadow: 0 7px 22px rgba(17,24,39,.04);
-    }
-
-    .tayeb-admin-table {
-        width: 100%;
-        min-width: 760px;
-        border-collapse: collapse;
-    }
-
-    .tayeb-admin-table th {
-        padding: 13px 15px;
-        background: #fafafa;
-        border-bottom: 1px solid #e5e7eb;
-        color: #9ca3af;
-        text-align: left;
-        font-size: 10px;
-        font-weight: 900;
-        text-transform: uppercase;
-        letter-spacing: .08em;
-    }
-
-    .tayeb-admin-table td {
-        padding: 14px 15px;
-        border-bottom: 1px solid #f1f5f9;
-        color: #4b5563;
-        font-size: 11px;
-        vertical-align: middle;
-    }
-
-    .tayeb-admin-table tr:last-child td {
-        border-bottom: 0;
-    }
-
-    .tayeb-admin-table td strong {
-        color: #111827;
-        font-size: 11px;
-        font-weight: 900;
-    }
-
-    .tayeb-table-user {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .tayeb-table-sub {
-        display: block;
-        margin-top: 4px;
-        color: #9ca3af;
-        font-size: 10px;
-    }
-
-    .tayeb-admin-empty {
-        min-height: 170px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        text-align: center;
-    }
-
-    .tayeb-admin-empty > div {
-        width: 48px;
-        height: 48px;
-        display: grid;
-        place-items: center;
-        border-radius: 15px;
-        background: #fff7ed;
-        font-size: 20px;
-    }
-
-    .tayeb-admin-empty p {
-        margin: 0;
-        color: #9ca3af;
-        font-size: 12px;
-    }
-
-    .tayeb-admin-notifications {
-        display: grid;
-        gap: 9px;
-    }
-
-    .tayeb-admin-notification {
-        display: flex;
-        gap: 12px;
-        padding: 15px;
-        border: 1px solid #e5e7eb;
-        border-radius: 16px;
-        background: #ffffff;
-    }
-
-    .tayeb-admin-notification.unread {
-        border-color: #fed7aa;
-        background: #fffaf5;
-    }
-
-    .tayeb-admin-notification-icon {
-        width: 37px;
-        height: 37px;
-        flex: 0 0 37px;
-        display: grid;
-        place-items: center;
-        border-radius: 12px;
-        background: #fff7ed;
-    }
-
-    .tayeb-admin-notification-content {
-        min-width: 0;
-    }
-
-    .tayeb-admin-notification-content strong {
-        display: block;
-        color: #111827;
-        font-size: 13px;
-        font-weight: 900;
-    }
-
-    .tayeb-admin-notification-content p {
-        margin: 5px 0 0;
-        color: #6b7280;
-        font-size: 12px;
-        line-height: 1.5;
-    }
-
-    .tayeb-admin-notification-content small {
-        display: block;
-        margin-top: 7px;
-        color: #9ca3af;
-        font-size: 10px;
-    }
-
-    @media (max-width: 1050px) {
-        .tayeb-admin-stat-grid {
-            grid-template-columns: repeat(3, 1fr);
-        }
-
-        .tayeb-admin-layout {
-            grid-template-columns: 175px minmax(0, 1fr);
-        }
-    }
-
-    @media (max-width: 820px) {
-        .tayeb-admin-sidebar {
-            display: none;
-        }
-
-        .tayeb-admin-layout {
-            display: block;
-        }
-
-        .tayeb-admin-mobile-nav {
-            display: flex;
-            gap: 5px;
-            overflow-x: auto;
-            padding-bottom: 14px;
-            margin-bottom: 5px;
-        }
-
-        .tayeb-admin-mobile-nav button {
-            min-height: 36px;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            flex-shrink: 0;
-            padding: 0 10px;
-            border: 1px solid #e5e7eb;
-            border-radius: 10px;
-            background: white;
-            color: #6b7280;
-            font-size: 10px;
-            font-weight: 800;
-            cursor: pointer;
-        }
-
-        .tayeb-admin-mobile-nav button.active {
-            border-color: #fed7aa;
-            background: #fff7ed;
-            color: #ea580c;
-        }
-
-        .tayeb-admin-two-column {
-            grid-template-columns: 1fr;
-        }
-    }
-
-    @media (max-width: 650px) {
-        .tayeb-admin-topbar {
-            padding: 9px 12px;
-        }
-
-        .tayeb-admin-brand-title {
-            display: none;
-        }
-
-        .tayeb-admin-refresh span {
-            display: none;
-        }
-
-        .tayeb-admin-main {
-            padding: 17px 12px 30px;
-        }
-
-        .tayeb-admin-stat-grid {
-            grid-template-columns: repeat(2, 1fr);
-        }
-
-        .tayeb-admin-mini-grid {
-            grid-template-columns: 1fr;
-        }
-
-        .tayeb-admin-heading h1 {
-            font-size: 29px;
-        }
-
-        .tayeb-admin-section-head {
-            align-items: flex-start;
-            flex-direction: column;
-        }
-
-        .tayeb-admin-section-actions {
-            width: 100%;
-        }
-
-        .tayeb-admin-search {
-            width: 100%;
-            flex: 1;
-        }
-
-        .tayeb-admin-panel {
-            padding: 15px;
-            border-radius: 16px;
-        }
-    }
-
-    @media (max-width: 400px) {
-        .tayeb-admin-stat {
-            min-height: 90px;
-            padding: 12px;
-        }
-
-        .tayeb-admin-stat strong {
-            font-size: 21px;
-        }
-
-        .tayeb-admin-stat-icon {
-            width: 35px;
-            height: 35px;
-            flex-basis: 35px;
-            font-size: 15px;
-        }
-
-        .tayeb-admin-language button {
-            padding: 5px 6px;
-        }
-
-        .tayeb-admin-avatar {
-            width: 32px;
-            height: 32px;
-        }
-    }
-`;
-
-
-/* =========================================================
-   INJECT STYLES
-========================================================= */
-
-if (
-    typeof document !==
-    "undefined"
-) {
-    const styleId =
-        "tayeb-admin-styles";
-
-    if (
-        !document.getElementById(
-            styleId
-        )
-    ) {
-        const style =
-            document.createElement(
-                "style"
-            );
-
-        style.id =
-            styleId;
-
-        style.innerHTML =
-            adminStyles;
-
-        document.head.appendChild(
-            style
-        );
-    }
+function Table({ head, rows, empty }) {
+    if (rows.length === 0) {
+        return <Empty icon="🔍" title={empty} />;
+    }
+
+    return (
+        <div className="ap-table-wrap">
+            <table className="ap-table">
+                <thead>
+                    <tr>
+                        {head.map((label) => <th key={label}>{label}</th>)}
+                    </tr>
+                </thead>
+                <tbody>
+                    {rows.slice(0, 300).map(([id, ...cells]) => (
+                        <tr key={id}>
+                            {cells.map((cell, index) => <td key={index}>{cell}</td>)}
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
 }

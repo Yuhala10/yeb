@@ -5,6 +5,7 @@ import Seo from "../../components/Site/Seo";
 import ShareSheet from "../../components/Site/ShareSheet";
 import SiteFooter from "../../components/Site/SiteFooter";
 import SiteHeader from "../../components/Site/SiteHeader";
+import { cargoEmoji, cargoLabel } from "../../lib/cargo";
 import { cityRoadKm, resolveCity } from "../../lib/cities";
 import { useLanguage } from "../../lib/LanguageContext";
 import { formatMoney } from "../../lib/money";
@@ -104,8 +105,8 @@ export default function LoadPage({ shipment, bidCount, minutesAgo, origin }) {
     const title = `📦 ${route} · ${price} | Tayeb`;
 
     const description = fr
-        ? `${shipment.quantity} × ${shipment.item_type}. Offre : ${price}. Chauffeurs, proposez votre prix sur Tayeb.`
-        : `${shipment.quantity} × ${shipment.item_type}. Offer: ${price}. Drivers, send your price on Tayeb.`;
+        ? `${shipment.quantity} × ${cargoLabel(shipment.item_type, "fr")}. Offre : ${price}. Chauffeurs, proposez votre prix sur Tayeb.`
+        : `${shipment.quantity} × ${cargoLabel(shipment.item_type, "en")}. Offer: ${price}. Drivers, send your price on Tayeb.`;
 
     function go(role, loadId) {
         try {
@@ -178,7 +179,7 @@ export default function LoadPage({ shipment, bidCount, minutesAgo, origin }) {
                         </h1>
 
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 22 }}>
-                            <span className="ts-badge">📦 {shipment.quantity} × {shipment.item_type}</span>
+                            <span className="ts-badge">{cargoEmoji(shipment.item_type)} {shipment.quantity} × {cargoLabel(shipment.item_type, language)}</span>
                             {shipment.route_km > 0 && <span className="ts-badge">🛣️ ~{shipment.route_km} km</span>}
                             {shipment.weight_kg > 0 && <span className="ts-badge">⚖️ ~{shipment.weight_kg} kg</span>}
                             {shipment.perishable && <span className="ts-badge">❄️ {fr ? "Produit frais" : "Fresh produce"}</span>}

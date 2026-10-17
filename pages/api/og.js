@@ -1,3 +1,4 @@
+import { cargoLabel } from "../../lib/cargo";
 import { cityRoadKm, resolveCity } from "../../lib/cities";
 import { COUNTRIES, countryName, countryOrDefault, todayIn } from "../../lib/countries";
 import { FOUNDER } from "../../lib/founder";
@@ -173,7 +174,7 @@ async function loadCard(id, language, host) {
             to: clip(shipment.destination_city || shipment.destination, 16),
             open,
             status: open ? w.loadOpen : w.loadClosed,
-            cargo: clip(`${shipment.quantity} × ${shipment.item_type}`, 34),
+            cargo: clip(`${shipment.quantity} × ${cargoLabel(shipment.item_type, language)}`, 34),
             distance: km > 0 ? `~${formatAmount(km)} km` : null,
             weight: shipment.weight_kg > 0 ? `~${formatAmount(shipment.weight_kg)} kg` : null,
             fresh: shipment.perishable ? w.fresh : null,

@@ -6,12 +6,12 @@ import { useLanguage } from "../../lib/LanguageContext";
  * People can also paste a full "+234…" number: the server
  * reads the country from it.
  */
-export default function PhoneInput({ country, onCountry, value, onChange, disabled, autoFocus, id }) {
+export default function PhoneInput({ country, onCountry, value, onChange, disabled, autoFocus, id, required = true, placeholder: hint }) {
     const { language } = useLanguage();
 
     const selected = findCountry(country);
 
-    const placeholder = selected ? "0".repeat(selected.nsn[1]).replace(/0{3}(?=0)/g, "000 ").trim() : "";
+    const placeholder = hint || (selected ? "0".repeat(selected.nsn[1]).replace(/0{3}(?=0)/g, "000 ").trim() : "");
 
     return (
         <div className="ts-phone">
@@ -37,7 +37,7 @@ export default function PhoneInput({ country, onCountry, value, onChange, disabl
                 placeholder={placeholder}
                 disabled={disabled}
                 autoFocus={autoFocus}
-                required
+                required={required}
             />
         </div>
     );

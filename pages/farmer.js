@@ -1,52 +1,51 @@
-import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 
-import BrandLogo from "../components/BrandLogo";
-import DeleteAccount from "../components/Account/DeleteAccount";
-import Notifications from "../components/Notifications";
+import AccountPanel from "../components/App/AccountPanel";
+import AppShell from "../components/App/AppShell";
+import { AppLoading, Empty, SectionHead } from "../components/App/Bits";
+import { useFeedback } from "../components/App/Feedback";
+import FarmerProductRow from "../components/Market/FarmerProductRow";
 import OrderCard from "../components/Market/OrderCard";
 import ProductForm from "../components/Market/ProductForm";
-import FarmerProductRow from "../components/Market/FarmerProductRow";
 import { apiGet, apiPost, pollWhileVisible } from "../lib/api";
+import { useAppText } from "../lib/appText";
 import { useLanguage } from "../lib/LanguageContext";
 import { marketError, useMarketText } from "../lib/marketText";
+import { formatMoney } from "../lib/money";
 import { formatAmount } from "../lib/produce";
+import { leaveDashboard, useRoleUser } from "../lib/useSession";
 
 /*
  * ============================================================
- * FARMER DASHBOARD — TAYEB MARCHÉ
+ * FARMER — TAYEB MARCHÉ
  * ============================================================
  *
  * New orders first (they expire after 48 hours), then orders
- * in progress with the driver coming to collect, then the
- * farmer's products. Refreshes every 20 seconds.
+ * on their way, the farmer's products and the history.
+ * Refreshes every 20 seconds while open.
  */
-
-
 export default function FarmerPage() {
     const router = useRouter();
 
-    const { language, setLanguage } = useLanguage();
+    const { language } = useLanguage();
+
+    const a = useAppText();
 
     const m = useMarketText();
 
-    const [user, setUser] = useState(null);
+    const { toast, confirm } = useFeedback();
+
+    const [user, setUser] = useRoleUser("FARMER");
 
     const [data, setData] = useState(null);
+
+    const [tab, setTab] = useState("orders");
 
     const [busyId, setBusyId] = useState(null);
 
     const [editing, setEditing] = useState(null);
-
-    const [flash, setFlash] = useState("");
-
-    function goToLogin() {
-        localStorage.removeItem("tayebUser");
-        localStorage.removeItem("selectedRole");
-        router.replace("/login");
-    }
 
     async function load() {
         try {
@@ -56,38 +55,10 @@ export default function FarmerPage() {
             setUser(result.user);
         } catch (error) {
             if (error?.status === 401 || error?.status === 403) {
-                goToLogin();
+                leaveDashboard(router, "FARMER");
             }
         }
     }
-
-    /* ---------------- session ---------------- */
-
-    useEffect(() => {
-        let alive = true;
-
-        apiGet("/api/session/me")
-            .then((result) => {
-                if (!alive) {
-                    return;
-                }
-
-                if (result.user?.role !== "FARMER") {
-                    goToLogin();
-                    return;
-                }
-
-                setUser(result.user);
-                localStorage.setItem("selectedRole", "FARMER");
-            })
-            .catch(() => alive && goToLogin());
-
-        return () => {
-            alive = false;
-        };
-        // Runs once when the page opens.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
 
     const userId = user?.id;
 
@@ -111,23 +82,26 @@ export default function FarmerPage() {
 
     const activeOrders = orders.filter((order) => order.status === "CONFIRMED" || (order.status === "COMPLETED" && !order.paid_at));
 
-    const history = orders.filter((order) => !newOrders.includes(order) && !activeOrders.includes(order)).slice(0, 20);
+    const history = orders.filter((order) => !newOrders.includes(order) && !activeOrders.includes(order)).slice(0, 30);
 
     const onSale = products.filter((item) => item.visible);
 
+    const sales = orders.filter((order) => order.status === "COMPLETED").reduce((sums, order) => {
+        const code = order.currency || "XAF";
+        sums[code] = (sums[code] || 0) + Number(order.total_price || 0);
+        return sums;
+    }, {});
+
+    const salesText = Object.entries(sales).map(([code, total]) => formatMoney(total, code)).join(" · ");
+
     /* ---------------- actions ---------------- */
 
-    function showFlash(text) {
-        setFlash(text);
-        setTimeout(() => setFlash(""), 4000);
-    }
-
     async function orderAction(action, order, extra = {}) {
-        if (action === "confirm" && !window.confirm(m("confirmQuestion"))) {
+        if (action === "confirm" && !(await confirm({ title: m("confirmQuestion"), confirmLabel: m("confirm"), icon: "✅" }))) {
             return;
         }
 
-        if (action === "paid" && !window.confirm(m("markPaidQuestion", { amount: formatAmount(order.total_price) }))) {
+        if (action === "paid" && !(await confirm({ title: m("markPaidQuestion", { amount: formatAmount(order.total_price) }), confirmLabel: m("markPaid"), icon: "💵" }))) {
             return;
         }
 
@@ -137,20 +111,18 @@ export default function FarmerPage() {
             await apiPost("/api/farmer", { action, orderId: order.id, ...extra });
 
             if (action === "confirm") {
-                showFlash(m("confirmedText"));
+                toast(m("confirmedText"), "success");
             }
-
-            await load();
         } catch (error) {
-            alert(marketError(language, error));
-            await load();
+            toast(marketError(language, error), "error");
         } finally {
             setBusyId(null);
+            await load();
         }
     }
 
     async function setProductStatus(product, status) {
-        if (status === "ARCHIVED" && !window.confirm(m("confirmRemove"))) {
+        if (status === "ARCHIVED" && !(await confirm({ title: m("confirmRemove"), tone: "danger", icon: "🗑️" }))) {
             return;
         }
 
@@ -160,7 +132,7 @@ export default function FarmerPage() {
             await apiPost("/api/farmer", { action: "productStatus", productId: product.id, status });
             await load();
         } catch (error) {
-            alert(marketError(language, error));
+            toast(marketError(language, error), "error");
         } finally {
             setBusyId(null);
         }
@@ -168,278 +140,170 @@ export default function FarmerPage() {
 
     async function productSaved(product, isNew) {
         setEditing(null);
-        showFlash(isNew ? m("published") : m("saved"));
+        toast(isNew ? m("published") : m("saved"), "success");
+        setTab("products");
         await load();
     }
 
-    async function logout() {
-        try {
-            await fetch("/api/session/logout", { method: "POST", credentials: "include" });
-        } finally {
-            goToLogin();
-        }
-    }
-
-    /* ---------------- loading ---------------- */
+    /* ---------------- screen ---------------- */
 
     if (!user || !data) {
-        return (
-            <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "#fff" }}>
-                <div style={{ textAlign: "center" }}>
-                    <BrandLogo width={130} height={48} />
-                    <div style={{ marginTop: 22 }}>
-                        <span className="tayeb-spinner tayeb-spinner-orange" />
-                    </div>
-                </div>
-            </main>
-        );
+        return <AppLoading />;
     }
 
+    const tabs = [
+        { key: "orders", label: a("f_tabOrders"), icon: "🛒", count: newOrders.length },
+        { key: "products", label: a("f_tabProducts"), icon: "🧺", count: 0 },
+        { key: "profile", label: a("f_tabProfile"), icon: "👤" },
+    ];
+
     return (
-        <>
-            <Head>
-                <title>{`Tayeb Marché — ${m("farmerSubtitle")}`}</title>
-                <meta name="robots" content="noindex" />
-            </Head>
+        <AppShell
+            user={user}
+            pageTitle={m("farmerSubtitle")}
+            eyebrow={`🌾 Tayeb Marché${user.base_city ? ` · 📍 ${user.base_city}` : ""}`}
+            title={<>{a("helloWord")}, <em>{String(user.full_name || "").split(/\s+/)[0]}</em></>}
+            subtitle={a("f_sub")}
+            actions={
+                data.ready && (
+                    <button type="button" className="ts-btn ts-btn-primary" onClick={() => setEditing({})}>
+                        ＋ {m("addProduct")}
+                    </button>
+                )
+            }
+            stats={[
+                { value: onSale.length, label: a("f_statOnSale") },
+                { value: newOrders.length, label: a("f_statNew"), hot: newOrders.length > 0 },
+                { value: orders.filter((order) => order.status === "CONFIRMED").length, label: a("f_statLive") },
+                { value: user.total_completed_shipments || 0, label: a("f_statSales"), small: salesText || null },
+            ]}
+            tabs={tabs}
+            tab={tab}
+            onTab={setTab}
+        >
 
-            <main className="tayeb-app">
+            {!data.ready && (
+                <Empty icon="🌱" title={m("notReadyTitle")} text={m("notReadyText")} />
+            )}
 
-                {/* =================================================
-                    TOP BAR
-                ================================================= */}
+            {/* =================================================
+                ORDERS
+            ================================================= */}
 
-                <header className="tayeb-topbar">
+            {data.ready && tab === "orders" && (
+                <>
+                    <section className="ap-section ap-fade">
+                        <SectionHead title={`🛒 ${m("newOrders")}`} count={newOrders.length} />
 
-                    <div className="tayeb-topbar-left">
-                        <BrandLogo width={105} height={40} />
-                        <Link href="/market" className="mk-brand-tag" style={{ textDecoration: "none" }}>
-                            🌾 MARCHÉ
-                        </Link>
-                    </div>
-
-                    <div className="tayeb-topbar-right">
-
-                        <div className="mk-lang" role="group" aria-label="Language">
-                            <button type="button" className={language === "en" ? "active" : ""} onClick={() => setLanguage("en")}>
-                                EN
-                            </button>
-                            <button type="button" className={language === "fr" ? "active" : ""} onClick={() => setLanguage("fr")}>
-                                FR
-                            </button>
-                        </div>
-
-                        <Notifications userId={user.id} />
-
-                        <div className="tayeb-avatar" title={user.full_name}>
-                            {user.full_name?.charAt(0)?.toUpperCase() || "T"}
-                        </div>
-
-                    </div>
-
-                </header>
-
-
-                <div className="tayeb-dashboard">
-
-                    {/* =================================================
-                        WELCOME
-                    ================================================= */}
-
-                    <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 20, flexWrap: "wrap", marginBottom: 26 }}>
-
-                        <div>
-                            <span className="tayeb-section-label">TAYEB MARCHÉ</span>
-                            <h1 style={{ color: "#111827", fontSize: "clamp(30px, 5vw, 46px)", lineHeight: 1, letterSpacing: "-0.05em", fontWeight: 900 }}>
-                                {m("farmerGreeting")}, <span style={{ color: "#15803d" }}>{user.full_name}</span>
-                            </h1>
-                            <p style={{ marginTop: 10, color: "#6b7280", fontSize: 14 }}>
-                                👨🏾‍🌾 {m("farmerSubtitle")}
-                                {user.base_city ? ` · ${user.base_city}` : ""}
-                            </p>
-                        </div>
-
-                        <button type="button" onClick={logout} className="tayeb-button tayeb-button-secondary">
-                            {language === "fr" ? "Se déconnecter" : "Log out"}
-                        </button>
-
-                    </div>
-
-                    {!data.ready && (
-                        <div className="mk-empty" style={{ marginBottom: 24 }}>
-                            <div className="mk-empty-icon">🌱</div>
-                            <h3>{m("notReadyTitle")}</h3>
-                            <p>{m("notReadyText")}</p>
-                        </div>
-                    )}
-
-                    {flash && (
-                        <div className="mk-notice mk-notice-green tayeb-fade-in" style={{ marginBottom: 18 }} role="status">
-                            ✓ {flash}
-                        </div>
-                    )}
-
-
-                    {/* =================================================
-                        SUMMARY
-                    ================================================= */}
-
-                    <div className="tayeb-dashboard-grid" style={{ marginBottom: 22 }}>
-                        {[
-                            ["🧺", onSale.length, m("statProducts")],
-                            ["🛒", newOrders.length, m("statNewOrders")],
-                            ["🚚", orders.filter((order) => order.status === "CONFIRMED").length, m("statInProgress")],
-                            ["✓", user.total_completed_shipments || 0, m("statSales")],
-                        ].map(([icon, value, label]) => (
-                            <div key={label} className="tayeb-span-3">
-                                <div className="tayeb-stat-card">
-                                    <div className="tayeb-stat-icon">{icon}</div>
-                                    <div className="tayeb-stat-label" style={{ fontSize: 12 }}>{label}</div>
-                                    <div className="tayeb-stat-value">{value}</div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {data.ready && (
-                        <button
-                            type="button"
-                            className="mk-btn mk-btn-primary mk-btn-lg"
-                            onClick={() => setEditing({})}
-                        >
-                            ＋ {m("addProduct")}
-                        </button>
-                    )}
-
-
-                    {/* =================================================
-                        NEW ORDERS
-                    ================================================= */}
-
-                    {data.ready && (
-                        <>
-                            <div className="mk-section-head">
-                                <h2>🛒 {m("newOrders")}</h2>
-                                {newOrders.length > 0 && <span className="mk-count">{newOrders.length}</span>}
-                            </div>
-
-                            {newOrders.length === 0 ? (
-                                <div className="mk-notice">{m("noNewOrders")}</div>
-                            ) : (
-                                <div className="mk-list">
-                                    {newOrders.map((order) => (
-                                        <OrderCard
-                                            key={order.id}
-                                            order={order}
-                                            role="farmer"
-                                            busy={busyId === order.id}
-                                            onAction={orderAction}
-                                        />
-                                    ))}
-                                </div>
-                            )}
-                        </>
-                    )}
-
-
-                    {/* =================================================
-                        IN PROGRESS
-                    ================================================= */}
-
-                    {activeOrders.length > 0 && (
-                        <>
-                            <div className="mk-section-head">
-                                <h2>🚚 {m("inProgress")}</h2>
-                                <span className="mk-count" style={{ background: "#2563eb" }}>{activeOrders.length}</span>
-                            </div>
-
-                            <div className="mk-list">
-                                {activeOrders.map((order) => (
-                                    <OrderCard
-                                        key={order.id}
-                                        order={order}
-                                        role="farmer"
-                                        busy={busyId === order.id}
-                                        onAction={orderAction}
-                                    />
-                                ))}
-                            </div>
-                        </>
-                    )}
-
-
-                    {/* =================================================
-                        PRODUCTS
-                    ================================================= */}
-
-                    {data.ready && (
-                        <>
-                            <div className="mk-section-head">
-                                <h2>🧺 {m("myProducts")}</h2>
-                            </div>
-
-                            {products.length === 0 ? (
-                                <div className="mk-empty">
-                                    <div className="mk-empty-icon">🌱</div>
-                                    <h3>{m("noProducts")}</h3>
-                                    <p>{m("noProductsText")}</p>
-                                    <button type="button" className="mk-btn mk-btn-primary" onClick={() => setEditing({})}>
+                        {newOrders.length === 0 ? (
+                            <Empty icon="🛒" title={m("noNewOrders")} text={products.length === 0 ? m("noProductsText") : null}>
+                                {products.length === 0 && (
+                                    <button type="button" className="ts-btn ts-btn-primary" onClick={() => setEditing({})}>
                                         ＋ {m("addProduct")}
                                     </button>
-                                </div>
-                            ) : (
-                                <div className="mk-list">
-                                    {products.map((product) => (
-                                        <FarmerProductRow
-                                            key={product.id}
-                                            product={product}
-                                            busy={busyId === product.id}
-                                            onEdit={setEditing}
-                                            onStatus={setProductStatus}
-                                        />
-                                    ))}
-                                </div>
-                            )}
-                        </>
-                    )}
-
-
-                    {/* =================================================
-                        HISTORY
-                    ================================================= */}
-
-                    {history.length > 0 && (
-                        <>
-                            <div className="mk-section-head">
-                                <h2>🗂️ {m("history")}</h2>
-                            </div>
-
-                            <div className="mk-list">
-                                {history.map((order) => (
-                                    <OrderCard
-                                        key={order.id}
-                                        order={order}
-                                        role="farmer"
-                                        busy={busyId === order.id}
-                                        onAction={orderAction}
-                                    />
+                                )}
+                            </Empty>
+                        ) : (
+                            <div className="ap-stack">
+                                {newOrders.map((order) => (
+                                    <OrderCard key={order.id} order={order} role="farmer" busy={busyId === order.id} onAction={orderAction} />
                                 ))}
                             </div>
-                        </>
+                        )}
+                    </section>
+
+                    {activeOrders.length > 0 && (
+                        <section className="ap-section">
+                            <SectionHead title={`🚚 ${m("inProgress")}`} count={activeOrders.length} />
+                            <div className="ap-stack">
+                                {activeOrders.map((order) => (
+                                    <OrderCard key={order.id} order={order} role="farmer" busy={busyId === order.id} onAction={orderAction} />
+                                ))}
+                            </div>
+                        </section>
                     )}
 
+                    {history.length > 0 && (
+                        <section className="ap-section">
+                            <SectionHead title={`🗂️ ${m("history")}`} />
+                            <div className="ap-stack">
+                                {history.map((order) => (
+                                    <OrderCard key={order.id} order={order} role="farmer" busy={busyId === order.id} onAction={orderAction} />
+                                ))}
+                            </div>
+                        </section>
+                    )}
+                </>
+            )}
 
-                    <footer style={{ marginTop: 50, paddingTop: 25, borderTop: "1px solid #e5e7eb", textAlign: "center" }}>
-                        <BrandLogo width={95} height={36} />
-                        <p style={{ marginTop: 10, color: "#9ca3af", fontSize: 12, fontWeight: 700 }}>
-                            Tayeb Marché · {m("tagline")}
-                        </p>
-                    </footer>
 
-                </div>
+            {/* =================================================
+                PRODUCTS
+            ================================================= */}
 
-                <DeleteAccount user={user} />
+            {data.ready && tab === "products" && (
+                <section className="ap-section ap-fade">
+                    <SectionHead title={`🧺 ${m("myProducts")}`}>
+                        <div className="ap-actions">
+                            <Link href="/market" className="ts-btn ts-btn-light ts-btn-sm">🌾 {a("menuMarket")}</Link>
+                            <button type="button" className="ts-btn ts-btn-primary ts-btn-sm" onClick={() => setEditing({})}>
+                                ＋ {m("addProduct")}
+                            </button>
+                        </div>
+                    </SectionHead>
 
-            </main>
+                    {products.length === 0 ? (
+                        <Empty icon="🌱" title={m("noProducts")} text={m("noProductsText")}>
+                            <button type="button" className="ts-btn ts-btn-primary" onClick={() => setEditing({})}>
+                                ＋ {m("addProduct")}
+                            </button>
+                        </Empty>
+                    ) : (
+                        <div className="mk-list">
+                            {products.map((product) => (
+                                <FarmerProductRow
+                                    key={product.id}
+                                    product={product}
+                                    busy={busyId === product.id}
+                                    onEdit={setEditing}
+                                    onStatus={setProductStatus}
+                                />
+                            ))}
+                        </div>
+                    )}
+                </section>
+            )}
+
+
+            {/* =================================================
+                PROFILE
+            ================================================= */}
+
+            {tab === "profile" && (
+                <section className="ap-section ap-fade">
+                    <SectionHead title={a("f_tabProfile")} />
+                    <div style={{ maxWidth: 720 }}>
+                        <AccountPanel user={user}>
+                            {(salesText || user.rating_count > 0) && (
+                                <div className="ap-kv">
+                                    {salesText && (
+                                        <div>
+                                            <small>{a("f_statSales")}</small>
+                                            <strong>{salesText}</strong>
+                                        </div>
+                                    )}
+                                    {user.rating_count > 0 && (
+                                        <div>
+                                            <small>★</small>
+                                            <strong>{user.rating}/5 ({user.rating_count})</strong>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </AccountPanel>
+                    </div>
+                </section>
+            )}
 
             {editing && (
                 <ProductForm
@@ -449,6 +313,7 @@ export default function FarmerPage() {
                     onDone={productSaved}
                 />
             )}
-        </>
+
+        </AppShell>
     );
 }

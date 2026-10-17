@@ -1484,3 +1484,17 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Order cards on phones: the status pill moves under the
+   title instead of squeezing it word by word. */
+.mk-order-head {
+  flex-wrap: wrap;
+}
+
+.mk-order-title {
+  flex: 1 1 240px;
+}
+
+.mk-order {
+  grid-template-columns: minmax(0, 1fr);
+}

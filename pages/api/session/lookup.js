@@ -37,6 +37,7 @@ export default async function handler(req, res) {
             hasPin: Boolean(user?.pin_hash),
             role: user?.role || null,
             hasVehicle: Boolean(user?.vehicle_type && user?.plate_number),
+            hasCity: Boolean(user?.base_city),
         });
     } catch (error) {
         console.error("Phone lookup error:", error);

@@ -1,5 +1,6 @@
 import supabaseAdmin from "../../../lib/supabaseAdmin";
 import { findCity } from "../../../lib/cities";
+import { marketReady } from "../../../lib/server/market";
 import {
     ADMIN_PHONE,
     ADMIN_USER,
@@ -24,13 +25,14 @@ import {
  * - Existing account with a PIN: the PIN must match.
  * - Existing account from before PINs: this login sets it.
  * - New number: creates the account (name, role, and for
- *   drivers vehicle type, plate and city).
+ *   drivers vehicle type, plate and city; for farmers the
+ *   city of the farm).
  *
  * The administrator logs in with the admin phone and the
  * TAYEB_ADMIN_PIN server secret.
  */
 
-const ROLES = ["SHIPPER", "DRIVER"];
+const ROLES = ["SHIPPER", "DRIVER", "FARMER"];
 
 function fail(res, status, error, code) {
     return res.status(status).json({ error, code });
@@ -90,6 +92,10 @@ export default async function handler(req, res) {
         const plateNumber = String(body.plateNumber || "").trim().toUpperCase().slice(0, 20);
         const city = findCity(body.city);
 
+        if (role === "FARMER" && !(await marketReady())) {
+            return fail(res, 503, "Farmer accounts open very soon.", "MARKET_NOT_READY");
+        }
+
         let user = await findUserByPhone(body.phone);
 
         if (user) {
@@ -136,6 +142,16 @@ export default async function handler(req, res) {
                 }
             }
 
+            if ((updates.role || user.role) === "FARMER") {
+                if (city) {
+                    updates.base_city = city.name;
+                }
+
+                if (!(updates.base_city || user.base_city)) {
+                    return fail(res, 400, "Choose the city where your farm is.", "CITY_REQUIRED");
+                }
+            }
+
             if (Object.keys(updates).length) {
                 const { data, error } = await supabaseAdmin
                     .from("users")
@@ -165,6 +181,10 @@ export default async function handler(req, res) {
                 return fail(res, 400, "Add your vehicle type and plate number.", "DRIVER_DETAILS_REQUIRED");
             }
 
+            if (role === "FARMER" && !city) {
+                return fail(res, 400, "Choose the city where your farm is.", "CITY_REQUIRED");
+            }
+
             const { data, error } = await supabaseAdmin
                 .from("users")
                 .insert([
@@ -179,6 +199,11 @@ export default async function handler(req, res) {
                                 plate_number: plateNumber,
                                 base_city: city ? city.name : null,
                                 is_available: true,
+                            }
+                            : {}),
+                        ...(role === "FARMER"
+                            ? {
+                                base_city: city.name,
                             }
                             : {}),
                     },

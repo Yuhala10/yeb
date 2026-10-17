@@ -1,4 +1,5 @@
 import Head from "next/head";
+import Link from "next/link";
 import { useRouter } from "next/router";
 
 import BrandLogo from "../components/BrandLogo";
@@ -127,6 +128,42 @@ export default function Home() {
         login: isFrench
             ? "Se connecter"
             : "Log in",
+
+        market: isFrench
+            ? "Marché"
+            : "Market",
+
+        marketTitle: isFrench
+            ? "Achetez directement à la ferme. Tayeb livre."
+            : "Buy straight from the farm. Tayeb delivers.",
+
+        marketText: isFrench
+            ? "Tomates, plantain, maïs, manioc et plus, au prix des agriculteurs de tout le Cameroun. Commandez la quantité voulue et un chauffeur Tayeb vous l'apporte."
+            : "Tomatoes, plantains, maize, cassava and more, at farmers' prices from across Cameroon. Order the quantity you need and a Tayeb driver brings it to you.",
+
+        marketBuy: isFrench
+            ? "Voir le marché"
+            : "Visit the market",
+
+        marketSell: isFrench
+            ? "Vendre ma récolte"
+            : "Sell my harvest",
+
+        marketHowTitle: isFrench
+            ? "Pour les agriculteurs"
+            : "For farmers",
+
+        marketStep1: isFrench
+            ? "Publiez votre récolte gratuitement, avec une photo et votre prix."
+            : "List your harvest for free, with a photo and your price.",
+
+        marketStep2: isFrench
+            ? "Les acheteurs des villes commandent ; vous confirmez en un geste."
+            : "Buyers from the cities order; you confirm in one tap.",
+
+        marketStep3: isFrench
+            ? "Un chauffeur Tayeb vient chercher à la ferme. Vous êtes payé par Mobile Money."
+            : "A Tayeb driver collects from your farm. You get paid by Mobile Money.",
     };
 
     function goToLogin(role) {
@@ -237,6 +274,27 @@ export default function Home() {
                             </button>
 
                         </div>
+
+                        <Link
+                            href="/market"
+                            className="tayeb-home-login"
+                            style={{
+                                display:
+                                    "inline-flex",
+                                alignItems:
+                                    "center",
+                                textDecoration:
+                                    "none",
+                                color:
+                                    "#15803d",
+                                borderColor:
+                                    "#bbf7d0",
+                                background:
+                                    "#ecfdf5",
+                            }}
+                        >
+                            🌾 {text.market}
+                        </Link>
 
                         <button
                             type="button"
@@ -670,6 +728,56 @@ export default function Home() {
 
                     </div>
 
+                </section>
+
+
+                {/* =================================================
+                    TAYEB MARCHÉ
+                ================================================= */}
+
+                <section className="mk-section">
+                    <div className="mk-wrap">
+                        <div className="mk-duo">
+
+                            <div className="mk-promo">
+                                <span className="mk-eyebrow" style={{ color: "#86efac" }}>
+                                    🌾 TAYEB MARCHÉ
+                                </span>
+                                <h3 style={{ fontSize: 26 }}>
+                                    {text.marketTitle}
+                                </h3>
+                                <p>
+                                    {text.marketText}
+                                </p>
+                                <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                                    <Link href="/market" className="mk-btn mk-btn-primary">
+                                        🛒 {text.marketBuy}
+                                    </Link>
+                                    <button
+                                        type="button"
+                                        className="mk-btn mk-btn-light"
+                                        onClick={() =>
+                                            goToLogin(
+                                                "FARMER"
+                                            )
+                                        }
+                                    >
+                                        👨🏾‍🌾 {text.marketSell}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="mk-promo mk-promo-light">
+                                <h3>
+                                    {text.marketHowTitle}
+                                </h3>
+                                <p>1. {text.marketStep1}</p>
+                                <p>2. {text.marketStep2}</p>
+                                <p>3. {text.marketStep3}</p>
+                            </div>
+
+                        </div>
+                    </div>
                 </section>
 
 

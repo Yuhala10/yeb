@@ -1,4 +1,5 @@
 import Head from "next/head";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 
@@ -8,7 +9,9 @@ import BrandLogo from "../components/BrandLogo";
 import Notifications from "../components/Notifications";
 import { useLanguage } from "../lib/LanguageContext";
 import { shareLoadOnWhatsApp } from "../lib/shareLoad";
+import { marketError, useMarketText } from "../lib/marketText";
 import DeleteAccount from "../components/Account/DeleteAccount";
+import OrderCard from "../components/Market/OrderCard";
 
 export default function ShipperPage() {
     const router = useRouter();
@@ -59,6 +62,21 @@ export default function ShipperPage() {
      */
     const [routeInfo, setRouteInfo] =
         useState(null);
+
+    /*
+     * Tayeb Marché: { ready, orders } for produce this
+     * shipper bought from farmers.
+     */
+    const [market, setMarket] =
+        useState({
+            ready: false,
+            orders: [],
+        });
+
+    const [marketBusy, setMarketBusy] =
+        useState(null);
+
+    const m = useMarketText();
 
 
     /* =========================================================
@@ -195,6 +213,81 @@ export default function ShipperPage() {
 
 
     /* =========================================================
+       TAYEB MARCHÉ ORDERS
+    =========================================================
+     *
+     * Produce this shipper ordered from farmers. Confirmed
+     * delivery orders also appear as loads below, where the
+     * buyer chooses a driver as usual.
+     */
+
+    async function loadMarketOrders() {
+        try {
+            const result =
+                await apiGet(
+                    "/api/market?orders=mine"
+                );
+
+            setMarket(result);
+        } catch {
+            // The market is optional: the dashboard works without it.
+        }
+    }
+
+    async function marketOrderAction(
+        action,
+        order,
+        extra = {}
+    ) {
+        const question =
+            action === "cancel"
+                ? m("cancelQuestion")
+                : action === "received"
+                    ? m("receivedQuestion")
+                    : null;
+
+        if (
+            question &&
+            !window.confirm(question)
+        ) {
+            return;
+        }
+
+        setMarketBusy(order.id);
+
+        try {
+            await apiPost(
+                "/api/market",
+                {
+                    action,
+                    orderId:
+                        order.id,
+                    ...extra,
+                }
+            );
+
+            if (action === "rate") {
+                alert(m("thanksRating"));
+            }
+        } catch (error) {
+            alert(
+                marketError(
+                    language,
+                    error
+                )
+            );
+        } finally {
+            setMarketBusy(null);
+
+            await Promise.all([
+                loadShipments(),
+                loadMarketOrders(),
+            ]);
+        }
+    }
+
+
+    /* =========================================================
        KEEP UP TO DATE
     ========================================================= */
 
@@ -207,10 +300,13 @@ export default function ShipperPage() {
         }
 
         return pollWhileVisible(
-            loadShipments,
+            () => {
+                loadShipments();
+                loadMarketOrders();
+            },
             20000
         );
-        // loadShipments only sets state.
+        // loadShipments and loadMarketOrders only set state.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [userId]);
 
@@ -1155,6 +1251,91 @@ export default function ShipperPage() {
 
 
                     {/* =================================================
+                        TAYEB MARCHÉ
+                    ================================================= */}
+
+                    {market.ready && (
+                        <Link
+                            href="/market"
+                            className="mk-promo mk-promo-light"
+                            style={{
+                                display:
+                                    "flex",
+                                alignItems:
+                                    "center",
+                                justifyContent:
+                                    "space-between",
+                                gap:
+                                    "16px",
+                                flexWrap:
+                                    "wrap",
+                                marginBottom:
+                                    "22px",
+                                padding:
+                                    "20px 22px",
+                                textDecoration:
+                                    "none",
+                            }}
+                        >
+                            <div>
+                                <h3 style={{ fontSize: 18 }}>
+                                    🌾 {m("marketCardTitle")}
+                                </h3>
+                                <p style={{ marginTop: 6 }}>
+                                    {m("marketCardText")}
+                                </p>
+                            </div>
+
+                            <span className="mk-btn mk-btn-dark">
+                                {m("goToMarket")} →
+                            </span>
+                        </Link>
+                    )}
+
+                    {market.ready &&
+                        market.orders.length > 0 && (
+                            <section
+                                id="orders"
+                                style={{
+                                    marginBottom:
+                                        "26px",
+                                }}
+                            >
+                                <div className="mk-section-head" style={{ marginTop: 0 }}>
+                                    <h2>
+                                        🛒 {m("myOrders")}
+                                    </h2>
+                                </div>
+
+                                <div className="mk-list">
+                                    {market.orders
+                                        .slice(0, 30)
+                                        .map(
+                                            (order) => (
+                                                <OrderCard
+                                                    key={
+                                                        order.id
+                                                    }
+                                                    order={
+                                                        order
+                                                    }
+                                                    role="buyer"
+                                                    busy={
+                                                        marketBusy ===
+                                                        order.id
+                                                    }
+                                                    onAction={
+                                                        marketOrderAction
+                                                    }
+                                                />
+                                            )
+                                        )}
+                                </div>
+                            </section>
+                        )}
+
+
+                    {/* =================================================
                         POST CARGO FORM
                     ================================================= */}
 
@@ -2060,6 +2241,20 @@ function ShipmentSection({
                             shipment.item_type
                         }
                     </h3>
+
+                    {shipment.is_produce && (
+                        <span
+                            className="mk-pill mk-pill-green"
+                            style={{
+                                marginTop:
+                                    "8px",
+                            }}
+                        >
+                            {language === "fr"
+                                ? "🌾 Commande Tayeb Marché"
+                                : "🌾 Tayeb Marché order"}
+                        </span>
+                    )}
 
                 </div>
 

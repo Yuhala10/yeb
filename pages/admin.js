@@ -32,6 +32,12 @@ export default function AdminDashboard() {
     const [notifications, setNotifications] =
         useState([]);
 
+    const [products, setProducts] =
+        useState([]);
+
+    const [orders, setOrders] =
+        useState([]);
+
     const [loading, setLoading] =
         useState(true);
 
@@ -144,6 +150,26 @@ export default function AdminDashboard() {
         unreadNotifications: isFrench
             ? "Non lues"
             : "Unread",
+
+        farmerRole: isFrench
+            ? "Agriculteur"
+            : "Farmer",
+
+        farmers: isFrench
+            ? "Agriculteurs"
+            : "Farmers",
+
+        productsOnSale: isFrench
+            ? "Produits en vente"
+            : "Products on sale",
+
+        marketOrders: isFrench
+            ? "Commandes Marché"
+            : "Market orders",
+
+        marketSales: isFrench
+            ? "Ventes terminées (FCFA)"
+            : "Completed sales (FCFA)",
 
         recentShipments: isFrench
             ? "Colis récents"
@@ -371,6 +397,16 @@ export default function AdminDashboard() {
                 []
             );
 
+            setProducts(
+                data.products ||
+                []
+            );
+
+            setOrders(
+                data.orders ||
+                []
+            );
+
         } catch (error) {
             console.error(
                 "Admin dashboard error:",
@@ -543,12 +579,46 @@ export default function AdminDashboard() {
 
                 unread:
                     unread.length,
+
+                // Tayeb Marché
+                farmers:
+                    users.filter(
+                        (user) =>
+                            user.role ===
+                            "FARMER"
+                    ).length,
+                productsOnSale:
+                    products.filter(
+                        (product) =>
+                            product.status ===
+                            "ACTIVE"
+                    ).length,
+                marketOrders:
+                    orders.length,
+                marketSales:
+                    orders
+                        .filter(
+                            (order) =>
+                                order.status ===
+                                "COMPLETED"
+                        )
+                        .reduce(
+                            (sum, order) =>
+                                sum +
+                                Number(
+                                    order.total_price ||
+                                    0
+                                ),
+                            0
+                        ),
             };
         }, [
             users,
             shipments,
             bids,
             notifications,
+            products,
+            orders,
         ]);
 
 
@@ -822,6 +892,10 @@ export default function AdminDashboard() {
             "SHIPPER"
         ) {
             return text.shipper;
+        }
+
+        if (role === "FARMER") {
+            return text.farmerRole;
         }
 
         if (
@@ -1676,6 +1750,55 @@ function Overview({
                     }
                     label={
                         text.unreadNotifications
+                    }
+                />
+
+            </div>
+
+
+            {/* TAYEB MARCHÉ */}
+
+            <div className="tayeb-admin-mini-grid">
+
+                <MiniStat
+                    icon="👨🏾‍🌾"
+                    value={
+                        stats.farmers
+                    }
+                    label={
+                        text.farmers
+                    }
+                />
+
+                <MiniStat
+                    icon="🧺"
+                    value={
+                        stats.productsOnSale
+                    }
+                    label={
+                        text.productsOnSale
+                    }
+                />
+
+                <MiniStat
+                    icon="🛒"
+                    value={
+                        stats.marketOrders
+                    }
+                    label={
+                        text.marketOrders
+                    }
+                />
+
+                <MiniStat
+                    icon="🌾"
+                    value={
+                        formatPrice(
+                            stats.marketSales
+                        )
+                    }
+                    label={
+                        text.marketSales
                     }
                 />
 
@@ -2756,6 +2879,10 @@ function RoleBadge({
             text.shipper;
     }
 
+    if (role === "FARMER") {
+        label = text.farmerRole;
+    }
+
     if (
         role ===
         "ADMIN"
@@ -2788,6 +2915,10 @@ function roleLabelSimple(
         "SHIPPER"
     ) {
         return text.shipper;
+    }
+
+    if (role === "FARMER") {
+        return text.farmerRole;
     }
 
     if (

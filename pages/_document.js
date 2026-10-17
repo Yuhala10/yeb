@@ -7,10 +7,7 @@ export default function Document() {
 
         <meta name="theme-color" content="#0f172a" />
 
-        <meta
-          name="description"
-          content="Tayeb Cargo Transport Platform"
-        />
+        {/* Each page sets its own description for search engines. */}
 
         <link rel="manifest" href="/manifest.json" />
 

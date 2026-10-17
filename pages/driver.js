@@ -2577,6 +2577,54 @@ function CargoCard({
             </div>
 
 
+            {/* FARM PRODUCE */}
+
+            {shipment.is_produce && (
+                <div
+                    style={{
+                        marginTop:
+                            "14px",
+                        padding:
+                            "11px 13px",
+                        borderRadius:
+                            "13px",
+                        background:
+                            "#ecfdf5",
+                        border:
+                            "1px solid #bbf7d0",
+                        color:
+                            "#166534",
+                        fontSize:
+                            "12px",
+                        fontWeight:
+                            800,
+                        lineHeight:
+                            1.5,
+                    }}
+                >
+                    {t(
+                        "driver.produceLoad"
+                    )}
+                    {shipment.weight_kg > 0 &&
+                        ` · ~${formatPrice(shipment.weight_kg)} kg`}
+                    {shipment.perishable && (
+                        <span
+                            style={{
+                                display:
+                                    "block",
+                                color:
+                                    "#92400e",
+                            }}
+                        >
+                            {t(
+                                "driver.freshFast"
+                            )}
+                        </span>
+                    )}
+                </div>
+            )}
+
+
             {/* WHY THIS LOAD FITS */}
 
             {shipment.match && (
@@ -3093,6 +3141,79 @@ function ActiveDelivery({
                 )}
 
             </div>
+
+
+            {/* PICKUP AT THE FARM (Tayeb Marché orders) */}
+
+            {shipment.pickup_phone && (
+                <div
+                    style={{
+                        marginTop:
+                            "15px",
+                        padding:
+                            "14px",
+                        borderRadius:
+                            "16px",
+                        background:
+                            "#ecfdf5",
+                        border:
+                            "1px solid #bbf7d0",
+                    }}
+                >
+                    <strong
+                        style={{
+                            display:
+                                "block",
+                            color:
+                                "#166534",
+                            fontSize:
+                                "12px",
+                        }}
+                    >
+                        🌾 {t(
+                            "driver.pickupAtFarm"
+                        )}
+                        {shipment.pickup_name
+                            ? ` · ${shipment.pickup_name}`
+                            : ""}
+                    </strong>
+
+                    {shipment.details && (
+                        <p
+                            style={{
+                                margin:
+                                    "6px 0 0",
+                                color:
+                                    "#166534",
+                                fontSize:
+                                    "11px",
+                                lineHeight:
+                                    1.5,
+                            }}
+                        >
+                            {
+                                shipment.details
+                            }
+                        </p>
+                    )}
+
+                    <a
+                        href={`tel:+237${shipment.pickup_phone}`}
+                        className="tayeb-button tayeb-button-success tayeb-button-full"
+                        style={{
+                            marginTop:
+                                "10px",
+                            textDecoration:
+                                "none",
+                        }}
+                    >
+                        📞 {t(
+                            "driver.callFarmer"
+                        )}{" "}
+                        · {shipment.pickup_phone}
+                    </a>
+                </div>
+            )}
 
 
             {/* RECEIVER */}

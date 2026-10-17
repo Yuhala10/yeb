@@ -1,5 +1,6 @@
 import Head from "next/head";
 import "../styles/globals.css";
+import "../styles/market.css";
 
 import { LanguageProvider } from "../lib/LanguageContext";
 import ServiceWorkerRegistration from "../components/ServiceWorkerRegistration";

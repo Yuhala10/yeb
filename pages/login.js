@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { apiPost } from "../lib/api";
+import { apiGet, apiPost } from "../lib/api";
 import { CITY_NAMES } from "../lib/cities";
 import { useLanguage } from "../lib/LanguageContext";
 import BrandLogo from "../components/BrandLogo";
@@ -52,6 +52,31 @@ export default function LoginPage() {
     const [needsVehicle, setNeedsVehicle] =
         useState(false);
 
+    /*
+     * The "Sell my harvest" choice appears once Tayeb Marché
+     * is set up in the database.
+     */
+    const [marketOpen, setMarketOpen] =
+        useState(false);
+
+    useEffect(() => {
+        let alive = true;
+
+        apiGet("/api/market?status=1")
+            .then((result) => {
+                if (alive) {
+                    setMarketOpen(
+                        Boolean(result.ready)
+                    );
+                }
+            })
+            .catch(() => {});
+
+        return () => {
+            alive = false;
+        };
+    }, []);
+
     useEffect(() => {
         if (
             typeof window === "undefined"
@@ -66,7 +91,8 @@ export default function LoginPage() {
 
         if (
             savedRole === "SHIPPER" ||
-            savedRole === "DRIVER"
+            savedRole === "DRIVER" ||
+            savedRole === "FARMER"
         ) {
             setRole(savedRole);
         }
@@ -101,6 +127,12 @@ export default function LoginPage() {
         (isNewAccount ||
             needsVehicle ||
             !account?.hasVehicle);
+
+    const showFarmCity =
+        step === "details" &&
+        role === "FARMER" &&
+        (isNewAccount ||
+            !account?.hasCity);
 
     function text(
         key,
@@ -157,6 +189,10 @@ export default function LoginPage() {
                 "Veuillez entrer votre nom complet.",
             DRIVER_DETAILS_REQUIRED:
                 "Ajoutez le type de véhicule et le numéro de plaque.",
+            CITY_REQUIRED:
+                "Choisissez la ville où se trouve votre ferme.",
+            MARKET_NOT_READY:
+                "Les comptes agriculteurs ouvrent très bientôt.",
             OFFLINE:
                 "Pas de connexion internet. Vérifiez votre réseau.",
         };
@@ -198,10 +234,34 @@ export default function LoginPage() {
             return;
         }
 
+        /*
+         * Back to the page that sent them here (a product they
+         * wanted to order, for example), if it's on this site.
+         */
+        let returnTo = null;
+
+        try {
+            returnTo = localStorage.getItem("tayebReturnTo");
+            localStorage.removeItem("tayebReturnTo");
+        } catch {
+            returnTo = null;
+        }
+
+        if (
+            returnTo &&
+            returnTo.startsWith("/") &&
+            !returnTo.startsWith("//")
+        ) {
+            router.push(returnTo);
+            return;
+        }
+
         router.push(
             user.role === "DRIVER"
                 ? "/driver"
-                : "/shipper"
+                : user.role === "FARMER"
+                    ? "/farmer"
+                    : "/shipper"
         );
     }
 
@@ -588,6 +648,56 @@ export default function LoginPage() {
                                     </div>
 
                                 </button>
+
+
+                                {(marketOpen ||
+                                    role ===
+                                    "FARMER") && (
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                selectRole(
+                                                    "FARMER"
+                                                )
+                                            }
+                                            className={`tayeb-role-card ${role ===
+                                                    "FARMER"
+                                                    ? "selected"
+                                                    : ""
+                                                }`}
+                                        >
+
+                                            <div className="tayeb-role-icon farmer">
+                                                🌾
+                                            </div>
+
+                                            <div className="tayeb-role-copy">
+
+                                                <strong>
+                                                    {language ===
+                                                        "fr"
+                                                        ? "Vendre ma récolte"
+                                                        : "Sell my harvest"}
+                                                </strong>
+
+                                                <span>
+                                                    {language ===
+                                                        "fr"
+                                                        ? "Je suis agriculteur"
+                                                        : "I'm a farmer"}
+                                                </span>
+
+                                            </div>
+
+                                            <div className="tayeb-role-check">
+                                                {role ===
+                                                    "FARMER"
+                                                    ? "✓"
+                                                    : ""}
+                                            </div>
+
+                                        </button>
+                                    )}
 
                             </div>
 
@@ -1136,6 +1246,94 @@ export default function LoginPage() {
                             )}
 
 
+                        {/* FARMER: WHERE IS THE FARM */}
+
+                        {!isAdminPhone &&
+                            showFarmCity && (
+                                <div className="tayeb-driver-box">
+
+                                    <div className="tayeb-driver-heading">
+
+                                        <div className="tayeb-driver-heading-icon">
+                                            🌾
+                                        </div>
+
+                                        <div>
+                                            <strong>
+                                                {language ===
+                                                    "fr"
+                                                    ? "Votre ferme"
+                                                    : "Your farm"}
+                                            </strong>
+
+                                            <span>
+                                                {language ===
+                                                    "fr"
+                                                    ? "Les acheteurs et les chauffeurs voient la ville"
+                                                    : "Buyers and drivers see the city"}
+                                            </span>
+                                        </div>
+
+                                    </div>
+
+                                    <div className="tayeb-field">
+
+                                        <label>
+                                            {language === "fr"
+                                                ? "Ville de la ferme"
+                                                : "City of the farm"}
+                                        </label>
+
+                                        <div className="tayeb-input-wrap">
+
+                                            <span className="tayeb-input-icon">
+                                                📍
+                                            </span>
+
+                                            <select
+                                                value={
+                                                    city
+                                                }
+                                                onChange={(
+                                                    event
+                                                ) =>
+                                                    setCity(
+                                                        event
+                                                            .target
+                                                            .value
+                                                    )
+                                                }
+                                                required
+                                                disabled={
+                                                    loading
+                                                }
+                                            >
+                                                <option value="">
+                                                    {language === "fr"
+                                                        ? "Choisir une ville"
+                                                        : "Choose a city"}
+                                                </option>
+
+                                                {CITY_NAMES.map(
+                                                    (cityName) => (
+                                                        <option
+                                                            key={cityName}
+                                                            value={cityName}
+                                                        >
+                                                            {cityName}
+                                                        </option>
+                                                    )
+                                                )}
+                                            </select>
+
+                                        </div>
+
+                                    </div>
+
+                                </div>
+                            )}
+
+
                         {/* ADMIN INDICATOR */}
 
                         {isAdminPhone && (
@@ -1560,8 +1758,8 @@ export default function LoginPage() {
                     display: grid;
                     grid-template-columns:
                         repeat(
-                            2,
-                            minmax(0, 1fr)
+                            auto-fit,
+                            minmax(150px, 1fr)
                         );
                     gap: 10px;
                 }
@@ -1639,6 +1837,12 @@ export default function LoginPage() {
                 .tayeb-role-icon.driver {
                     background:
                         #f8fafc;
+                }
+
+
+                .tayeb-role-icon.farmer {
+                    background:
+                        #ecfdf5;
                 }
 
 

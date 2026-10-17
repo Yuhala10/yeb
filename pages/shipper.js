@@ -6,6 +6,7 @@ import supabase from "../lib/supabaseClient";
 import BrandLogo from "../components/BrandLogo";
 import Notifications from "../components/Notifications";
 import { useLanguage } from "../lib/LanguageContext";
+import { shareLoadOnWhatsApp } from "../lib/shareLoad";
 import DeleteAccount from "../components/Account/DeleteAccount";
 
 export default function ShipperPage() {
@@ -2331,6 +2332,10 @@ function ShipmentSection({
     updateShipmentStatus,
     t,
 }) {
+    const {
+        language,
+    } = useLanguage();
+
     const matched =
         shipment.driver;
 
@@ -2872,6 +2877,65 @@ function ShipmentSection({
 
                             </div>
                         )}
+
+
+                        {/* =============================================
+                            SHARE ON WHATSAPP
+                        ============================================= */}
+
+                        <div
+                            style={{
+                                marginTop:
+                                    "14px",
+                                padding:
+                                    "14px",
+                                borderRadius:
+                                    "17px",
+                                background:
+                                    "#f0fdfa",
+                                border:
+                                    "1px solid #99f6e4",
+                            }}
+                        >
+
+                            <p
+                                style={{
+                                    margin:
+                                        0,
+                                    color:
+                                        "#115e59",
+                                    fontSize:
+                                        "11px",
+                                    lineHeight:
+                                        1.5,
+                                }}
+                            >
+                                {t(
+                                    "shipper.shareLoadHint"
+                                )}
+                            </p>
+
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    shareLoadOnWhatsApp(
+                                        shipment,
+                                        language
+                                    )
+                                }
+                                className="tayeb-button tayeb-button-whatsapp tayeb-button-full"
+                                style={{
+                                    marginTop:
+                                        "10px",
+                                }}
+                            >
+                                💬{" "}
+                                {t(
+                                    "shipper.shareLoad"
+                                )}
+                            </button>
+
+                        </div>
 
                     </div>
                 )}

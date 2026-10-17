@@ -7,6 +7,7 @@ import { useLanguage } from "../lib/LanguageContext";
 import BrandLogo from "../components/BrandLogo";
 import Notifications from "../components/Notifications";
 import DeleteAccount from "../components/Account/DeleteAccount";
+import { inviteShippersOnWhatsApp } from "../lib/shareLoad";
 
 export default function DriverPage() {
     const router = useRouter();
@@ -276,6 +277,97 @@ export default function DriverPage() {
        FETCH SHIPMENTS
     ========================================================= */
 
+    /* =========================================================
+       OPEN OFFER FORM
+    ========================================================= */
+
+    function openOfferForm(
+        shipment,
+        bid
+    ) {
+        setSelectedShipment(
+            shipment
+        );
+
+        setShowOfferForm(
+            true
+        );
+
+        setOfferPrice(
+            bid?.proposed_price
+                ? String(
+                    bid.proposed_price
+                )
+                : ""
+        );
+
+        setOfferTime(
+            bid?.eta ||
+            ""
+        );
+
+        setOfferNote(
+            bid?.note ||
+            ""
+        );
+    }
+
+
+    /* =========================================================
+       SHARED LOAD LINK
+    =========================================================
+     *
+     * A driver who opened /load/[id] from WhatsApp lands here
+     * after login with that load's offer form already open.
+     */
+
+    function openSharedLoad(
+        loadedShipments,
+        loadedBids
+    ) {
+        let pendingLoadId = null;
+
+        try {
+            pendingLoadId =
+                localStorage.getItem(
+                    "tayebPendingLoad"
+                );
+
+            localStorage.removeItem(
+                "tayebPendingLoad"
+            );
+        } catch {
+            return;
+        }
+
+        if (!pendingLoadId) {
+            return;
+        }
+
+        const shipment =
+            loadedShipments.find(
+                (item) =>
+                    item.status ===
+                    "OPEN" &&
+                    String(item.id) ===
+                    pendingLoadId
+            );
+
+        if (!shipment) {
+            return;
+        }
+
+        openOfferForm(
+            shipment,
+            loadedBids.find(
+                (bid) =>
+                    bid.shipment_id ===
+                    shipment.id
+            )
+        );
+    }
+
+
     async function fetchShipments(
         driverId
     ) {
@@ -365,6 +457,11 @@ export default function DriverPage() {
             }
 
             setDriverBids(
+                bids || []
+            );
+
+            openSharedLoad(
+                safeShipments,
                 bids || []
             );
         } catch (error) {
@@ -1995,6 +2092,38 @@ export default function DriverPage() {
                                     )}
                                 </p>
 
+                                <p
+                                    style={{
+                                        maxWidth:
+                                            "340px",
+                                        margin:
+                                            "18px auto 0",
+                                    }}
+                                >
+                                    {t(
+                                        "driver.inviteShippersHint"
+                                    )}
+                                </p>
+
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        inviteShippersOnWhatsApp(
+                                            language
+                                        )
+                                    }
+                                    className="tayeb-button tayeb-button-whatsapp"
+                                    style={{
+                                        marginTop:
+                                            "12px",
+                                    }}
+                                >
+                                    💬{" "}
+                                    {t(
+                                        "driver.inviteShippers"
+                                    )}
+                                </button>
+
                             </div>
                         ) : (
                             <div
@@ -2032,33 +2161,12 @@ export default function DriverPage() {
                                                 formatPrice={
                                                     formatPrice
                                                 }
-                                                onOffer={() => {
-                                                    setSelectedShipment(
-                                                        shipment
-                                                    );
-
-                                                    setShowOfferForm(
-                                                        true
-                                                    );
-
-                                                    setOfferPrice(
-                                                        bid?.proposed_price
-                                                            ? String(
-                                                                bid.proposed_price
-                                                            )
-                                                            : ""
-                                                    );
-
-                                                    setOfferTime(
-                                                        bid?.eta ||
-                                                        ""
-                                                    );
-
-                                                    setOfferNote(
-                                                        bid?.note ||
-                                                        ""
-                                                    );
-                                                }}
+                                                onOffer={() =>
+                                                    openOfferForm(
+                                                        shipment,
+                                                        bid
+                                                    )
+                                                }
                                                 onCounter={() => {
                                                     setCounterBid(
                                                         bid

@@ -657,6 +657,22 @@ img {
     #15803d;
 }
 
+.tayeb-button-whatsapp {
+  background:
+    #128c7e;
+
+  color:
+    white;
+
+  box-shadow:
+    0 7px 18px rgba(18, 140, 126, 0.2);
+}
+
+.tayeb-button-whatsapp:hover:not(:disabled) {
+  background:
+    #0e7468;
+}
+
 .tayeb-button-full {
   width:
     100%;

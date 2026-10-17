@@ -1,14 +1,22 @@
-import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { useMemo, useState } from "react";
 
-import MarketHeader from "../../components/Market/MarketHeader";
 import ProductCard from "../../components/Market/ProductCard";
-import { CITY_NAMES, findCity } from "../../lib/cities";
+import InstallPrompt from "../../components/Site/InstallPrompt";
+import Reveal from "../../components/Site/Reveal";
+import Seo from "../../components/Site/Seo";
+import SiteFooter from "../../components/Site/SiteFooter";
+import SiteHeader from "../../components/Site/SiteHeader";
+import { apiPost } from "../../lib/api";
+import { cityNames, distanceKm, findCity } from "../../lib/cities";
+import { countryName, findCountry, sortedCountries } from "../../lib/countries";
 import { useLanguage } from "../../lib/LanguageContext";
-import { marketText, useMarketText } from "../../lib/marketText";
-import { PRODUCTS, findProduct, productName } from "../../lib/produce";
+import { marketError, marketText, useMarketText } from "../../lib/marketText";
+import { CATEGORIES, PRODUCTS, findCategory, findProduct, matchProducts, productName } from "../../lib/produce";
+import { localizedUrl, siteCardUrl, siteOrigin } from "../../lib/seo";
 import { listMarket, marketReady } from "../../lib/server/market";
+import { countryFromRequest } from "../../lib/useCountry";
 import { DASHBOARDS, loginThenReturn, useSession } from "../../lib/useSession";
 
 /*
@@ -17,44 +25,53 @@ import { DASHBOARDS, loginThenReturn, useSession } from "../../lib/useSession";
  * ============================================================
  *
  * Server-rendered so search engines and WhatsApp see the
- * produce. Filters are plain links and a GET form
- * (/market?product=TOMATOES&city=Bafoussam), so every
- * filtered page has its own address.
+ * produce. Filters are plain links and a GET form, so every
+ * filtered view has its own address. Without a country in
+ * the address, the visitor's country is used, and all of
+ * Africa when it has nothing yet.
  */
 
 export async function getServerSideProps({ query, req, res }) {
+    const askedCountry = findCountry(String(query.country || ""))?.code || "";
     const product = findProduct(String(query.product || "")) ? String(query.product) : "";
-    const city = findCity(String(query.city || ""))?.name || "";
+    const category = findCategory(String(query.category || "")) ? String(query.category) : "";
     const q = String(query.q || "").slice(0, 60);
 
-    const ready = await marketReady();
+    let country = askedCountry || countryFromRequest(req) || "";
 
-    let listings = [];
-    let total = 0;
+    const city = findCity(String(query.city || ""), country || undefined)?.name || "";
+
+    const ready = await marketReady().catch(() => false);
+
+    let result = { listings: [], total: 0, facets: {} };
+
+    let widened = false;
 
     if (ready) {
         try {
-            const result = await listMarket({ product, city, q });
-            listings = result.listings;
-            total = result.total;
+            result = await listMarket({ country, product, category, city, q });
+
+            if (!askedCountry && country && result.total === 0) {
+                result = await listMarket({ product, category, q });
+                country = "";
+                widened = true;
+            }
         } catch (error) {
             console.error("Market page error:", error);
         }
     }
 
-    const protocol = String(req.headers["x-forwarded-proto"] || "http").split(",")[0];
-    const host = req.headers["x-forwarded-host"] || req.headers.host;
-
-    // Fresh enough for a market, light on the database.
-    res.setHeader("Cache-Control", "public, s-maxage=30, stale-while-revalidate=300");
+    res.setHeader("Cache-Control", askedCountry ? "public, s-maxage=30, stale-while-revalidate=300" : "private, max-age=0");
 
     return {
         props: {
             ready,
-            listings,
-            total,
-            filters: { product, city, q },
-            siteUrl: `${protocol}://${host}`,
+            listings: result.listings,
+            total: result.total,
+            facets: result.facets || {},
+            filters: { country, product, category, city, q },
+            widened,
+            origin: siteOrigin(req),
         },
     };
 }
@@ -64,9 +81,9 @@ function filterHref(filters, changes) {
 
     const params = new URLSearchParams();
 
-    Object.entries(next).forEach(([key, value]) => {
-        if (value) {
-            params.set(key, value);
+    ["country", "category", "product", "city", "q"].forEach((key) => {
+        if (next[key]) {
+            params.set(key, next[key]);
         }
     });
 
@@ -75,7 +92,7 @@ function filterHref(filters, changes) {
     return search ? `/market?${search}` : "/market";
 }
 
-export default function MarketPage({ ready, listings, total, filters, siteUrl }) {
+export default function MarketPage({ ready, listings, total, facets, filters, widened, origin }) {
     const router = useRouter();
 
     const { language } = useLanguage();
@@ -84,111 +101,202 @@ export default function MarketPage({ ready, listings, total, filters, siteUrl })
 
     const { user, loading } = useSession();
 
-    const hasFilters = Boolean(filters.product || filters.city || filters.q);
+    const [near, setNear] = useState(null);
 
-    const canonical = `${siteUrl}${filterHref(filters, {})}`;
+    const [locating, setLocating] = useState(false);
 
-    // Bilingual so search engines match both French and English searches.
-    const seoTitle = filters.product
-        ? `${findProduct(filters.product).fr} · ${findProduct(filters.product).en}${filters.city ? ` — ${filters.city}` : ""} | Tayeb Marché`
-        : `${marketText("fr", "seoTitle")} | ${marketText("en", "brand")}`;
+    const [alertState, setAlertState] = useState("");
 
-    const seoDescription = `${marketText("fr", "seoDescription")} ${marketText("en", "seoDescription")}`;
+    const [formCountry, setFormCountry] = useState(filters.country);
 
-    const structuredData = {
-        "@context": "https://schema.org",
-        "@type": "ItemList",
-        name: "Tayeb Marché",
-        itemListElement: listings.slice(0, 30).map((listing, index) => ({
-            "@type": "ListItem",
-            position: index + 1,
-            url: `${siteUrl}/market/${listing.id}`,
-            name: productName(listing, "fr"),
-        })),
-    };
+    const country = findCountry(filters.country);
+
+    const hasFilters = Boolean(filters.product || filters.category || filters.city || filters.q);
+
+    // The product a search is about, for "alert me".
+    const alertProduct = filters.product || (filters.q && matchProducts(filters.q).length === 1 ? matchProducts(filters.q)[0] : "");
+
+    // "Near me": sort by distance from where the phone is.
+    const shown = useMemo(() => {
+        if (!near) {
+            return listings.map((listing) => ({ listing, km: null }));
+        }
+
+        return listings
+            .map((listing) => {
+                const city = findCity(listing.city, listing.country);
+                const km = city ? Math.round(distanceKm(near, city) * 1.25) : null;
+                return { listing, km };
+            })
+            .sort((a, b) => (a.km ?? Infinity) - (b.km ?? Infinity));
+    }, [listings, near]);
+
+    const productChips = Object.entries(facets)
+        .filter(([key]) => findProduct(key) && key !== "OTHER")
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 24);
+
+    /* ---------------- SEO ---------------- */
+
+    const subject = filters.product
+        ? `${findProduct(filters.product).fr} · ${findProduct(filters.product).en}`
+        : filters.category
+            ? `${findCategory(filters.category).fr} · ${findCategory(filters.category).en}`
+            : null;
+
+    const place = [filters.city, country ? countryName(country.code, language) : null].filter(Boolean).join(", ");
+
+    const seoTitle = subject
+        ? `${subject}${place ? ` — ${place}` : ""} | Tayeb Marché`
+        : `${marketText(language, "seoTitle")}${place ? ` — ${place}` : ""}`;
+
+    const seoDescription = `${marketText(language, "seoDescription")}`;
+
+    const path = filterHref(filters, {}).replace(/^\/market/, "/market");
+
+    const structuredData = [
+        {
+            "@context": "https://schema.org",
+            "@type": "ItemList",
+            name: seoTitle,
+            numberOfItems: total,
+            itemListElement: listings.slice(0, 30).map((listing, index) => ({
+                "@type": "ListItem",
+                position: index + 1,
+                url: localizedUrl(origin, `/market/${listing.id}`, language),
+                name: productName(listing, language),
+            })),
+        },
+        {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            itemListElement: [
+                { "@type": "ListItem", position: 1, name: "Tayeb", item: localizedUrl(origin, "/", language) },
+                { "@type": "ListItem", position: 2, name: "Marché", item: localizedUrl(origin, "/market", language) },
+                ...(subject ? [{ "@type": "ListItem", position: 3, name: subject, item: localizedUrl(origin, path, language) }] : []),
+            ],
+        },
+    ];
+
+    /* ---------------- actions ---------------- */
+
+    function locate() {
+        if (!navigator.geolocation) {
+            return;
+        }
+
+        setLocating(true);
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                setNear({ lat: position.coords.latitude, lng: position.coords.longitude });
+                setLocating(false);
+            },
+            () => setLocating(false),
+            { enableHighAccuracy: false, timeout: 15000, maximumAge: 600000 }
+        );
+    }
+
+    async function saveAlert() {
+        if (!user) {
+            loginThenReturn(router, "SHIPPER", router.asPath);
+            return;
+        }
+
+        if (user.role !== "SHIPPER") {
+            setAlertState(m("buyerOnly"));
+            return;
+        }
+
+        try {
+            await apiPost("/api/market", {
+                action: "saveAlert",
+                product: alertProduct,
+                country: filters.country || user.country,
+                city: filters.city || null,
+            });
+
+            setAlertState(language === "fr" ? "🔔 C'est noté : vous serez prévenu dès qu'une offre arrive." : "🔔 Done: you'll be told as soon as one is listed.");
+        } catch (error) {
+            setAlertState(marketError(language, error));
+        }
+    }
 
     function sell() {
         if (user?.role === "FARMER") {
             router.push("/farmer");
-            return;
-        }
-
-        if (user) {
+        } else if (user) {
             router.push(DASHBOARDS[user.role] || "/");
-            return;
+        } else {
+            loginThenReturn(router, "FARMER", "/farmer");
         }
-
-        loginThenReturn(router, "FARMER", "/farmer");
     }
 
-    function buy() {
-        if (user) {
-            document.getElementById("produce")?.scrollIntoView({ behavior: "smooth" });
-            return;
-        }
-
-        loginThenReturn(router, "SHIPPER", "/market");
-    }
+    const alertLabel = alertProduct
+        ? language === "fr"
+            ? `🔔 Me prévenir pour ${findProduct(alertProduct).fr.toLowerCase()}${filters.city ? ` à ${filters.city}` : ""}`
+            : `🔔 Alert me for ${findProduct(alertProduct).en.toLowerCase()}${filters.city ? ` in ${filters.city}` : ""}`
+        : null;
 
     return (
         <>
-            <Head>
-                <title>{seoTitle}</title>
-                <meta name="description" content={seoDescription} />
-                <meta name="viewport" content="width=device-width, initial-scale=1" />
-                <meta name="theme-color" content="#f97316" />
-                <link rel="canonical" href={canonical} />
-                <link rel="alternate" hrefLang="fr-CM" href={canonical} />
-                <link rel="alternate" hrefLang="en-CM" href={canonical} />
-                <meta property="og:type" content="website" />
-                <meta property="og:site_name" content="Tayeb" />
-                <meta property="og:title" content={seoTitle} />
-                <meta property="og:description" content={seoDescription} />
-                <meta property="og:url" content={canonical} />
-                <meta property="og:image" content={listings.find((item) => item.photo_url)?.photo_url || `${siteUrl}/branding/tayeb-logo.jpeg`} />
-                <meta property="og:locale" content="fr_CM" />
-                <meta property="og:locale:alternate" content="en_CM" />
-                <meta name="twitter:card" content="summary_large_image" />
-                <script
-                    type="application/ld+json"
-                    // JSON.stringify escapes everything that matters inside a script tag except "<".
-                    dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }}
-                />
-            </Head>
+            <Seo
+                origin={origin}
+                path={path}
+                title={seoTitle}
+                description={seoDescription}
+                image={siteCardUrl(origin, "market", language)}
+                structuredData={structuredData}
+                noindex={Boolean(filters.q) || (total === 0 && Boolean(filters.country || filters.category || filters.product || filters.city))}
+            />
 
-            <main className="mk-page">
+            <div className="ts-page">
 
-                <MarketHeader user={user} loading={loading} />
+                <SiteHeader user={user} loading={loading} variant="dark" active="market" />
 
 
                 {/* =================================================
-                    HERO AND SEARCH
+                    HERO
                 ================================================= */}
 
-                <section className="mk-hero">
-                    <div className="mk-wrap">
-
-                        <span className="mk-eyebrow">🌾 {m("heroEyebrow")}</span>
-
-                        <h1>
-                            {m("heroTitle")} <em>{m("heroHighlight")}</em>
+                <section className="ts-hero" style={{ paddingBottom: 40 }}>
+                    <div className="ts-wrap">
+                        <span className="ts-badge">
+                            <span className="ts-pulse" aria-hidden="true" />
+                            {m("results", { count: total })}
+                            {country ? ` · ${country.flag} ${countryName(country.code, language)}` : " · 🌍"}
+                        </span>
+                        <h1 style={{ fontSize: "clamp(36px, 6vw, 68px)" }}>
+                            <span>{m("heroTitle")}</span>
+                            <span className="ts-gradient-text">{m("heroHighlight")}</span>
                         </h1>
-
-                        <p>{m("heroText")}</p>
-
-                        <div className="mk-hero-actions">
-                            <button type="button" className="mk-btn mk-btn-primary mk-btn-lg" onClick={buy}>
-                                🛒 {m("browseCta")}
-                            </button>
-                            <button type="button" className="mk-btn mk-btn-light mk-btn-lg" onClick={sell}>
+                        <p className="ts-hero-text">{m("heroText")}</p>
+                        <div className="ts-hero-actions" style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 24 }}>
+                            <button type="button" className="ts-btn ts-btn-primary ts-btn-lg" onClick={sell}>
                                 👨🏾‍🌾 {m("sellCta")}
                             </button>
+                            <a href="#produce" className="ts-btn ts-btn-glass ts-btn-lg">
+                                🛒 {m("browseCta")}
+                            </a>
                         </div>
+                    </div>
+                </section>
 
-                        <form className="mk-search" method="get" action="/market" role="search">
+
+                <div className="ts-wrap" id="produce">
+
+                    {/* =============================================
+                        FILTERS
+                    ============================================= */}
+
+                    <div className="mk-filters">
+
+                        <form className="mk-filter-row" method="get" action="/market" role="search">
                             {filters.product && <input type="hidden" name="product" value={filters.product} />}
+                            {filters.category && <input type="hidden" name="category" value={filters.category} />}
 
                             <input
+                                className="mk-input"
                                 type="search"
                                 name="q"
                                 defaultValue={filters.q}
@@ -197,47 +305,89 @@ export default function MarketPage({ ready, listings, total, filters, siteUrl })
                                 maxLength={60}
                             />
 
-                            <select name="city" defaultValue={filters.city} aria-label={m("allCities")}>
+                            <select
+                                className="mk-select"
+                                name="country"
+                                value={formCountry}
+                                onChange={(event) => setFormCountry(event.target.value)}
+                                aria-label={language === "fr" ? "Pays" : "Country"}
+                            >
+                                <option value="">🌍 {language === "fr" ? "Toute l'Afrique" : "All of Africa"}</option>
+                                {sortedCountries(language).map((item) => (
+                                    <option key={item.code} value={item.code}>
+                                        {item.flag} {language === "fr" ? item.fr : item.en}
+                                    </option>
+                                ))}
+                            </select>
+
+                            <select
+                                className="mk-select"
+                                name="city"
+                                defaultValue={formCountry === filters.country ? filters.city : ""}
+                                key={formCountry}
+                                aria-label={m("allCities")}
+                                disabled={!formCountry}
+                            >
                                 <option value="">{m("allCities")}</option>
-                                {CITY_NAMES.map((city) => (
+                                {(formCountry ? cityNames(formCountry) : []).map((city) => (
                                     <option key={city} value={city}>{city}</option>
                                 ))}
                             </select>
 
-                            <button type="submit" className="mk-btn mk-btn-dark">
-                                🔍
+                            <button type="submit" className="ts-btn ts-btn-ink">
+                                🔍 {language === "fr" ? "Chercher" : "Search"}
                             </button>
                         </form>
 
-                        <nav className="mk-chips" aria-label={m("allProducts")}>
+                        <nav className="mk-chips" aria-label={m("allProducts")} style={{ marginTop: 12 }}>
                             <Link
-                                href={filterHref(filters, { product: "" })}
-                                className={`mk-chip ${filters.product ? "" : "active"}`}
+                                href={filterHref(filters, { product: "", category: "" })}
+                                className={`mk-chip ${filters.product || filters.category ? "" : "active"}`}
                             >
                                 {m("allProducts")}
                             </Link>
 
-                            {PRODUCTS.filter((item) => item.key !== "OTHER").map((item) => (
+                            {CATEGORIES.map((category) => (
                                 <Link
-                                    key={item.key}
-                                    href={filterHref(filters, { product: item.key })}
-                                    className={`mk-chip ${filters.product === item.key ? "active" : ""}`}
+                                    key={category.key}
+                                    href={filterHref(filters, { category: category.key, product: "" })}
+                                    className={`mk-chip ${filters.category === category.key && !filters.product ? "active" : ""}`}
                                 >
-                                    <span aria-hidden="true">{item.emoji}</span>
-                                    {language === "fr" ? item.fr : item.en}
+                                    <span aria-hidden="true">{category.emoji}</span>
+                                    {language === "fr" ? category.fr : category.en}
                                 </Link>
                             ))}
                         </nav>
 
                     </div>
-                </section>
 
 
-                {/* =================================================
-                    PRODUCE
-                ================================================= */}
+                    {/* Products on sale right now, with how many offers. */}
 
-                <section className="mk-wrap" id="produce" style={{ paddingBottom: 30 }}>
+                    {productChips.length > 0 && (
+                        <nav className="mk-chips" aria-label={m("allProducts")} style={{ marginTop: 16 }}>
+                            {productChips.map(([key, count]) => {
+                                const item = findProduct(key);
+
+                                return (
+                                    <Link
+                                        key={key}
+                                        href={filterHref(filters, { product: key, category: "" })}
+                                        className={`mk-chip ${filters.product === key ? "active" : ""}`}
+                                    >
+                                        <span aria-hidden="true">{item.emoji}</span>
+                                        {language === "fr" ? item.fr : item.en}
+                                        <small style={{ opacity: 0.6 }}>{count}</small>
+                                    </Link>
+                                );
+                            })}
+                        </nav>
+                    )}
+
+
+                    {/* =============================================
+                        RESULTS
+                    ============================================= */}
 
                     {!ready ? (
                         <div className="mk-empty" style={{ marginTop: 26 }}>
@@ -250,92 +400,150 @@ export default function MarketPage({ ready, listings, total, filters, siteUrl })
                             <div className="mk-results-bar">
                                 <h2>
                                     {total === 1 ? m("oneResult") : m("results", { count: total })}
-                                    {filters.city ? ` · ${filters.city}` : ""}
+                                    {place ? ` · ${place}` : ""}
                                 </h2>
 
-                                {hasFilters && (
-                                    <Link href="/market" className="mk-btn mk-btn-ghost mk-btn-sm">
-                                        ✕ {m("clearFilters")}
-                                    </Link>
-                                )}
+                                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                    {listings.length > 1 && (
+                                        <button
+                                            type="button"
+                                            className={`ts-btn ts-btn-sm ${near ? "ts-btn-ink" : "ts-btn-light"}`}
+                                            onClick={() => (near ? setNear(null) : locate())}
+                                            disabled={locating}
+                                        >
+                                            {locating ? "…" : near ? "✕ " : "📍 "}
+                                            {language === "fr" ? "Près de moi" : "Near me"}
+                                        </button>
+                                    )}
+
+                                    {hasFilters && (
+                                        <Link href={filterHref({ country: filters.country }, {})} className="ts-btn ts-btn-light ts-btn-sm">
+                                            ✕ {m("clearFilters")}
+                                        </Link>
+                                    )}
+                                </div>
                             </div>
+
+                            {widened && (
+                                <div className="mk-notice" style={{ marginBottom: 16 }}>
+                                    🌍 {language === "fr"
+                                        ? "Rien encore dans votre pays : voici les offres de toute l'Afrique."
+                                        : "Nothing in your country yet: here are offers from across Africa."}
+                                </div>
+                            )}
 
                             {listings.length === 0 ? (
                                 <div className="mk-empty">
                                     <div className="mk-empty-icon">🧺</div>
                                     <h3>{m("noResultsTitle")}</h3>
                                     <p>{m("noResultsText")}</p>
-                                    {hasFilters && (
-                                        <Link href="/market" className="mk-btn mk-btn-light">
-                                            {m("clearFilters")}
-                                        </Link>
-                                    )}
+                                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+                                        {alertLabel && (
+                                            <button type="button" className="ts-btn ts-btn-primary" onClick={saveAlert}>
+                                                {alertLabel}
+                                            </button>
+                                        )}
+                                        {hasFilters && (
+                                            <Link href="/market" className="ts-btn ts-btn-light">
+                                                {m("clearFilters")}
+                                            </Link>
+                                        )}
+                                    </div>
+                                    {alertState && <p style={{ fontWeight: 700 }}>{alertState}</p>}
                                 </div>
                             ) : (
-                                <div className="mk-grid">
-                                    {listings.map((listing) => (
-                                        <ProductCard key={listing.id} listing={listing} />
-                                    ))}
-                                </div>
+                                <>
+                                    <div className="mk-grid">
+                                        {shown.map(({ listing, km }) => (
+                                            <ProductCard
+                                                key={listing.id}
+                                                listing={listing}
+                                                showCountry={!filters.country}
+                                                distanceKm={km}
+                                            />
+                                        ))}
+                                    </div>
+
+                                    {alertLabel && (
+                                        <div className="mk-alert-cta">
+                                            <span>
+                                                {language === "fr"
+                                                    ? "Soyez prévenu à chaque nouvelle offre, même quand vous n'êtes pas sur Tayeb."
+                                                    : "Hear about every new offer, even when you're not on Tayeb."}
+                                            </span>
+                                            <button type="button" className="ts-btn ts-btn-primary ts-btn-sm" onClick={saveAlert}>
+                                                {alertLabel}
+                                            </button>
+                                            {alertState && <span style={{ flexBasis: "100%", color: "white", fontWeight: 700 }}>{alertState}</span>}
+                                        </div>
+                                    )}
+                                </>
                             )}
                         </>
                     )}
 
-                </section>
+                </div>
 
 
                 {/* =================================================
                     HOW IT WORKS
                 ================================================= */}
 
-                <section className="mk-section">
-                    <div className="mk-wrap">
+                <section className="ts-section">
+                    <div className="ts-wrap">
 
-                        <h2 className="mk-section-title">{m("howTitle")}</h2>
+                        <Reveal>
+                            <span className="ts-eyebrow">Tayeb Marché</span>
+                            <h2 className="ts-title">{m("howTitle")}</h2>
+                        </Reveal>
 
-                        <div className="mk-steps-grid">
+                        <Reveal className="ts-steps" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
                             {["howFarmer", "howBuyer", "howDeliver", "howPay"].map((key, index) => (
-                                <div key={key} className="mk-step">
-                                    <span className="mk-step-num">{index + 1}</span>
+                                <div key={key} className="ts-step">
+                                    <span className="ts-step-num">{index + 1}</span>
                                     <p>{m(key)}</p>
                                 </div>
                             ))}
-                        </div>
+                        </Reveal>
 
-                        <div className="mk-duo" style={{ marginTop: 18 }}>
-
+                        <Reveal className="mk-duo" style={{ marginTop: 18 }}>
                             <div className="mk-promo">
                                 <h3>👨🏾‍🌾 {m("forFarmersTitle")}</h3>
                                 <p>{m("forFarmersText")}</p>
                                 <div>
-                                    <button type="button" className="mk-btn mk-btn-primary" onClick={sell}>
+                                    <button type="button" className="ts-btn ts-btn-primary" onClick={sell}>
                                         {m("sellCta")} →
                                     </button>
                                 </div>
                             </div>
-
                             <div className="mk-promo mk-promo-light">
                                 <h3>🍽️ {m("forBuyersTitle")}</h3>
                                 <p>{m("forBuyersText")}</p>
                                 <div>
-                                    <button type="button" className="mk-btn mk-btn-dark" onClick={buy}>
+                                    <a href="#produce" className="ts-btn ts-btn-ink">
                                         {m("browseCta")} →
-                                    </button>
+                                    </a>
                                 </div>
                             </div>
+                        </Reveal>
 
-                        </div>
+                        {/* Links search engines follow to every product page. */}
+                        <nav aria-label={m("allProducts")} style={{ marginTop: 40, display: "flex", flexWrap: "wrap", gap: "8px 16px", fontSize: 14 }}>
+                            {PRODUCTS.filter((item) => item.key !== "OTHER").map((item) => (
+                                <Link key={item.key} href={filterHref({ country: filters.country }, { product: item.key })} className="ts-link" style={{ fontWeight: 600 }}>
+                                    {language === "fr" ? item.fr : item.en}
+                                </Link>
+                            ))}
+                        </nav>
 
                     </div>
                 </section>
 
+                <SiteFooter />
 
-                <footer className="mk-footer">
-                    <strong>Tayeb Marché</strong> · {m("tagline")} ·{" "}
-                    <Link href="/">Tayeb</Link>
-                </footer>
+                {ready && <InstallPrompt />}
 
-            </main>
+            </div>
         </>
     );
 }

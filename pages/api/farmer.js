@@ -1,12 +1,13 @@
 import { EngineError, sendError } from "../../lib/server/core";
 import {
+    farmerAddPhoto,
+    farmerArrangePhotos,
     farmerConfirmOrder,
     farmerDashboard,
     farmerDeclineOrder,
     farmerMarkPaid,
     farmerSaveProduct,
     farmerSetProductStatus,
-    farmerUploadPhoto,
 } from "../../lib/server/market";
 import { requireRole } from "../../lib/server/session";
 
@@ -17,13 +18,16 @@ import { requireRole } from "../../lib/server/session";
 const ACTIONS = {
     saveProduct: farmerSaveProduct,
     productStatus: farmerSetProductStatus,
-    photo: farmerUploadPhoto,
+    addPhoto: farmerAddPhoto,
+    arrangePhotos: farmerArrangePhotos,
+    // Older screens sent one photo with "photo".
+    photo: farmerAddPhoto,
     confirm: farmerConfirmOrder,
     decline: farmerDeclineOrder,
     paid: farmerMarkPaid,
 };
 
-// Product photos arrive as compressed data URLs.
+// Product photos arrive as compressed data URLs, one at a time.
 export const config = {
     api: {
         bodyParser: {

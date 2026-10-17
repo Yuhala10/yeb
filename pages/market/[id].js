@@ -1,14 +1,20 @@
-import Head from "next/head";
 import Link from "next/link";
 
-import MarketHeader from "../../components/Market/MarketHeader";
 import OrderPanel from "../../components/Market/OrderPanel";
-import ProductMedia from "../../components/Market/ProductMedia";
+import ProductCard from "../../components/Market/ProductCard";
+import PhotoCarousel from "../../components/Site/PhotoCarousel";
+import Seo from "../../components/Site/Seo";
+import ShareSheet from "../../components/Site/ShareSheet";
+import SiteFooter from "../../components/Site/SiteFooter";
+import SiteHeader from "../../components/Site/SiteHeader";
+import { countryName, findCountry } from "../../lib/countries";
 import { useLanguage } from "../../lib/LanguageContext";
 import { formatDay, marketText, useMarketText } from "../../lib/marketText";
-import { formatAmount, productName, unitName } from "../../lib/produce";
+import { formatMoney } from "../../lib/money";
+import { findCategory, findProduct, formatAmount, productEmoji, productName, unitName } from "../../lib/produce";
+import { listingCardUrl, localizedUrl, siteOrigin } from "../../lib/seo";
+import { listingShareText } from "../../lib/shareLoad";
 import { getListing } from "../../lib/server/market";
-import { shareListingOnWhatsApp } from "../../lib/shareLoad";
 import { useSession } from "../../lib/useSession";
 
 /*
@@ -16,9 +22,9 @@ import { useSession } from "../../lib/useSession";
  * TAYEB MARCHÉ — ONE LISTING
  * ============================================================
  *
- * Server-rendered for search engines and WhatsApp previews
- * (with the product photo). Never shows the farmer's phone:
- * it's shared with the buyer once the farmer confirms.
+ * Server-rendered for search engines and link previews (with
+ * every photo). Never shows the farmer's phone: it's shared
+ * with the buyer once the farmer confirms.
  */
 
 export async function getServerSideProps({ params, req, res }) {
@@ -36,20 +42,17 @@ export async function getServerSideProps({ params, req, res }) {
         return { notFound: true };
     }
 
-    const protocol = String(req.headers["x-forwarded-proto"] || "http").split(",")[0];
-    const host = req.headers["x-forwarded-host"] || req.headers.host;
-
     res.setHeader("Cache-Control", "public, s-maxage=20, stale-while-revalidate=120");
 
     return {
         props: {
             listing,
-            siteUrl: `${protocol}://${host}`,
+            origin: siteOrigin(req),
         },
     };
 }
 
-export default function ListingPage({ listing, siteUrl }) {
+export default function ListingPage({ listing, origin }) {
     const { language } = useLanguage();
 
     const m = useMarketText();
@@ -62,99 +65,123 @@ export default function ListingPage({ listing, siteUrl }) {
 
     const farmer = listing.farmer;
 
-    const url = `${siteUrl}/market/${listing.id}`;
+    const country = findCountry(listing.country);
 
-    const place = `${listing.area ? `${listing.area}, ` : ""}${listing.city}`;
+    const category = findCategory(findProduct(listing.product)?.category);
 
-    const seoName = `${productName(listing, "fr")} · ${productName(listing, "en")}`;
+    const price = formatMoney(listing.price_per_unit, listing.currency);
 
-    const seoTitle = `${seoName} — ${listing.city} · ${formatAmount(listing.price_per_unit)} FCFA | Tayeb Marché`;
+    const path = `/market/${listing.id}`;
+
+    const url = localizedUrl(origin, path, language);
+
+    const place = `${listing.area ? `${listing.area}, ` : ""}${listing.city}${country ? `, ${countryName(country.code, language)}` : ""}`;
+
+    const seoTitle = `${name} — ${listing.city} · ${price} / ${unitOne} | Tayeb Marché`;
 
     const seoDescription = [
-        marketText("fr", "listingSeo", {
-            product: productName(listing, "fr"),
-            city: place,
-            price: formatAmount(listing.price_per_unit),
-            unit: unitName(listing.unit, "fr"),
-        }),
-        marketText("en", "listingSeo", {
-            product: productName(listing, "en"),
-            city: place,
-            price: formatAmount(listing.price_per_unit),
-            unit: unitName(listing.unit, "en"),
-        }),
-    ].join(" ");
+        marketText(language, "listingSeo", { product: name, city: place, price, unit: unitOne }),
+        listing.details ? listing.details.slice(0, 140) : "",
+    ].filter(Boolean).join(" ");
 
-    const image = listing.photo_url || `${siteUrl}/branding/tayeb-logo.jpeg`;
+    const images = (listing.photos || []).map((photo) => photo.url);
 
-    const structuredData = {
-        "@context": "https://schema.org",
-        "@type": "Product",
-        name: seoName,
-        description: listing.details || seoDescription,
-        image: [image],
-        category: "Agriculture",
-        offers: {
-            "@type": "Offer",
-            url,
-            price: listing.price_per_unit,
-            priceCurrency: "XAF",
-            availability: listing.visible ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
-            itemCondition: "https://schema.org/NewCondition",
-            areaServed: "CM",
-            seller: {
-                "@type": "Person",
-                name: farmer?.full_name || "Tayeb farmer",
-            },
-        },
-        ...(farmer?.rating_count
-            ? {
-                aggregateRating: {
-                    "@type": "AggregateRating",
-                    ratingValue: farmer.rating,
-                    reviewCount: farmer.rating_count,
+    const structuredData = [
+        {
+            "@context": "https://schema.org",
+            "@type": "Product",
+            name,
+            description: listing.details || seoDescription,
+            image: images.length ? images : [`${origin}/branding/tayeb-logo.jpeg`],
+            category: category ? category.en : "Agriculture",
+            sku: listing.id,
+            brand: { "@type": "Brand", name: "Tayeb Marché" },
+            offers: {
+                "@type": "Offer",
+                url,
+                price: listing.price_per_unit,
+                priceCurrency: listing.currency,
+                availability: listing.visible ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+                itemCondition: "https://schema.org/NewCondition",
+                areaServed: listing.country,
+                eligibleQuantity: {
+                    "@type": "QuantitativeValue",
+                    minValue: Number(listing.min_order) || 1,
+                    maxValue: Number(listing.quantity_available) || 0,
+                    unitText: unitName(listing.unit, "en"),
                 },
-            }
-            : {}),
-    };
+                seller: {
+                    "@type": "Person",
+                    name: farmer?.full_name || "Tayeb farmer",
+                },
+            },
+            ...(farmer?.rating_count
+                ? {
+                    aggregateRating: {
+                        "@type": "AggregateRating",
+                        ratingValue: farmer.rating,
+                        reviewCount: farmer.rating_count,
+                        bestRating: 5,
+                    },
+                }
+                : {}),
+        },
+        {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            itemListElement: [
+                { "@type": "ListItem", position: 1, name: "Tayeb", item: localizedUrl(origin, "/", language) },
+                { "@type": "ListItem", position: 2, name: "Marché", item: localizedUrl(origin, "/market", language) },
+                ...(category
+                    ? [{ "@type": "ListItem", position: 3, name: language === "fr" ? category.fr : category.en, item: localizedUrl(origin, `/market?category=${category.key}`, language) }]
+                    : []),
+                { "@type": "ListItem", position: category ? 4 : 3, name, item: url },
+            ],
+        },
+    ];
 
     const priceStats = listing.price_stats;
 
+    const shareText = listingShareText(listing, language);
+
     return (
         <>
-            <Head>
-                <title>{seoTitle}</title>
-                <meta name="description" content={seoDescription} />
-                <meta name="viewport" content="width=device-width, initial-scale=1" />
-                <meta name="theme-color" content="#f97316" />
-                <link rel="canonical" href={url} />
-                <meta property="og:type" content="product" />
-                <meta property="og:site_name" content="Tayeb Marché" />
-                <meta property="og:title" content={`${productName(listing, "fr")} · ${formatAmount(listing.price_per_unit)} FCFA / ${unitName(listing.unit, "fr")} — ${listing.city}`} />
-                <meta property="og:description" content={seoDescription} />
-                <meta property="og:url" content={url} />
-                <meta property="og:image" content={image} />
-                <meta property="og:locale" content="fr_CM" />
-                <meta property="og:locale:alternate" content="en_CM" />
-                <meta property="product:price:amount" content={String(listing.price_per_unit)} />
-                <meta property="product:price:currency" content="XAF" />
-                <meta name="twitter:card" content={listing.photo_url ? "summary_large_image" : "summary"} />
-                {!listing.visible && <meta name="robots" content="noindex" />}
-                <script
-                    type="application/ld+json"
-                    dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }}
-                />
-            </Head>
+            <Seo
+                origin={origin}
+                path={path}
+                title={seoTitle}
+                description={seoDescription}
+                image={listingCardUrl(origin, listing, language)}
+                imageAlt={`${name} · ${place} · ${price} / ${unitOne}`}
+                type="product"
+                noindex={!listing.visible}
+                structuredData={structuredData}
+                extra={
+                    <>
+                        <meta property="product:price:amount" content={String(listing.price_per_unit)} />
+                        <meta property="product:price:currency" content={listing.currency} />
+                    </>
+                }
+            />
 
-            <main className="mk-page mk-has-mobile-cta">
+            <div className="ts-page mk-page mk-has-mobile-cta">
 
-                <MarketHeader user={user} loading={loading} />
+                <SiteHeader user={user} loading={loading} active="market" />
 
-                <div className="mk-wrap">
+                <div className="ts-wrap">
 
-                    <Link href="/market" className="mk-crumb">
-                        ← {m("backToMarket")}
-                    </Link>
+                    <ol className="mk-crumbs">
+                        <li><Link href="/">Tayeb</Link></li>
+                        <li><Link href="/market">{m("market")}</Link></li>
+                        {category && (
+                            <li>
+                                <Link href={`/market?category=${category.key}`}>
+                                    {language === "fr" ? category.fr : category.en}
+                                </Link>
+                            </li>
+                        )}
+                        <li aria-current="page">{name}</li>
+                    </ol>
 
                     <div className="mk-detail">
 
@@ -164,34 +191,32 @@ export default function ListingPage({ listing, siteUrl }) {
 
                         <article>
 
-                            <div className="mk-gallery">
-                                <ProductMedia listing={listing} eager>
-                                    <div className="mk-media-badges">
-                                        {listing.ready_now ? (
-                                            <span className="mk-tag mk-tag-green">✓ {m("readyNow")}</span>
-                                        ) : (
-                                            <span className="mk-tag">
-                                                🗓️ {m("readyOn", { date: formatDay(listing.available_from, language) })}
-                                            </span>
-                                        )}
-                                        {listing.perishable && (
-                                            <span className="mk-tag mk-tag-amber">❄️ {m("fresh")}</span>
-                                        )}
-                                    </div>
-                                </ProductMedia>
-                            </div>
+                            <PhotoCarousel photos={listing.photos || []} alt={name} emoji={productEmoji(listing.product)}>
+                                <div className="mk-media-badges" style={{ zIndex: 3 }}>
+                                    {listing.ready_now ? (
+                                        <span className="mk-tag mk-tag-green">✓ {m("readyNow")}</span>
+                                    ) : (
+                                        <span className="mk-tag">
+                                            🗓️ {m("readyOn", { date: formatDay(listing.available_from, language) })}
+                                        </span>
+                                    )}
+                                    {listing.perishable && (
+                                        <span className="mk-tag mk-tag-amber">❄️ {m("fresh")}</span>
+                                    )}
+                                </div>
+                            </PhotoCarousel>
 
                             <h1>{name}</h1>
 
                             <div className="mk-card-meta" style={{ marginTop: 8, fontSize: 15 }}>
-                                📍 {place}
+                                📍 {place} {country?.flag}
                             </div>
 
                             <div className="mk-facts">
 
                                 <div className="mk-fact">
                                     <small>{m("perUnit", { unit: unitOne })}</small>
-                                    <strong>{formatAmount(listing.price_per_unit)} FCFA</strong>
+                                    <strong>{price}</strong>
                                 </div>
 
                                 <div className="mk-fact">
@@ -238,8 +263,8 @@ export default function ListingPage({ listing, siteUrl }) {
                             {priceStats && (
                                 <div className="mk-notice mk-notice-green" style={{ marginTop: 14 }}>
                                     📊 {m("marketPrice", {
-                                        low: formatAmount(priceStats.low),
-                                        high: formatAmount(priceStats.high),
+                                        low: formatMoney(priceStats.low, listing.currency),
+                                        high: formatMoney(priceStats.high, listing.currency),
                                         unit: unitOne,
                                         count: priceStats.count,
                                     })}
@@ -280,14 +305,9 @@ export default function ListingPage({ listing, siteUrl }) {
                                 </div>
                             )}
 
-                            <button
-                                type="button"
-                                className="mk-btn mk-btn-whatsapp"
-                                style={{ marginTop: 16 }}
-                                onClick={() => shareListingOnWhatsApp(listing, language)}
-                            >
-                                💬 {m("share")}
-                            </button>
+                            <div style={{ marginTop: 16 }}>
+                                <ShareSheet url={url} title={name} text={shareText} className="ts-btn ts-btn-light" />
+                            </div>
 
                         </article>
 
@@ -300,6 +320,30 @@ export default function ListingPage({ listing, siteUrl }) {
 
                     </div>
 
+
+                    {/* =============================================
+                        MORE LIKE THIS
+                    ============================================= */}
+
+                    {listing.related?.length > 0 && (
+                        <section style={{ paddingBottom: 60 }}>
+                            <div className="mk-section-head">
+                                <h2>
+                                    {language === "fr" ? "Autres offres de " : "More "}
+                                    {productName(listing, language).toLowerCase()}
+                                </h2>
+                                <Link href={`/market?product=${listing.product}&country=${listing.country}`} className="ts-link">
+                                    {language === "fr" ? "Tout voir" : "See all"} →
+                                </Link>
+                            </div>
+                            <div className="mk-grid">
+                                {listing.related.map((item) => (
+                                    <ProductCard key={item.id} listing={item} />
+                                ))}
+                            </div>
+                        </section>
+                    )}
+
                 </div>
 
 
@@ -308,19 +352,17 @@ export default function ListingPage({ listing, siteUrl }) {
                 {listing.visible && (
                     <div className="mk-mobile-cta">
                         <div className="mk-price" style={{ fontSize: 18 }}>
-                            {formatAmount(listing.price_per_unit)} FCFA <small>/ {unitOne}</small>
+                            {price} <small>/ {unitOne}</small>
                         </div>
-                        <a href="#order" className="mk-btn mk-btn-primary">
+                        <a href="#order" className="ts-btn ts-btn-primary ts-btn-sm">
                             🛒 {m("orderTitle")}
                         </a>
                     </div>
                 )}
 
-                <footer className="mk-footer">
-                    <strong>Tayeb Marché</strong> · {m("tagline")} · <Link href="/market">{m("market")}</Link>
-                </footer>
+                <SiteFooter />
 
-            </main>
+            </div>
         </>
     );
 }

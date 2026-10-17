@@ -4,6 +4,9 @@ import { ProductThumb } from "./ProductMedia";
 import { formatAmount, productName, unitName } from "../../lib/produce";
 import { useLanguage } from "../../lib/LanguageContext";
 import { formatDay, useMarketText } from "../../lib/marketText";
+import { findCountry, moneyBrands } from "../../lib/countries";
+import { formatMoney } from "../../lib/money";
+import { formatPhone, telHref } from "../../lib/phone";
 
 const PILL = {
     PENDING: "mk-pill-orange",
@@ -17,7 +20,7 @@ const PILL = {
 const DECLINE_REASONS = ["SOLD_OUT", "PRICE", "QUANTITY", "DATE", "OTHER"];
 
 function phoneLink(phone) {
-    return `tel:+237${phone}`;
+    return telHref(phone);
 }
 
 /*
@@ -143,12 +146,12 @@ export default function OrderCard({ order, role, onAction, busy }) {
 
                 <div>
                     <small>{m("total")}</small>
-                    <strong>{formatAmount(order.total_price)} FCFA</strong>
+                    <strong>{formatMoney(order.total_price, order.currency)}</strong>
                 </div>
 
                 <div>
                     <small>{m("perUnit", { unit: unitName(order.unit, language) })}</small>
-                    <strong>{formatAmount(order.price_per_unit)} FCFA</strong>
+                    <strong>{formatMoney(order.price_per_unit, order.currency)}</strong>
                 </div>
 
                 <div>
@@ -156,7 +159,7 @@ export default function OrderCard({ order, role, onAction, busy }) {
                     <strong>
                         {order.delivery_method === "PICKUP"
                             ? m("collectByBuyer")
-                            : `${order.delivery_area ? `${order.delivery_area}, ` : ""}${order.delivery_city}`}
+                            : `${order.delivery_area ? `${order.delivery_area}, ` : ""}${order.delivery_city}${order.delivery_country && order.delivery_country !== order.country && findCountry(order.delivery_country) ? ` ${findCountry(order.delivery_country).flag}` : ""}`}
                     </strong>
                 </div>
 
@@ -178,7 +181,7 @@ export default function OrderCard({ order, role, onAction, busy }) {
                 {order.delivery_budget > 0 && (
                     <div>
                         <small>{m("budgetLabel")}</small>
-                        <strong>{formatAmount(order.delivery_budget)} FCFA</strong>
+                        <strong>{formatMoney(order.delivery_budget, order.currency)}</strong>
                     </div>
                 )}
 
@@ -197,7 +200,7 @@ export default function OrderCard({ order, role, onAction, busy }) {
                             {other.phone_number ? (
                                 <>
                                     {" · "}
-                                    <a href={phoneLink(other.phone_number)}>{other.phone_number}</a>
+                                    <a href={phoneLink(other.phone_number)}>{formatPhone(other.phone_number)}</a>
                                 </>
                             ) : null}
                         </strong>
@@ -234,7 +237,7 @@ export default function OrderCard({ order, role, onAction, busy }) {
                     {delivery?.driver_phone && (
                         <>
                             {" · "}
-                            <a href={phoneLink(delivery.driver_phone)}>{delivery.driver_phone}</a>
+                            <a href={phoneLink(delivery.driver_phone)}>{formatPhone(delivery.driver_phone)}</a>
                         </>
                     )}
                 </div>
@@ -244,8 +247,9 @@ export default function OrderCard({ order, role, onAction, busy }) {
                 <div className="mk-notice mk-notice-green">
                     💵 {m("payFarmer", {
                         farmer: other.full_name,
-                        amount: formatAmount(order.total_price),
-                        phone: other.phone_number,
+                        amount: formatMoney(order.total_price, order.currency),
+                        phone: formatPhone(other.phone_number),
+                        brands: moneyBrands(order.country, language),
                     })}
                 </div>
             )}

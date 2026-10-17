@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 
 import { apiGet } from "../lib/api";
+import { formatMoney } from "../lib/money";
 import BrandLogo from "../components/BrandLogo";
 import { useLanguage } from "../lib/LanguageContext";
 
@@ -168,8 +169,8 @@ export default function AdminDashboard() {
             : "Market orders",
 
         marketSales: isFrench
-            ? "Ventes terminées (FCFA)"
-            : "Completed sales (FCFA)",
+            ? "Ventes terminées"
+            : "Completed sales",
 
         recentShipments: isFrench
             ? "Colis récents"
@@ -595,22 +596,42 @@ export default function AdminDashboard() {
                     ).length,
                 marketOrders:
                     orders.length,
+                // One total per currency: FCFA and naira don't add up.
                 marketSales:
-                    orders
-                        .filter(
-                            (order) =>
-                                order.status ===
-                                "COMPLETED"
+                    Object.entries(
+                        orders
+                            .filter(
+                                (order) =>
+                                    order.status ===
+                                    "COMPLETED"
+                            )
+                            .reduce(
+                                (sums, order) => {
+                                    const code =
+                                        order.currency ||
+                                        "XAF";
+
+                                    sums[code] =
+                                        (sums[code] || 0) +
+                                        Number(
+                                            order.total_price ||
+                                            0
+                                        );
+
+                                    return sums;
+                                },
+                                {}
+                            )
+                    )
+                        .map(
+                            ([code, total]) =>
+                                formatMoney(
+                                    total,
+                                    code
+                                )
                         )
-                        .reduce(
-                            (sum, order) =>
-                                sum +
-                                Number(
-                                    order.total_price ||
-                                    0
-                                ),
-                            0
-                        ),
+                        .join(" · ") ||
+                    "0",
             };
         }, [
             users,
@@ -1793,9 +1814,7 @@ function Overview({
                 <MiniStat
                     icon="🌾"
                     value={
-                        formatPrice(
-                            stats.marketSales
-                        )
+                        stats.marketSales
                     }
                     label={
                         text.marketSales
@@ -2984,7 +3003,7 @@ const adminStyles = `
     .tayeb-admin-access-error p {
         margin: 0;
         color: #9ca3af;
-        font-size: 10px;
+        font-size: 13px;
     }
 
     .tayeb-admin-spinner {
@@ -3050,13 +3069,13 @@ const adminStyles = `
 
     .tayeb-admin-brand-title strong {
         color: #111827;
-        font-size: 12px;
+        font-size: 14px;
         font-weight: 900;
     }
 
     .tayeb-admin-brand-title span {
         color: #9ca3af;
-        font-size: 7px;
+        font-size: 10px;
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: .12em;
@@ -3077,7 +3096,7 @@ const adminStyles = `
         color: #9ca3af;
         padding: 6px 8px;
         border-radius: 7px;
-        font-size: 8px;
+        font-size: 11px;
         font-weight: 900;
         cursor: pointer;
     }
@@ -3097,7 +3116,7 @@ const adminStyles = `
         border-radius: 10px;
         background: #ffffff;
         color: #374151;
-        font-size: 8px;
+        font-size: 11px;
         font-weight: 800;
         cursor: pointer;
     }
@@ -3126,7 +3145,7 @@ const adminStyles = `
     .tayeb-admin-avatar {
         width: 36px;
         height: 36px;
-        font-size: 10px;
+        font-size: 13px;
     }
 
     .tayeb-admin-layout {
@@ -3149,7 +3168,7 @@ const adminStyles = `
     .tayeb-admin-sidebar-title {
         padding: 0 12px 15px;
         color: #f97316;
-        font-size: 8px;
+        font-size: 11px;
         font-weight: 900;
         letter-spacing: .2em;
     }
@@ -3170,7 +3189,7 @@ const adminStyles = `
         background: transparent;
         color: #6b7280;
         text-align: left;
-        font-size: 9px;
+        font-size: 12px;
         font-weight: 800;
         cursor: pointer;
     }
@@ -3214,14 +3233,14 @@ const adminStyles = `
         border-radius: 8px;
         background: #f97316;
         color: white;
-        font-size: 9px;
+        font-size: 12px;
         font-weight: 900;
     }
 
     .tayeb-admin-free-card strong {
         display: block;
         color: #374151;
-        font-size: 8px;
+        font-size: 11px;
         font-weight: 900;
     }
 
@@ -3229,7 +3248,7 @@ const adminStyles = `
         display: block;
         margin-top: 3px;
         color: #9ca3af;
-        font-size: 7px;
+        font-size: 10px;
         line-height: 1.4;
     }
 
@@ -3240,7 +3259,7 @@ const adminStyles = `
         border-radius: 11px;
         background: #ffffff;
         color: #6b7280;
-        font-size: 8px;
+        font-size: 11px;
         font-weight: 800;
         cursor: pointer;
     }
@@ -3272,7 +3291,7 @@ const adminStyles = `
     .tayeb-admin-section-head > div > span,
     .tayeb-admin-panel-head > div > span {
         color: #f97316;
-        font-size: 8px;
+        font-size: 11px;
         font-weight: 900;
         letter-spacing: .18em;
     }
@@ -3289,7 +3308,7 @@ const adminStyles = `
     .tayeb-admin-heading p {
         margin: 10px 0 0;
         color: #6b7280;
-        font-size: 10px;
+        font-size: 13px;
     }
 
     .tayeb-admin-inline-error {
@@ -3302,7 +3321,7 @@ const adminStyles = `
         border-radius: 12px;
         background: #fef2f2;
         color: #b91c1c;
-        font-size: 9px;
+        font-size: 12px;
         font-weight: 800;
     }
 
@@ -3348,7 +3367,7 @@ const adminStyles = `
         display: block;
         margin-top: 5px;
         color: #9ca3af;
-        font-size: 7px;
+        font-size: 10px;
         font-weight: 800;
     }
 
@@ -3384,7 +3403,7 @@ const adminStyles = `
         display: block;
         margin-top: 2px;
         color: #9ca3af;
-        font-size: 7px;
+        font-size: 10px;
         font-weight: 800;
     }
 
@@ -3451,7 +3470,7 @@ const adminStyles = `
     }
 
     .tayeb-admin-user-avatar {
-        font-size: 9px;
+        font-size: 12px;
     }
 
     .tayeb-admin-list-main {
@@ -3463,7 +3482,7 @@ const adminStyles = `
         display: block;
         overflow: hidden;
         color: #111827;
-        font-size: 9px;
+        font-size: 12px;
         font-weight: 900;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -3474,7 +3493,7 @@ const adminStyles = `
         margin-top: 3px;
         overflow: hidden;
         color: #6b7280;
-        font-size: 8px;
+        font-size: 11px;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
@@ -3483,7 +3502,7 @@ const adminStyles = `
         display: block;
         margin-top: 3px;
         color: #9ca3af;
-        font-size: 7px;
+        font-size: 10px;
     }
 
     .tayeb-admin-list-side {
@@ -3496,18 +3515,18 @@ const adminStyles = `
 
     .tayeb-admin-list-side strong {
         color: #ea580c;
-        font-size: 9px;
+        font-size: 12px;
         font-weight: 900;
     }
 
     .tayeb-admin-list-side small {
         color: #9ca3af;
-        font-size: 7px;
+        font-size: 10px;
     }
 
     .tayeb-dot-status {
         color: #9ca3af;
-        font-size: 11px;
+        font-size: 13px;
     }
 
     .tayeb-dot-status.available {
@@ -3522,7 +3541,7 @@ const adminStyles = `
         min-height: 22px;
         padding: 0 8px;
         border-radius: 999px;
-        font-size: 7px;
+        font-size: 10px;
         font-weight: 900;
         white-space: nowrap;
     }
@@ -3580,7 +3599,7 @@ const adminStyles = `
         border-radius: 10px;
         background: #fff7ed;
         color: #ea580c;
-        font-size: 9px;
+        font-size: 12px;
         font-weight: 900;
     }
 
@@ -3593,7 +3612,7 @@ const adminStyles = `
         outline: none;
         background: white;
         color: #111827;
-        font-size: 8px;
+        font-size: 11px;
     }
 
     .tayeb-admin-search:focus {
@@ -3621,7 +3640,7 @@ const adminStyles = `
         border-bottom: 1px solid #e5e7eb;
         color: #9ca3af;
         text-align: left;
-        font-size: 7px;
+        font-size: 10px;
         font-weight: 900;
         text-transform: uppercase;
         letter-spacing: .08em;
@@ -3631,7 +3650,7 @@ const adminStyles = `
         padding: 14px 15px;
         border-bottom: 1px solid #f1f5f9;
         color: #4b5563;
-        font-size: 8px;
+        font-size: 11px;
         vertical-align: middle;
     }
 
@@ -3641,7 +3660,7 @@ const adminStyles = `
 
     .tayeb-admin-table td strong {
         color: #111827;
-        font-size: 8px;
+        font-size: 11px;
         font-weight: 900;
     }
 
@@ -3655,7 +3674,7 @@ const adminStyles = `
         display: block;
         margin-top: 4px;
         color: #9ca3af;
-        font-size: 7px;
+        font-size: 10px;
     }
 
     .tayeb-admin-empty {
@@ -3681,7 +3700,7 @@ const adminStyles = `
     .tayeb-admin-empty p {
         margin: 0;
         color: #9ca3af;
-        font-size: 9px;
+        font-size: 12px;
     }
 
     .tayeb-admin-notifications {
@@ -3720,14 +3739,14 @@ const adminStyles = `
     .tayeb-admin-notification-content strong {
         display: block;
         color: #111827;
-        font-size: 10px;
+        font-size: 13px;
         font-weight: 900;
     }
 
     .tayeb-admin-notification-content p {
         margin: 5px 0 0;
         color: #6b7280;
-        font-size: 9px;
+        font-size: 12px;
         line-height: 1.5;
     }
 
@@ -3735,7 +3754,7 @@ const adminStyles = `
         display: block;
         margin-top: 7px;
         color: #9ca3af;
-        font-size: 7px;
+        font-size: 10px;
     }
 
     @media (max-width: 1050px) {
@@ -3776,7 +3795,7 @@ const adminStyles = `
             border-radius: 10px;
             background: white;
             color: #6b7280;
-            font-size: 7px;
+            font-size: 10px;
             font-weight: 800;
             cursor: pointer;
         }

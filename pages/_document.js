@@ -1,26 +1,15 @@
 import { Html, Head, Main, NextScript } from "next/document";
 
+/*
+ * The page language (fr/en) comes from the address (i18n in
+ * next.config.mjs); app-wide tags live in _app.js and each
+ * page sets its own title, description and previews.
+ */
 export default function Document() {
   return (
-    <Html lang="en">
+    <Html>
       <Head>
-
-        <meta name="theme-color" content="#0f172a" />
-
-        {/* Each page sets its own description for search engines. */}
-
-        <link rel="manifest" href="/manifest.json" />
-
-        <link
-          rel="icon"
-          href="/branding/tayeb-icon.jpeg"
-        />
-
-        <link
-          rel="apple-touch-icon"
-          href="/branding/tayeb-icon-dark.jpeg"
-        />
-
+        <link rel="preload" href="/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
       </Head>
 
       <body className="antialiased">

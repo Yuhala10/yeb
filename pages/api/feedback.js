@@ -1,4 +1,5 @@
 import supabaseAdmin from "../../lib/supabaseAdmin";
+import { limitByIp } from "../../lib/server/guard";
 import { getSession } from "../../lib/server/session";
 
 const TYPES = ["SUGGESTION", "PROBLEM", "DISPUTE"];
@@ -10,6 +11,10 @@ export default async function handler(req, res) {
     if (req.method !== "POST") {
         res.setHeader("Allow", ["POST"]);
         return res.status(405).json({ error: "Method not allowed." });
+    }
+
+    if (limitByIp(req, res, "feedback", 10, 10 * 60 * 1000)) {
+        return;
     }
 
     const { type, message, phone } = req.body || {};

@@ -1,15 +1,21 @@
 {
+    "id": "/",
     "name": "Tayeb",
     "short_name": "Tayeb",
-    "description": "Move. Manage. Deliver.",
+    "description": "Tayeb — produits frais des fermes et transport de marchandises partout en Afrique. Farm produce and freight across Africa.",
     "start_url": "/",
     "scope": "/",
     "display": "standalone",
     "orientation": "portrait-primary",
     "background_color": "#ffffff",
     "theme_color": "#f97316",
-    "lang": "en",
+    "lang": "fr",
     "dir": "ltr",
+    "categories": [
+        "business",
+        "shopping",
+        "food"
+    ],
     "icons": [
         {
             "src": "/branding/tayeb-icon.jpeg",
@@ -22,6 +28,44 @@
             "sizes": "512x512",
             "type": "image/jpeg",
             "purpose": "any"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "Marché",
+            "short_name": "Marché",
+            "url": "/market",
+            "icons": [
+                {
+                    "src": "/branding/tayeb-icon.jpeg",
+                    "sizes": "192x192",
+                    "type": "image/jpeg"
+                }
+            ]
+        },
+        {
+            "name": "Publier un chargement",
+            "short_name": "Expédier",
+            "url": "/login?role=SHIPPER",
+            "icons": [
+                {
+                    "src": "/branding/tayeb-icon.jpeg",
+                    "sizes": "192x192",
+                    "type": "image/jpeg"
+                }
+            ]
+        },
+        {
+            "name": "Chargements pour chauffeurs",
+            "short_name": "Conduire",
+            "url": "/login?role=DRIVER",
+            "icons": [
+                {
+                    "src": "/branding/tayeb-icon.jpeg",
+                    "sizes": "192x192",
+                    "type": "image/jpeg"
+                }
+            ]
         }
     ]
 }

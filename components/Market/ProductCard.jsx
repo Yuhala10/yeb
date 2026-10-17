@@ -1,14 +1,17 @@
 import Link from "next/link";
 
 import ProductMedia from "./ProductMedia";
-import { formatAmount, productName, unitName } from "../../lib/produce";
+import { findCountry } from "../../lib/countries";
 import { useLanguage } from "../../lib/LanguageContext";
 import { formatDay, useMarketText } from "../../lib/marketText";
+import { formatMoney } from "../../lib/money";
+import { formatAmount, productName, unitName } from "../../lib/produce";
 
 /*
- * One listing in the market grid.
+ * One listing in the market grid: the cover photo (with how
+ * many photos there are), price, stock and the farmer.
  */
-export default function ProductCard({ listing }) {
+export default function ProductCard({ listing, showCountry = false, distanceKm = null }) {
     const { language } = useLanguage();
 
     const m = useMarketText();
@@ -16,6 +19,8 @@ export default function ProductCard({ listing }) {
     const farmer = listing.farmer;
 
     const firstName = String(farmer?.full_name || "").split(" ")[0];
+
+    const photoCount = listing.photos?.length || 0;
 
     return (
         <Link href={`/market/${listing.id}`} className="mk-card">
@@ -34,6 +39,10 @@ export default function ProductCard({ listing }) {
                         <span className="mk-tag mk-tag-amber">❄️ {m("fresh")}</span>
                     )}
                 </div>
+
+                {photoCount > 1 && (
+                    <span className="mk-photo-count">📷 {photoCount}</span>
+                )}
             </ProductMedia>
 
             <div className="mk-card-body">
@@ -44,10 +53,12 @@ export default function ProductCard({ listing }) {
 
                 <div className="mk-card-meta">
                     📍 {listing.area ? `${listing.area}, ` : ""}{listing.city}
+                    {showCountry && findCountry(listing.country) ? ` ${findCountry(listing.country).flag}` : ""}
+                    {distanceKm !== null ? ` · ~${distanceKm} km` : ""}
                 </div>
 
                 <div className="mk-price">
-                    {formatAmount(listing.price_per_unit)} FCFA{" "}
+                    {formatMoney(listing.price_per_unit, listing.currency)}{" "}
                     <small>/ {unitName(listing.unit, language)}</small>
                 </div>
 

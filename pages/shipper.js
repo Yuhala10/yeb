@@ -4,7 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 
 import { apiGet, apiPost, pollWhileVisible } from "../lib/api";
-import { CITY_NAMES } from "../lib/cities";
+import { cityNames } from "../lib/cities";
+import { countryOrDefault, sortedCountries } from "../lib/countries";
+import { formatMoney } from "../lib/money";
+import { formatPhone, telHref, whatsappHref } from "../lib/phone";
 import BrandLogo from "../components/BrandLogo";
 import Notifications from "../components/Notifications";
 import { useLanguage } from "../lib/LanguageContext";
@@ -48,6 +51,7 @@ export default function ShipperPage() {
         itemType: "Bags/Sacks",
         originCity: "",
         originArea: "",
+        destinationCountry: "",
         destinationCity: "",
         destinationArea: "",
         quantity: "",
@@ -860,7 +864,7 @@ export default function ShipperPage() {
                             color:
                                 "#6b7280",
                             fontSize:
-                                "12px",
+                                "14px",
                         }}
                     >
                         {t(
@@ -971,7 +975,7 @@ export default function ShipperPage() {
                                             ? "#f97316"
                                             : "#6b7280",
                                     fontSize:
-                                        "9px",
+                                        "12px",
                                     fontWeight:
                                         900,
                                     cursor:
@@ -1005,7 +1009,7 @@ export default function ShipperPage() {
                                             ? "#f97316"
                                             : "#6b7280",
                                     fontSize:
-                                        "9px",
+                                        "12px",
                                     fontWeight:
                                         900,
                                     cursor:
@@ -1116,7 +1120,7 @@ export default function ShipperPage() {
                                     color:
                                         "#6b7280",
                                     fontSize:
-                                        "13px",
+                                        "15px",
                                 }}
                             >
                                 {t(
@@ -1483,6 +1487,10 @@ export default function ShipperPage() {
                                             </label>
 
                                             <CityAndArea
+                                                country={
+                                                    user.country ||
+                                                    "CM"
+                                                }
                                                 city={
                                                     cargo.originCity
                                                 }
@@ -1525,7 +1533,61 @@ export default function ShipperPage() {
                                                 )}
                                             </label>
 
+                                            <select
+                                                className="tayeb-input"
+                                                value={
+                                                    cargo.destinationCountry ||
+                                                    user.country ||
+                                                    "CM"
+                                                }
+                                                onChange={(event) => {
+                                                    const nextCountry =
+                                                        event.target.value;
+
+                                                    setCargo((current) => ({
+                                                        ...current,
+                                                        destinationCountry:
+                                                            nextCountry,
+                                                        destinationCity:
+                                                            "",
+                                                    }));
+
+                                                    setRouteInfo(null);
+                                                }}
+                                                disabled={
+                                                    posting
+                                                }
+                                                aria-label={
+                                                    language === "fr"
+                                                        ? "Pays de livraison"
+                                                        : "Delivery country"
+                                                }
+                                                style={{
+                                                    marginBottom:
+                                                        "8px",
+                                                }}
+                                            >
+                                                {sortedCountries(language).map(
+                                                    (item) => (
+                                                        <option
+                                                            key={item.code}
+                                                            value={item.code}
+                                                        >
+                                                            {item.flag}{" "}
+                                                            {language === "fr"
+                                                                ? item.fr
+                                                                : item.en}
+                                                        </option>
+                                                    )
+                                                )}
+                                            </select>
+
                                             <CityAndArea
+                                                country={
+                                                    cargo.destinationCountry ||
+                                                    user.country ||
+                                                    "CM"
+                                                }
                                                 city={
                                                     cargo.destinationCity
                                                 }
@@ -1595,7 +1657,7 @@ export default function ShipperPage() {
                                                     color:
                                                         "#9ca3af",
                                                     fontSize:
-                                                        "10px",
+                                                        "13px",
                                                 }}
                                             >
                                                 {t(
@@ -1613,7 +1675,7 @@ export default function ShipperPage() {
                                                         color:
                                                             "#c2410c",
                                                         fontSize:
-                                                            "11px",
+                                                            "13px",
                                                         fontWeight:
                                                             800,
                                                     }}
@@ -1624,14 +1686,16 @@ export default function ShipperPage() {
                                                     )
                                                         .replace(
                                                             "{low}",
-                                                            formatPrice(
-                                                                routeInfo.hint.low
+                                                            formatMoney(
+                                                                routeInfo.hint.low,
+                                                                countryOrDefault(user?.country).currency
                                                             )
                                                         )
                                                         .replace(
                                                             "{high}",
-                                                            formatPrice(
-                                                                routeInfo.hint.high
+                                                            formatMoney(
+                                                                routeInfo.hint.high,
+                                                                countryOrDefault(user?.country).currency
                                                             )
                                                         )
                                                         .replace(
@@ -1651,7 +1715,7 @@ export default function ShipperPage() {
                                                         color:
                                                             "#6b7280",
                                                         fontSize:
-                                                            "11px",
+                                                            "13px",
                                                     }}
                                                 >
                                                     🛣️{" "}
@@ -1719,7 +1783,7 @@ export default function ShipperPage() {
                                                     color:
                                                         "#9ca3af",
                                                     fontSize:
-                                                        "10px",
+                                                        "13px",
                                                 }}
                                             >
                                                 {t(
@@ -1957,7 +2021,7 @@ export default function ShipperPage() {
                                     color:
                                         "#9ca3af",
                                     fontSize:
-                                        "12px",
+                                        "14px",
                                 }}
                             >
                                 {t(
@@ -2026,7 +2090,7 @@ export default function ShipperPage() {
                                                             color:
                                                                 "#6b7280",
                                                             fontSize:
-                                                                "11px",
+                                                                "13px",
                                                         }}
                                                     >
                                                         {
@@ -2097,7 +2161,7 @@ export default function ShipperPage() {
                                 color:
                                     "#9ca3af",
                                 fontSize:
-                                    "9px",
+                                    "12px",
                                 fontWeight:
                                     700,
                             }}
@@ -2213,7 +2277,7 @@ function ShipmentSection({
                             color:
                                 "#9ca3af",
                             fontSize:
-                                "9px",
+                                "12px",
                             fontWeight:
                                 800,
                             textTransform:
@@ -2349,11 +2413,11 @@ function ShipmentSection({
                 </span>
 
                 <span className="tayeb-badge tayeb-badge-orange">
-                    {formatPrice(
+                    {formatMoney(
                         shipment.agreed_price ??
-                        shipment.initial_offer
-                    )}{" "}
-                    FCFA
+                        shipment.initial_offer,
+                        shipment.currency
+                    )}
                 </span>
 
             </div>
@@ -2415,7 +2479,7 @@ function ShipmentSection({
                                     color:
                                         "#111827",
                                     fontSize:
-                                        "13px",
+                                        "15px",
                                 }}
                             >
                                 {
@@ -2432,7 +2496,7 @@ function ShipmentSection({
                                     color:
                                         "#6b7280",
                                     fontSize:
-                                        "10px",
+                                        "13px",
                                 }}
                             >
                                 {matched.rating_count
@@ -2483,8 +2547,25 @@ function ShipmentSection({
                             }
                             value={
                                 matched.phone_number ||
-                                shipment.driver_phone ||
-                                "—"
+                                shipment.driver_phone ? (
+                                    <a
+                                        href={telHref(
+                                            matched.phone_number ||
+                                            shipment.driver_phone
+                                        )}
+                                        style={{
+                                            color:
+                                                "#ea580c",
+                                        }}
+                                    >
+                                        {formatPhone(
+                                            matched.phone_number ||
+                                            shipment.driver_phone
+                                        )}
+                                    </a>
+                                ) : (
+                                    "—"
+                                )
                             }
                         />
 
@@ -2551,7 +2632,7 @@ function ShipmentSection({
                                     color:
                                         "#1e3a8a",
                                     fontSize:
-                                        "12px",
+                                        "14px",
                                     fontWeight:
                                         800,
                                 }}
@@ -2588,7 +2669,7 @@ function ShipmentSection({
                                 color:
                                     "#1e40af",
                                 fontSize:
-                                    "11px",
+                                    "13px",
                                 lineHeight:
                                     1.5,
                             }}
@@ -2599,9 +2680,9 @@ function ShipmentSection({
                         </p>
 
                         <a
-                            href={`https://wa.me/${shipment.receiver_phone
-                                ? `237${shipment.receiver_phone}`
-                                : ""
+                            href={`${shipment.receiver_phone
+                                ? whatsappHref(shipment.receiver_phone)
+                                : "https://wa.me/"
                                 }?text=${encodeURIComponent(
                                     t(
                                         "shipper.codeMessage"
@@ -2668,7 +2749,7 @@ function ShipmentSection({
                             color:
                                 "#c2410c",
                             fontSize:
-                                "11px",
+                                "13px",
                             fontWeight:
                                 800,
                             lineHeight:
@@ -2701,7 +2782,7 @@ function ShipmentSection({
                             color:
                                 "#166534",
                             fontSize:
-                                "11px",
+                                "13px",
                             fontWeight:
                                 800,
                         }}
@@ -2835,7 +2916,7 @@ function ShipmentSection({
                                     color:
                                         "#9ca3af",
                                     fontSize:
-                                        "11px",
+                                        "13px",
                                     textAlign:
                                         "center",
                                 }}
@@ -2867,6 +2948,9 @@ function ShipmentSection({
                                             bid
                                         ) => (
                                             <BidCard
+                                                currency={
+                                                    shipment.currency
+                                                }
                                                 key={
                                                     bid.id
                                                 }
@@ -2934,7 +3018,7 @@ function ShipmentSection({
                                     color:
                                         "#115e59",
                                     fontSize:
-                                        "11px",
+                                        "13px",
                                     lineHeight:
                                         1.5,
                                 }}
@@ -2977,7 +3061,7 @@ function ShipmentSection({
                                     color:
                                         "#6b7280",
                                     fontSize:
-                                        "11px",
+                                        "13px",
                                     fontWeight:
                                         700,
                                 }}
@@ -2988,14 +3072,16 @@ function ShipmentSection({
                                 )
                                     .replace(
                                         "{low}",
-                                        formatPrice(
-                                            shipment.price_hint.low
+                                        formatMoney(
+                                            shipment.price_hint.low,
+                                            shipment.currency
                                         )
                                     )
                                     .replace(
                                         "{high}",
-                                        formatPrice(
-                                            shipment.price_hint.high
+                                        formatMoney(
+                                            shipment.price_hint.high,
+                                            shipment.currency
                                         )
                                     )
                                     .replace(
@@ -3121,7 +3207,7 @@ function TrackingMap({
                             color:
                                 "#111827",
                             fontSize:
-                                "12px",
+                                "14px",
                         }}
                     >
                         📡{" "}
@@ -3148,7 +3234,7 @@ function TrackingMap({
                                     color:
                                         "#6b7280",
                                     fontSize:
-                                        "11px",
+                                        "13px",
                                 }}
                             >
                                 {t(
@@ -3196,6 +3282,7 @@ function TrackingMap({
 
 function BidCard({
     bid,
+    currency,
     formatPrice,
     selectedBid,
     setSelectedBid,
@@ -3279,13 +3366,10 @@ function BidCard({
 
                 <div className="tayeb-price">
 
-                    {formatPrice(
-                        price
+                    {formatMoney(
+                        price,
+                        currency
                     )}
-
-                    <small>
-                        FCFA
-                    </small>
 
                 </div>
 
@@ -3348,7 +3432,7 @@ function BidCard({
                         color:
                             "#6b7280",
                         fontSize:
-                            "10px",
+                            "13px",
                     }}
                 >
                     {bid.note}
@@ -3375,7 +3459,7 @@ function BidCard({
                             color:
                                 "#c2410c",
                             fontSize:
-                                "10px",
+                                "13px",
                             fontWeight:
                                 800,
                         }}
@@ -3566,7 +3650,7 @@ function InfoBox({
                     color:
                         "#9ca3af",
                     fontSize:
-                        "8px",
+                        "11px",
                     fontWeight:
                         800,
                     textTransform:
@@ -3585,7 +3669,7 @@ function InfoBox({
                     color:
                         "#374151",
                     fontSize:
-                        "10px",
+                        "13px",
                 }}
             >
                 {value}
@@ -3604,6 +3688,7 @@ function InfoBox({
  */
 
 function CityAndArea({
+    country,
     city,
     area,
     onCity,
@@ -3639,7 +3724,7 @@ function CityAndArea({
                     )}
                 </option>
 
-                {CITY_NAMES.map(
+                {cityNames(country).map(
                     (cityName) => (
                         <option
                             key={cityName}
@@ -3695,7 +3780,7 @@ function RateDriver({
                     color:
                         "#92400e",
                     fontSize:
-                        "12px",
+                        "14px",
                     fontWeight:
                         800,
                 }}
@@ -3735,7 +3820,7 @@ function RateDriver({
                     color:
                         "#374151",
                     fontSize:
-                        "12px",
+                        "14px",
                     fontWeight:
                         800,
                     marginRight:
@@ -3766,7 +3851,7 @@ function RateDriver({
                             padding:
                                 "0 10px",
                             fontSize:
-                                "13px",
+                                "15px",
                         }}
                     >
                         {stars} ★

@@ -1,12 +1,17 @@
 -- ============================================================
--- TAYEB MARCHÉ — FARM MARKET TABLES
+-- TAYEB UPGRADE: MARKET, AFRICA-WIDE, MULTI-PHOTO
 -- ============================================================
 -- Run once in Supabase → SQL Editor → New query → Run, in the
--- project where supabase/schema.sql already ran.
--- Safe to run again: it only creates what's missing.
+-- project where supabase/schema.sql already ran. Safe to run
+-- again, and safe if supabase/marche.sql already ran.
 --
--- Until this runs, the market pages say "opening soon" and
--- the rest of Tayeb works as before.
+-- Adds: Tayeb Marché (farmers, products, orders, photos),
+-- countries and currencies across Africa, several photos per
+-- product, notification links and "tell me when available"
+-- alerts.
+--
+-- Until this runs, Tayeb keeps working as before and the
+-- market pages say "opening soon".
 
 
 -- ============================================================
@@ -175,14 +180,98 @@ on conflict (id) do update
         allowed_mime_types = excluded.allowed_mime_types;
 
 
+
+
+-- ============================================================
+-- AFRICA-WIDE: COUNTRY AND CURRENCY
+-- ============================================================
+-- Everything before this upgrade was in Cameroon (CM, XAF).
+
+alter table public.users add column if not exists country text default 'CM';
+update public.users set country = 'CM' where country is null;
+
+alter table public.products add column if not exists country text not null default 'CM';
+alter table public.products add column if not exists currency text not null default 'XAF';
+
+alter table public.orders add column if not exists country text not null default 'CM';
+alter table public.orders add column if not exists currency text not null default 'XAF';
+alter table public.orders add column if not exists delivery_country text;
+
+alter table public.shipments add column if not exists country text not null default 'CM';
+alter table public.shipments add column if not exists currency text not null default 'XAF';
+
+-- Phone numbers are now international digits: 681731512 → 237681731512.
+-- Skipped when the international form already belongs to another account.
+update public.users as u
+set phone_number = '237' || u.phone_number
+where u.phone_number ~ '^[26][0-9]{8}$'
+  and not exists (
+      select 1 from public.users as other
+      where other.phone_number = '237' || u.phone_number and other.id <> u.id
+  );
+
+
+-- ============================================================
+-- SEVERAL PHOTOS PER PRODUCT
+-- ============================================================
+-- photos: [{ "url": "...", "path": "..." }, …], first = cover.
+
+alter table public.products add column if not exists photos jsonb not null default '[]'::jsonb;
+
+update public.products
+set photos = jsonb_build_array(jsonb_build_object('url', photo_url, 'path', photo_path))
+where photo_url is not null and photos = '[]'::jsonb;
+
+
+-- ============================================================
+-- NOTIFICATIONS OPEN THE RIGHT PAGE
+-- ============================================================
+
+alter table public.notifications add column if not exists link text;
+
+
+-- ============================================================
+-- "TELL ME WHEN IT'S AVAILABLE"
+-- ============================================================
+
+create table if not exists public.market_alerts (
+    id uuid primary key default gen_random_uuid(),
+    user_id uuid not null references public.users (id) on delete cascade,
+    product text not null,
+    country text not null default 'CM',
+    city text,
+    last_notified_at timestamptz,
+    created_at timestamptz not null default now()
+);
+
+create unique index if not exists market_alerts_unique_idx
+    on public.market_alerts (user_id, product, country, coalesce(city, ''));
+create index if not exists market_alerts_match_idx on public.market_alerts (product, country);
+
+alter table public.market_alerts enable row level security;
+revoke all on public.market_alerts from anon, authenticated;
+grant all on public.market_alerts to service_role;
+
+
+-- ============================================================
+-- INDEXES FOR COUNTRIES
+-- ============================================================
+
+create index if not exists products_country_idx on public.products (country, status, created_at desc);
+create index if not exists products_country_product_idx on public.products (country, product);
+create index if not exists shipments_country_idx on public.shipments (country, status);
+
+
 -- ============================================================
 -- CHECK
 -- ============================================================
--- Should show products and orders with rowsecurity = true,
--- and the produce bucket as public.
+-- Should list 9 tables, all with rowsecurity = true, and the
+-- produce bucket as public.
 
 select tablename, rowsecurity
 from pg_tables
-where schemaname = 'public' and tablename in ('products', 'orders');
+where schemaname = 'public'
+  and tablename in ('users', 'shipments', 'bids', 'notifications', 'feedback', 'subscriptions', 'products', 'orders', 'market_alerts')
+order by tablename;
 
 select id, public from storage.buckets where id = 'produce';

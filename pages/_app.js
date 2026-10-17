@@ -1,6 +1,7 @@
 import Head from "next/head";
 import "../styles/globals.css";
 import "../styles/market.css";
+import "../styles/site.css";
 
 import { LanguageProvider } from "../lib/LanguageContext";
 import ServiceWorkerRegistration from "../components/ServiceWorkerRegistration";
@@ -21,15 +22,10 @@ export default function App({ Component, pageProps }) {
           name="apple-mobile-web-app-title"
           content="Tayeb"
         />
-
-        <meta
-          name="description"
-          content="Tayeb makes it simple to send cargo, find drivers, agree on a price, and manage deliveries."
-        />
-
         <meta
           name="theme-color"
           content="#f97316"
+          key="theme-color"
         />
 
         <meta
@@ -46,10 +42,10 @@ export default function App({ Component, pageProps }) {
           name="apple-mobile-web-app-status-bar-style"
           content="default"
         />
-
         <meta
           name="viewport"
           content="width=device-width, initial-scale=1, viewport-fit=cover"
+          key="viewport"
         />
 
         <link

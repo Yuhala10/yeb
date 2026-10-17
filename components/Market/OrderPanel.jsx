@@ -3,10 +3,13 @@ import { useRouter } from "next/router";
 import { useState } from "react";
 
 import { apiGet, apiPost } from "../../lib/api";
-import { CITY_NAMES } from "../../lib/cities";
+import { cityNames } from "../../lib/cities";
+import { countryOrDefault, sortedCountries, todayIn } from "../../lib/countries";
+import { currencySymbol, formatMoney } from "../../lib/money";
+import { formatPhone } from "../../lib/phone";
 import { useLanguage } from "../../lib/LanguageContext";
 import { marketError, useMarketText } from "../../lib/marketText";
-import { cameroonToday, formatAmount, unitName } from "../../lib/produce";
+import { formatAmount, unitName } from "../../lib/produce";
 import { loginThenReturn } from "../../lib/useSession";
 
 /*
@@ -30,6 +33,13 @@ export default function OrderPanel({ listing, user, loading }) {
     const [quantity, setQuantity] = useState(String(Math.min(minimum, available) || 1));
 
     const [method, setMethod] = useState("TAYEB");
+
+    const listingCountry = countryOrDefault(listing.country);
+
+    const currency = listing.currency || listingCountry.currency;
+
+    // Delivery can cross a border; the farm's country first.
+    const [deliveryCountry, setDeliveryCountry] = useState(listingCountry.code);
 
     const [city, setCity] = useState("");
 
@@ -133,6 +143,7 @@ export default function OrderPanel({ listing, user, loading }) {
                 productId: listing.id,
                 quantity: amount,
                 deliveryMethod: method,
+                deliveryCountry,
                 deliveryCity: city,
                 deliveryArea: area,
                 receiverPhone,
@@ -211,7 +222,7 @@ export default function OrderPanel({ listing, user, loading }) {
 
             <div className="mk-panel-price">
                 <div className="mk-price" style={{ fontSize: 26 }}>
-                    {formatAmount(listing.price_per_unit)} FCFA <small>/ {unitOne}</small>
+                    {formatMoney(listing.price_per_unit, currency)} <small>/ {unitOne}</small>
                 </div>
                 <span className="mk-pill mk-pill-green">
                     {formatAmount(available)} {unitName(listing.unit, language, available)}
@@ -272,10 +283,10 @@ export default function OrderPanel({ listing, user, loading }) {
                     {m("orderSummary", {
                         quantity: formatAmount(amount),
                         unit: unitMany,
-                        price: formatAmount(listing.price_per_unit),
+                        price: formatMoney(listing.price_per_unit, currency),
                     })}
                 </span>
-                <strong>{formatAmount(total)} FCFA</strong>
+                <strong>{formatMoney(total, currency)}</strong>
             </div>
 
 
@@ -313,6 +324,23 @@ export default function OrderPanel({ listing, user, loading }) {
                                 <label htmlFor="order-city">{m("deliverTo")}</label>
 
                                 <select
+                                    className="mk-select"
+                                    value={deliveryCountry}
+                                    aria-label={language === "fr" ? "Pays de livraison" : "Delivery country"}
+                                    onChange={(event) => {
+                                        setDeliveryCountry(event.target.value);
+                                        setCity("");
+                                        setRouteInfo(null);
+                                    }}
+                                >
+                                    {sortedCountries(language).map((item) => (
+                                        <option key={item.code} value={item.code}>
+                                            {item.flag} {language === "fr" ? item.fr : item.en}
+                                        </option>
+                                    ))}
+                                </select>
+
+                                <select
                                     id="order-city"
                                     className="mk-select"
                                     value={city}
@@ -320,7 +348,7 @@ export default function OrderPanel({ listing, user, loading }) {
                                     onChange={(event) => chooseCity(event.target.value)}
                                 >
                                     <option value="">{m("chooseCity")}</option>
-                                    {CITY_NAMES.map((name) => (
+                                    {cityNames(deliveryCountry).map((name) => (
                                         <option key={name} value={name}>{name}</option>
                                     ))}
                                 </select>
@@ -336,7 +364,7 @@ export default function OrderPanel({ listing, user, loading }) {
 
                             <div className="mk-row">
                                 <div className="mk-field">
-                                    <label htmlFor="order-budget">{m("budget")}</label>
+                                    <label htmlFor="order-budget">{m("budget", { currency: currencySymbol(currency) })}</label>
                                     <input
                                         id="order-budget"
                                         className="mk-input"
@@ -356,7 +384,7 @@ export default function OrderPanel({ listing, user, loading }) {
                                         inputMode="tel"
                                         value={receiverPhone}
                                         onChange={(event) => setReceiverPhone(event.target.value)}
-                                        placeholder={user.phone_number || "6XX XXX XXX"}
+                                        placeholder={formatPhone(user.phone_number) || "+237 6XX XXX XXX"}
                                     />
                                 </div>
                             </div>
@@ -369,8 +397,8 @@ export default function OrderPanel({ listing, user, loading }) {
                                         {" · "}
                                         <strong style={{ color: "#c2410c" }}>
                                             {m("budgetUsual", {
-                                                low: formatAmount(routeInfo.hint.low),
-                                                high: formatAmount(routeInfo.hint.high),
+                                                low: formatMoney(routeInfo.hint.low, currency),
+                                                high: formatMoney(routeInfo.hint.high, currency),
                                                 count: routeInfo.hint.count,
                                             })}
                                         </strong>
@@ -408,7 +436,7 @@ export default function OrderPanel({ listing, user, loading }) {
                                 id="order-needed"
                                 type="date"
                                 className="mk-input"
-                                min={cameroonToday()}
+                                min={todayIn(listingCountry.code)}
                                 value={neededBy}
                                 onChange={(event) => setNeededBy(event.target.value)}
                             />
@@ -443,7 +471,7 @@ export default function OrderPanel({ listing, user, loading }) {
                 {sending ? (
                     <span className="tayeb-spinner" />
                 ) : isBuyer ? (
-                    <>🛒 {m("placeOrder")} · {formatAmount(total)} FCFA</>
+                    <>🛒 {m("placeOrder")} · {formatMoney(total, currency)}</>
                 ) : (
                     <>{m("loginToOrder")} →</>
                 )}

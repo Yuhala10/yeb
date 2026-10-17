@@ -3,7 +3,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 
 import { apiGet, apiPost, pollWhileVisible } from "../lib/api";
-import { CITY_NAMES, distanceKm } from "../lib/cities";
+import { cityNames, distanceKm } from "../lib/cities";
+import { formatMoney } from "../lib/money";
+import { formatPhone, telHref } from "../lib/phone";
 import { useLanguage } from "../lib/LanguageContext";
 import BrandLogo from "../components/BrandLogo";
 import Notifications from "../components/Notifications";
@@ -1030,7 +1032,7 @@ export default function DriverPage() {
                                             ? "#f97316"
                                             : "#6b7280",
                                     fontSize:
-                                        "9px",
+                                        "12px",
                                     fontWeight:
                                         900,
                                     cursor:
@@ -1064,7 +1066,7 @@ export default function DriverPage() {
                                             ? "#f97316"
                                             : "#6b7280",
                                     fontSize:
-                                        "9px",
+                                        "12px",
                                     fontWeight:
                                         900,
                                     cursor:
@@ -1175,7 +1177,7 @@ export default function DriverPage() {
                                     color:
                                         "#6b7280",
                                     fontSize:
-                                        "13px",
+                                        "15px",
                                 }}
                             >
                                 {t(
@@ -1292,7 +1294,7 @@ export default function DriverPage() {
                                                     ? "#16a34a"
                                                     : "#9ca3af",
                                             fontSize:
-                                                "10px",
+                                                "13px",
                                             fontWeight:
                                                 800,
                                         }}
@@ -1361,7 +1363,7 @@ export default function DriverPage() {
                                     color:
                                         "#111827",
                                     fontSize:
-                                        "13px",
+                                        "15px",
                                     fontWeight:
                                         800,
                                 }}
@@ -1401,7 +1403,7 @@ export default function DriverPage() {
                                     )}
                                 </option>
 
-                                {CITY_NAMES.map(
+                                {cityNames(user.country || "CM").map(
                                     (cityName) => (
                                         <option
                                             key={cityName}
@@ -1420,7 +1422,7 @@ export default function DriverPage() {
                                     color:
                                         "#6b7280",
                                     fontSize:
-                                        "11px",
+                                        "13px",
                                 }}
                             >
                                 {t(
@@ -1886,7 +1888,7 @@ export default function DriverPage() {
                                                 color:
                                                     "#9a3412",
                                                 fontSize:
-                                                    "9px",
+                                                    "12px",
                                                 fontWeight:
                                                     800,
                                             }}
@@ -1908,10 +1910,10 @@ export default function DriverPage() {
                                                     "20px",
                                             }}
                                         >
-                                            {formatPrice(
-                                                selectedShipment.initial_offer
-                                            )}{" "}
-                                            FCFA
+                                            {formatMoney(
+                                                selectedShipment.initial_offer,
+                                                selectedShipment.currency
+                                            )}
                                         </strong>
 
                                     </div>
@@ -1959,7 +1961,7 @@ export default function DriverPage() {
                                                     color:
                                                         "#9ca3af",
                                                     fontSize:
-                                                        "10px",
+                                                        "13px",
                                                 }}
                                             >
                                                 {t(
@@ -2159,7 +2161,7 @@ export default function DriverPage() {
                                             color:
                                                 "#9a3412",
                                             fontSize:
-                                                "9px",
+                                                "12px",
                                             fontWeight:
                                                 800,
                                         }}
@@ -2181,10 +2183,10 @@ export default function DriverPage() {
                                                 "27px",
                                         }}
                                     >
-                                        {formatPrice(
-                                            counterBid.counter_price
-                                        )}{" "}
-                                        FCFA
+                                        {formatMoney(
+                                            counterBid.counter_price,
+                                            shipments.find((item) => item.id === counterBid.shipment_id)?.currency
+                                        )}
                                     </strong>
 
                                 </div>
@@ -2355,7 +2357,7 @@ export default function DriverPage() {
                                                                 color:
                                                                     "#111827",
                                                                 fontSize:
-                                                                    "13px",
+                                                                    "15px",
                                                             }}
                                                         >
                                                             {
@@ -2370,7 +2372,7 @@ export default function DriverPage() {
                                                                 color:
                                                                     "#6b7280",
                                                                 fontSize:
-                                                                    "10px",
+                                                                    "13px",
                                                             }}
                                                         >
                                                             {
@@ -2431,7 +2433,7 @@ export default function DriverPage() {
                                 color:
                                     "#9ca3af",
                                 fontSize:
-                                    "9px",
+                                    "12px",
                                 fontWeight:
                                     700,
                             }}
@@ -2537,7 +2539,7 @@ function CargoCard({
                             color:
                                 "#9ca3af",
                             fontSize:
-                                "9px",
+                                "12px",
                             fontWeight:
                                 800,
                             marginBottom:
@@ -2595,7 +2597,7 @@ function CargoCard({
                         color:
                             "#166534",
                         fontSize:
-                            "12px",
+                            "14px",
                         fontWeight:
                             800,
                         lineHeight:
@@ -2652,7 +2654,7 @@ function CargoCard({
                                 ? "#065f46"
                                 : "#1e40af",
                         fontSize:
-                            "12px",
+                            "14px",
                         fontWeight:
                             800,
                     }}
@@ -2744,10 +2746,10 @@ function CargoCard({
                 </span>
 
                 <span className="tayeb-badge tayeb-badge-orange">
-                    {formatPrice(
-                        shipment.initial_offer
-                    )}{" "}
-                    FCFA
+                    {formatMoney(
+                        shipment.initial_offer,
+                        shipment.currency
+                    )}
                 </span>
 
                 {shipment.route_km > 0 && (
@@ -2786,7 +2788,7 @@ function CargoCard({
                         color:
                             "#6b7280",
                         fontSize:
-                            "11px",
+                            "13px",
                         fontWeight:
                             700,
                     }}
@@ -2797,14 +2799,16 @@ function CargoCard({
                     )
                         .replace(
                             "{low}",
-                            formatPrice(
-                                shipment.price_hint.low
+                            formatMoney(
+                                shipment.price_hint.low,
+                                shipment.currency
                             )
                         )
                         .replace(
                             "{high}",
-                            formatPrice(
-                                shipment.price_hint.high
+                            formatMoney(
+                                shipment.price_hint.high,
+                                shipment.currency
                             )
                         )
                         .replace(
@@ -2844,7 +2848,7 @@ function CargoCard({
                             color:
                                 "#9ca3af",
                             fontSize:
-                                "8px",
+                                "11px",
                             fontWeight:
                                 800,
                         }}
@@ -2870,12 +2874,12 @@ function CargoCard({
                                 "18px",
                         }}
                     >
-                        {formatPrice(
+                        {formatMoney(
                             hasCounter
                                 ? bid.counter_price
-                                : bid.proposed_price
-                        )}{" "}
-                        FCFA
+                                : bid.proposed_price,
+                            shipment.currency
+                        )}
                     </strong>
 
                     {bid.eta && (
@@ -2888,7 +2892,7 @@ function CargoCard({
                                 color:
                                     "#6b7280",
                                 fontSize:
-                                    "10px",
+                                    "13px",
                             }}
                         >
                             {t(
@@ -3114,10 +3118,10 @@ function ActiveDelivery({
             >
 
                 <span className="tayeb-badge tayeb-badge-orange">
-                    {formatPrice(
-                        shipment.agreed_price
-                    )}{" "}
-                    FCFA
+                    {formatMoney(
+                        shipment.agreed_price,
+                        shipment.currency
+                    )}
                 </span>
 
                 <span className="tayeb-badge tayeb-badge-gray">
@@ -3167,7 +3171,7 @@ function ActiveDelivery({
                             color:
                                 "#166534",
                             fontSize:
-                                "12px",
+                                "14px",
                         }}
                     >
                         🌾 {t(
@@ -3186,7 +3190,7 @@ function ActiveDelivery({
                                 color:
                                     "#166534",
                                 fontSize:
-                                    "11px",
+                                    "13px",
                                 lineHeight:
                                     1.5,
                             }}
@@ -3198,7 +3202,7 @@ function ActiveDelivery({
                     )}
 
                     <a
-                        href={`tel:+237${shipment.pickup_phone}`}
+                        href={telHref(shipment.pickup_phone)}
                         className="tayeb-button tayeb-button-success tayeb-button-full"
                         style={{
                             marginTop:
@@ -3210,7 +3214,7 @@ function ActiveDelivery({
                         📞 {t(
                             "driver.callFarmer"
                         )}{" "}
-                        · {shipment.pickup_phone}
+                        · {formatPhone(shipment.pickup_phone)}
                     </a>
                 </div>
             )}
@@ -3220,7 +3224,7 @@ function ActiveDelivery({
 
             {shipment.receiver_phone && (
                 <a
-                    href={`tel:+237${shipment.receiver_phone}`}
+                    href={telHref(shipment.receiver_phone)}
                     className="tayeb-button tayeb-button-light tayeb-button-full"
                     style={{
                         marginTop:
@@ -3233,7 +3237,7 @@ function ActiveDelivery({
                     {t(
                         "driver.callReceiver"
                     )}{" "}
-                    · {shipment.receiver_phone}
+                    · {formatPhone(shipment.receiver_phone)}
                 </a>
             )}
 
@@ -3263,7 +3267,7 @@ function ActiveDelivery({
                             color:
                                 "#111827",
                             fontSize:
-                                "12px",
+                                "14px",
                         }}
                     >
                         {t(
@@ -3309,17 +3313,13 @@ function ActiveDelivery({
                                     .shipper
                                     .phone_number ? (
                                     <a
-                                        href={`tel:+237${shipment.shipper.phone_number}`}
+                                        href={telHref(shipment.shipper.phone_number)}
                                         style={{
                                             color:
                                                 "#ea580c",
                                         }}
                                     >
-                                        {
-                                            shipment
-                                                .shipper
-                                                .phone_number
-                                        }
+                                        {formatPhone(shipment.shipper.phone_number)}
                                     </a>
                                 ) : (
                                     "—"
@@ -3356,7 +3356,7 @@ function ActiveDelivery({
                                     ? "#166534"
                                     : "#92400e",
                             fontSize:
-                                "12px",
+                                "14px",
                             fontWeight:
                                 700,
                             lineHeight:
@@ -3472,7 +3472,7 @@ function ActiveDelivery({
                                 color:
                                     "#991b1b",
                                 fontSize:
-                                    "12px",
+                                    "14px",
                                 fontWeight:
                                     700,
                             }}
@@ -3541,7 +3541,7 @@ function ActiveDelivery({
                                             color:
                                                 "#6b7280",
                                             fontSize:
-                                                "11px",
+                                                "13px",
                                         }}
                                     >
                                         {t(
@@ -3605,7 +3605,7 @@ function InfoBox({
                     color:
                         "#9ca3af",
                     fontSize:
-                        "8px",
+                        "11px",
                     fontWeight:
                         800,
                     marginBottom:
@@ -3622,7 +3622,7 @@ function InfoBox({
                     color:
                         "#374151",
                     fontSize:
-                        "10px",
+                        "13px",
                     wordBreak:
                         "break-word",
                 }}

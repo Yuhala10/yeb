@@ -1,22 +1,28 @@
+import { siteOrigin } from "../lib/seo";
+
 /*
  * /robots.txt: public pages are open to search engines;
- * dashboards and the API are not. Points to the sitemap on
- * whatever domain Tayeb is served from.
+ * dashboards and the API are not (in both languages). The
+ * preview card images stay open so link previews work.
+ * Points to the sitemap on whatever domain Tayeb is served
+ * from.
+ *
+ * Unlisted pages (the staff entrance) are deliberately not
+ * named here, since robots.txt is public: they carry noindex.
  */
-export async function getServerSideProps({ req, res }) {
-    const protocol = String(req.headers["x-forwarded-proto"] || "http").split(",")[0];
-    const host = req.headers["x-forwarded-host"] || req.headers.host;
+const PRIVATE = ["/admin", "/driver", "/shipper", "/farmer"];
 
+export async function getServerSideProps({ req, res }) {
     const body = [
         "User-agent: *",
         "Allow: /",
+        "Allow: /api/og",
         "Disallow: /api/",
-        "Disallow: /admin",
-        "Disallow: /driver",
-        "Disallow: /shipper",
-        "Disallow: /farmer",
+        ...PRIVATE.flatMap((path) => [`Disallow: ${path}`, `Disallow: /en${path}`]),
+        "Disallow: /*?q=",
+        "Disallow: /*&q=",
         "",
-        `Sitemap: ${protocol}://${host}/sitemap.xml`,
+        `Sitemap: ${siteOrigin(req)}/sitemap.xml`,
         "",
     ].join("\n");
 

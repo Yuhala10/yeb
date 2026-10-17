@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ProductThumb } from "./ProductMedia";
 import { useLanguage } from "../../lib/LanguageContext";
 import { formatDay, useMarketText } from "../../lib/marketText";
+import { formatMoney } from "../../lib/money";
 import { formatAmount, productName, unitName } from "../../lib/produce";
 import { shareListingOnWhatsApp } from "../../lib/shareLoad";
 
@@ -38,7 +39,7 @@ export default function FarmerProductRow({ product, busy, onEdit, onStatus }) {
 
                 <div className="mk-card-meta" style={{ marginTop: 4 }}>
                     <strong style={{ color: "#0f172a" }}>
-                        {formatAmount(product.price_per_unit)} FCFA
+                        {formatMoney(product.price_per_unit, product.currency)}
                     </strong>{" "}
                     / {unitName(product.unit, language)} ·{" "}
                     {m("available", {

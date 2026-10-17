@@ -1,11 +1,16 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { apiGet, apiPost } from "../lib/api";
-import { CITY_NAMES } from "../lib/cities";
+import { cityNames } from "../lib/cities";
+import PhoneInput from "../components/Site/PhoneInput";
+import { useVisitorCountry } from "../lib/useCountry";
 import { useLanguage } from "../lib/LanguageContext";
 import BrandLogo from "../components/BrandLogo";
 
-const ADMIN_PHONE = "681731512";
+// Tayeb support on WhatsApp (international digits).
+const SUPPORT_WHATSAPP = "237681731512";
+
+const ROLES = ["SHIPPER", "DRIVER", "FARMER"];
 
 export default function LoginPage() {
     const router = useRouter();
@@ -17,15 +22,15 @@ export default function LoginPage() {
 
     const [name, setName] = useState("");
     const [phone, setPhone] = useState("");
+
+    // How to read numbers typed without a country code.
+    const [country, setCountry] = useVisitorCountry();
     const [role, setRole] = useState("SHIPPER");
 
     const [vehicleType, setVehicleType] =
         useState("");
 
     const [plateNumber, setPlateNumber] =
-        useState("");
-
-    const [adminPin, setAdminPin] =
         useState("");
 
     const [loading, setLoading] =
@@ -78,37 +83,36 @@ export default function LoginPage() {
     }, []);
 
     useEffect(() => {
-        if (
-            typeof window === "undefined"
-        ) {
+        if (!router.isReady) {
             return;
         }
 
-        const savedRole =
-            localStorage.getItem(
-                "selectedRole"
-            );
+        // Deferred so the first render matches the server.
+        const timer = setTimeout(() => {
+            const fromLink = String(router.query.role || "").toUpperCase();
 
-        if (
-            savedRole === "SHIPPER" ||
-            savedRole === "DRIVER" ||
-            savedRole === "FARMER"
-        ) {
-            setRole(savedRole);
-        }
-    }, []);
+            let saved = null;
 
-    /*
-     * "+237 681 73 15 12" and "681731512" are the same number.
-     */
+            try {
+                saved = localStorage.getItem("selectedRole");
+            } catch {
+                saved = null;
+            }
 
+            const next = ROLES.includes(fromLink) ? fromLink : ROLES.includes(saved) ? saved : null;
+
+            if (next) {
+                setRole(next);
+            }
+        }, 0);
+
+        return () => clearTimeout(timer);
+    }, [router.isReady, router.query.role]);
+
+    // For the "forgot my PIN" message to support.
     const cleanPhone =
-        phone
-            .replace(/\D/g, "")
-            .replace(/^237(?=\d{9}$)/, "");
+        phone.trim();
 
-    const isAdminPhone =
-        cleanPhone === ADMIN_PHONE;
 
     const isNewAccount =
         step === "details" &&
@@ -250,7 +254,8 @@ export default function LoginPage() {
         if (
             returnTo &&
             returnTo.startsWith("/") &&
-            !returnTo.startsWith("//")
+            !returnTo.startsWith("//") &&
+            !returnTo.includes("\\")
         ) {
             router.push(returnTo);
             return;
@@ -297,38 +302,6 @@ export default function LoginPage() {
         try {
             /*
              * =====================================================
-             * ADMIN LOGIN
-             * =====================================================
-             */
-
-            if (isAdminPhone) {
-                if (!adminPin.trim()) {
-                    throw new Error(
-                        language === "fr"
-                            ? "Veuillez entrer le code PIN administrateur."
-                            : "Please enter the admin PIN."
-                    );
-                }
-
-                const session =
-                    await apiPost(
-                        "/api/session/login",
-                        {
-                            isAdmin: true,
-                            phone: cleanPhone,
-                            adminPin,
-                        }
-                    );
-
-                openDashboard(
-                    session.user
-                );
-
-                return;
-            }
-
-            /*
-             * =====================================================
              * STEP 1: PHONE
              * =====================================================
              */
@@ -339,10 +312,15 @@ export default function LoginPage() {
                         "/api/session/lookup",
                         {
                             phone,
+                            country,
                         }
                     );
 
                 setAccount(result);
+
+                if (result.country) {
+                    setCountry(result.country);
+                }
 
                 /*
                  * Returning users start with the role they
@@ -352,8 +330,7 @@ export default function LoginPage() {
 
                 if (
                     result.exists &&
-                    (result.role === "SHIPPER" ||
-                        result.role === "DRIVER")
+                    ROLES.includes(result.role)
                 ) {
                     selectRole(
                         result.role
@@ -406,6 +383,7 @@ export default function LoginPage() {
                     "/api/session/login",
                     {
                         phone,
+                        country,
                         pin,
                         role,
                         name:
@@ -547,7 +525,7 @@ export default function LoginPage() {
                         ROLE SELECTION
                     ================================================= */}
 
-                    {!isAdminPhone && (
+                    {(
                         <div className="tayeb-role-section">
 
                             <div className="tayeb-field-label">
@@ -718,7 +696,7 @@ export default function LoginPage() {
 
                         {/* NAME (new accounts) */}
 
-                        {isNewAccount && !isAdminPhone && (
+                        {isNewAccount && (
                         <div className="tayeb-field">
 
                             <label>
@@ -754,11 +732,8 @@ export default function LoginPage() {
                                             ? "Votre nom complet"
                                             : "Your full name"
                                     }
-                                    required={
-                                        !isAdminPhone
-                                    }
+                                    required
                                     disabled={
-                                        isAdminPhone ||
                                         loading
                                     }
                                     autoComplete="name"
@@ -781,41 +756,19 @@ export default function LoginPage() {
                                 )}
                             </label>
 
-                            <div className="tayeb-input-wrap">
+                            <PhoneInput
+                                country={country}
+                                onCountry={setCountry}
+                                value={phone}
+                                onChange={setPhone}
+                                disabled={
+                                    loading ||
+                                    step ===
+                                    "details"
+                                }
+                            />
 
-                                <span className="tayeb-input-icon">
-                                    📱
-                                </span>
-
-                                <input
-                                    type="tel"
-                                    value={
-                                        phone
-                                    }
-                                    onChange={(
-                                        event
-                                    ) =>
-                                        setPhone(
-                                            event
-                                                .target
-                                                .value
-                                        )
-                                    }
-                                    placeholder="6XX XXX XXX"
-                                    required
-                                    disabled={
-                                        loading ||
-                                        step ===
-                                        "details"
-                                    }
-                                    autoComplete="tel"
-                                    inputMode="tel"
-                                />
-
-                            </div>
-
-                            {step === "details" &&
-                                !isAdminPhone && (
+                            {step === "details" && (
                                     <button
                                         type="button"
                                         className="tayeb-link-button"
@@ -835,8 +788,7 @@ export default function LoginPage() {
 
                         {/* USER PIN */}
 
-                        {step === "details" &&
-                            !isAdminPhone && (
+                        {step === "details" && (
                                 <>
                                     <div className="tayeb-account-notice">
                                         {account?.exists
@@ -974,7 +926,7 @@ export default function LoginPage() {
                                     {!creatingPin && (
                                         <a
                                             className="tayeb-link-button"
-                                            href={`https://wa.me/237${ADMIN_PHONE}?text=${encodeURIComponent(
+                                            href={`https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent(
                                                 language === "fr"
                                                     ? `Bonjour Tayeb, j'ai oublié mon PIN. Mon numéro : ${cleanPhone}`
                                                     : `Hello Tayeb, I forgot my PIN. My number: ${cleanPhone}`
@@ -991,83 +943,9 @@ export default function LoginPage() {
                             )}
 
 
-                        {/* ADMIN PIN */}
-
-                        {isAdminPhone && (
-                            <div className="tayeb-field">
-
-                                <label>
-                                    {text(
-                                        "login.adminPin",
-                                        "Admin PIN"
-                                    )}
-                                </label>
-
-                                <div className="tayeb-input-wrap">
-
-                                    <span className="tayeb-input-icon">
-                                        🔐
-                                    </span>
-
-                                    <input
-                                        type={
-                                            showPin
-                                                ? "text"
-                                                : "password"
-                                        }
-                                        value={
-                                            adminPin
-                                        }
-                                        onChange={(
-                                            event
-                                        ) =>
-                                            setAdminPin(
-                                                event
-                                                    .target
-                                                    .value
-                                            )
-                                        }
-                                        placeholder={
-                                            language ===
-                                                "fr"
-                                                ? "Entrez votre PIN"
-                                                : "Enter your PIN"
-                                        }
-                                        required
-                                        disabled={
-                                            loading
-                                        }
-                                        autoComplete="current-password"
-                                    />
-
-                                    <button
-                                        type="button"
-                                        className="tayeb-eye-button"
-                                        onClick={() =>
-                                            setShowPin(
-                                                (current) =>
-                                                    !current
-                                            )
-                                        }
-                                        tabIndex={
-                                            -1
-                                        }
-                                    >
-                                        {showPin
-                                            ? "🙈"
-                                            : "👁️"}
-                                    </button>
-
-                                </div>
-
-                            </div>
-                        )}
-
-
                         {/* DRIVER DETAILS */}
 
-                        {!isAdminPhone &&
-                            showDriverDetails && (
+                        {showDriverDetails && (
                                 <div className="tayeb-driver-box">
 
                                     <div className="tayeb-driver-heading">
@@ -1226,7 +1104,7 @@ export default function LoginPage() {
                                                         : "Choose a city"}
                                                 </option>
 
-                                                {CITY_NAMES.map(
+                                                {cityNames(country).map(
                                                     (cityName) => (
                                                         <option
                                                             key={cityName}
@@ -1248,8 +1126,7 @@ export default function LoginPage() {
 
                         {/* FARMER: WHERE IS THE FARM */}
 
-                        {!isAdminPhone &&
-                            showFarmCity && (
+                        {showFarmCity && (
                                 <div className="tayeb-driver-box">
 
                                     <div className="tayeb-driver-heading">
@@ -1314,7 +1191,7 @@ export default function LoginPage() {
                                                         : "Choose a city"}
                                                 </option>
 
-                                                {CITY_NAMES.map(
+                                                {cityNames(country).map(
                                                     (cityName) => (
                                                         <option
                                                             key={cityName}
@@ -1332,35 +1209,6 @@ export default function LoginPage() {
 
                                 </div>
                             )}
-
-
-                        {/* ADMIN INDICATOR */}
-
-                        {isAdminPhone && (
-                            <div className="tayeb-admin-notice">
-
-                                <span>
-                                    🛡️
-                                </span>
-
-                                <div>
-                                    <strong>
-                                        {language ===
-                                            "fr"
-                                            ? "Accès administrateur"
-                                            : "Administrator access"}
-                                    </strong>
-
-                                    <small>
-                                        {language ===
-                                            "fr"
-                                            ? "Compte de plateforme sécurisé"
-                                            : "Secure platform account"}
-                                    </small>
-                                </div>
-
-                            </div>
-                        )}
 
 
                         {/* SUBMIT */}
@@ -1387,12 +1235,7 @@ export default function LoginPage() {
                             ) : (
                                 <>
                                     <span>
-                                        {isAdminPhone
-                                            ? text(
-                                                "login.adminLogin",
-                                                "Admin Login"
-                                            )
-                                            : step === "phone"
+                                        {step === "phone"
                                                 ? text(
                                                     "login.continue",
                                                     "Continue"
@@ -1566,7 +1409,7 @@ export default function LoginPage() {
                     border-radius: 12px;
                     background: white;
                     color: #374151;
-                    font-size: 9px;
+                    font-size: 12px;
                     font-weight: 900;
                     cursor: pointer;
                     transition:
@@ -1670,7 +1513,7 @@ export default function LoginPage() {
                 .tayeb-login-tagline {
                     margin-top: 2px;
                     color: #f97316;
-                    font-size: 8px;
+                    font-size: 11px;
                     font-weight: 900;
                     letter-spacing:
                         0.13em;
@@ -1699,7 +1542,7 @@ export default function LoginPage() {
                     border: 1px solid
                         #fed7aa;
                     color: #ea580c;
-                    font-size: 7px;
+                    font-size: 10px;
                     font-weight: 900;
                     letter-spacing:
                         0.15em;
@@ -1728,7 +1571,7 @@ export default function LoginPage() {
                     margin:
                         12px auto 0;
                     color: #6b7280;
-                    font-size: 11px;
+                    font-size: 13px;
                     line-height: 1.6;
                 }
 
@@ -1745,7 +1588,7 @@ export default function LoginPage() {
                 .tayeb-field-label {
                     margin-bottom: 9px;
                     color: #374151;
-                    font-size: 8px;
+                    font-size: 11px;
                     font-weight: 900;
                     text-transform:
                         uppercase;
@@ -1855,7 +1698,7 @@ export default function LoginPage() {
                 .tayeb-role-copy strong {
                     display: block;
                     color: #111827;
-                    font-size: 9px;
+                    font-size: 12px;
                     font-weight: 950;
                 }
 
@@ -1864,7 +1707,7 @@ export default function LoginPage() {
                     display: block;
                     margin-top: 4px;
                     color: #9ca3af;
-                    font-size: 7px;
+                    font-size: 10px;
                     line-height: 1.3;
                 }
 
@@ -1881,7 +1724,7 @@ export default function LoginPage() {
                     color: white;
                     background:
                         white;
-                    font-size: 10px;
+                    font-size: 13px;
                     font-weight: 900;
                 }
 
@@ -1914,7 +1757,7 @@ export default function LoginPage() {
 
                 .tayeb-field label {
                     color: #374151;
-                    font-size: 12px;
+                    font-size: 14px;
                     font-weight: 800;
                 }
 
@@ -1926,7 +1769,7 @@ export default function LoginPage() {
                     background: transparent;
                     color: #ea580c;
                     font-family: inherit;
-                    font-size: 12px;
+                    font-size: 14px;
                     font-weight: 800;
                     text-decoration: none;
                     cursor: pointer;
@@ -1939,7 +1782,7 @@ export default function LoginPage() {
                     background: #fff7ed;
                     border: 1px solid #fed7aa;
                     color: #9a3412;
-                    font-size: 13px;
+                    font-size: 15px;
                     font-weight: 700;
                     line-height: 1.45;
                 }
@@ -1956,7 +1799,7 @@ export default function LoginPage() {
                     position: absolute;
                     left: 14px;
                     z-index: 2;
-                    font-size: 13px;
+                    font-size: 15px;
                     pointer-events: none;
                 }
 
@@ -2037,7 +1880,7 @@ export default function LoginPage() {
                     background:
                         transparent;
                     cursor: pointer;
-                    font-size: 13px;
+                    font-size: 15px;
                 }
 
 
@@ -2091,7 +1934,7 @@ export default function LoginPage() {
                 .tayeb-driver-heading strong {
                     display: block;
                     color: #111827;
-                    font-size: 9px;
+                    font-size: 12px;
                     font-weight: 950;
                 }
 
@@ -2100,7 +1943,7 @@ export default function LoginPage() {
                     display: block;
                     margin-top: 3px;
                     color: #9ca3af;
-                    font-size: 7px;
+                    font-size: 10px;
                     line-height: 1.4;
                 }
 
@@ -2137,7 +1980,7 @@ export default function LoginPage() {
                 .tayeb-admin-notice strong {
                     display: block;
                     color: #374151;
-                    font-size: 8px;
+                    font-size: 11px;
                     font-weight: 900;
                 }
 
@@ -2146,7 +1989,7 @@ export default function LoginPage() {
                     display: block;
                     margin-top: 3px;
                     color: #9ca3af;
-                    font-size: 7px;
+                    font-size: 10px;
                 }
 
 
@@ -2175,7 +2018,7 @@ export default function LoginPage() {
                         );
                     color: white;
                     font-family: inherit;
-                    font-size: 10px;
+                    font-size: 13px;
                     font-weight: 950;
                     letter-spacing:
                         0.01em;
@@ -2265,7 +2108,7 @@ export default function LoginPage() {
                     gap: 6px;
                     margin-top: 18px;
                     color: #9ca3af;
-                    font-size: 7px;
+                    font-size: 10px;
                     font-weight: 700;
                 }
 
@@ -2284,7 +2127,7 @@ export default function LoginPage() {
                     padding:
                         0 18px 25px;
                     color: #9ca3af;
-                    font-size: 7px;
+                    font-size: 10px;
                     font-weight: 800;
                 }
 

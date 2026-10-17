@@ -1,14 +1,17 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
-import { ProductThumb } from "./ProductMedia";
+import PhotoPicker from "./PhotoPicker";
 import { apiGet, apiPost } from "../../lib/api";
-import { CITY_NAMES } from "../../lib/cities";
-import { compressImage } from "../../lib/image";
+import { cityNames } from "../../lib/cities";
+import { countryOrDefault, todayIn } from "../../lib/countries";
 import { useLanguage } from "../../lib/LanguageContext";
 import { marketError, useMarketText } from "../../lib/marketText";
-import { PRODUCTS, UNITS, cameroonToday, findProduct, findUnit, formatAmount, unitName } from "../../lib/produce";
+import { currencySymbol, formatMoney } from "../../lib/money";
+import { CATEGORIES, PRODUCTS, UNITS, findProduct, findUnit, unitName } from "../../lib/produce";
 
 function initialState(product, farmer) {
+    const today = todayIn(farmer?.country);
+
     if (product) {
         return {
             id: product.id,
@@ -22,7 +25,7 @@ function initialState(product, farmer) {
             minOrder: String(product.min_order ?? "1"),
             city: product.city,
             area: product.area || "",
-            availableFrom: product.available_from || cameroonToday(),
+            availableFrom: product.available_from || today,
             availableUntil: product.available_until || "",
             perishable: Boolean(product.perishable),
         };
@@ -40,26 +43,34 @@ function initialState(product, farmer) {
         minOrder: "1",
         city: farmer?.base_city || "",
         area: "",
-        availableFrom: cameroonToday(),
+        availableFrom: today,
         availableUntil: "",
         perishable: false,
     };
 }
 
+function initialPhotos(product) {
+    return (product?.photos || []).map((photo, index) => ({
+        id: `saved-${index}-${photo.url}`,
+        url: photo.url,
+        kind: "saved",
+    }));
+}
+
 /*
- * Add or edit a product. onDone(product, isNew) after a
- * successful save (and photo upload).
+ * Post or edit a product, with up to 8 photos.
+ * onDone(product, isNew) after everything is saved.
  */
 export default function ProductForm({ product, farmer, onClose, onDone }) {
     const { language } = useLanguage();
 
     const m = useMarketText();
 
+    const country = countryOrDefault(farmer?.country);
+
     const [form, setForm] = useState(() => initialState(product, farmer));
 
-    const [photo, setPhoto] = useState(null);
-
-    const [preview, setPreview] = useState(product?.photo_url || "");
+    const [photos, setPhotos] = useState(() => initialPhotos(product));
 
     const [prices, setPrices] = useState(null);
 
@@ -69,8 +80,6 @@ export default function ProductForm({ product, farmer, onClose, onDone }) {
 
     const [error, setError] = useState("");
 
-    const fileInput = useRef(null);
-
     // Editing: show market prices for the product right away.
     useEffect(() => {
         if (!product?.product || product.product === "OTHER") {
@@ -79,7 +88,7 @@ export default function ProductForm({ product, farmer, onClose, onDone }) {
 
         let alive = true;
 
-        apiGet(`/api/market?prices=${encodeURIComponent(product.product)}`)
+        apiGet(`/api/market?prices=${encodeURIComponent(product.product)}&country=${country.code}`)
             .then((result) => {
                 if (alive) {
                     setPrices(result);
@@ -90,7 +99,7 @@ export default function ProductForm({ product, farmer, onClose, onDone }) {
         return () => {
             alive = false;
         };
-    }, [product]);
+    }, [product, country.code]);
 
     const unit = findUnit(form.unit);
 
@@ -112,7 +121,7 @@ export default function ProductForm({ product, farmer, onClose, onDone }) {
         }
 
         try {
-            setPrices(await apiGet(`/api/market?prices=${encodeURIComponent(productKey)}`));
+            setPrices(await apiGet(`/api/market?prices=${encodeURIComponent(productKey)}&country=${country.code}`));
         } catch {
             setPrices(null);
         }
@@ -131,27 +140,6 @@ export default function ProductForm({ product, farmer, onClose, onDone }) {
         loadPrices(key);
     }
 
-    async function choosePhoto(event) {
-        const file = event.target.files?.[0];
-
-        event.target.value = "";
-
-        if (!file) {
-            return;
-        }
-
-        setError("");
-
-        try {
-            const dataUrl = await compressImage(file);
-
-            setPhoto(dataUrl);
-            setPreview(dataUrl);
-        } catch (failure) {
-            setError(failure.message);
-        }
-    }
-
     async function save(event) {
         event.preventDefault();
 
@@ -163,25 +151,70 @@ export default function ProductForm({ product, farmer, onClose, onDone }) {
         setError("");
         setStatus("");
 
+        const isNew = !product?.id;
+
         try {
             const { product: saved } = await apiPost("/api/farmer", {
                 action: "saveProduct",
                 ...form,
             });
 
-            if (photo) {
-                setStatus(m("uploading"));
+            // A retry after a failed upload updates this product
+            // instead of creating a second one.
+            setForm((current) => ({ ...current, id: saved.id }));
+
+            // Upload the new photos one by one, keeping the chosen order.
+            const working = [...photos];
+
+            const newCount = working.filter((item) => item.kind === "new").length;
+
+            let done = 0;
+
+            const finalUrls = [];
+
+            for (let position = 0; position < working.length; position++) {
+                const item = working[position];
+
+                if (item.kind === "saved") {
+                    finalUrls.push(item.url);
+                    continue;
+                }
+
+                done += 1;
+
+                setStatus(
+                    language === "fr"
+                        ? `Envoi des photos ${done}/${newCount}…`
+                        : `Uploading photos ${done}/${newCount}…`
+                );
 
                 const { photo_url } = await apiPost("/api/farmer", {
-                    action: "photo",
+                    action: "addPhoto",
                     productId: saved.id,
-                    image: photo,
+                    image: item.dataUrl,
                 });
 
-                saved.photo_url = photo_url;
+                working[position] = { id: item.id, url: photo_url, kind: "saved" };
+
+                setPhotos([...working]);
+
+                finalUrls.push(photo_url);
             }
 
-            onDone(saved, !form.id);
+            const hadPhotos = (product?.photos || []).length > 0 || done > 0;
+
+            if (finalUrls.length || hadPhotos) {
+                const { photos: arranged } = await apiPost("/api/farmer", {
+                    action: "arrangePhotos",
+                    productId: saved.id,
+                    urls: finalUrls,
+                });
+
+                saved.photos = arranged;
+                saved.photo_url = arranged[0]?.url || null;
+            }
+
+            onDone(saved, isNew);
         } catch (failure) {
             setError(marketError(language, failure));
         } finally {
@@ -191,7 +224,12 @@ export default function ProductForm({ product, farmer, onClose, onDone }) {
     }
 
     return (
-        <div className="mk-modal-backdrop" role="dialog" aria-modal="true" onClick={(event) => event.target === event.currentTarget && !saving && onClose()}>
+        <div
+            className="mk-modal-backdrop"
+            role="dialog"
+            aria-modal="true"
+            onClick={(event) => event.target === event.currentTarget && !saving && onClose()}
+        >
 
             <form className="mk-modal" onSubmit={save}>
 
@@ -204,30 +242,11 @@ export default function ProductForm({ product, farmer, onClose, onDone }) {
 
                 <div style={{ display: "grid", gap: 16 }}>
 
-                    {/* PHOTO */}
+                    {/* PHOTOS */}
 
-                    <div className="mk-photo-pick">
-                        <ProductThumb item={{ product: form.product, photo_url: preview }} />
-
-                        <div style={{ display: "grid", gap: 6 }}>
-                            <button
-                                type="button"
-                                className="mk-btn mk-btn-light mk-btn-sm"
-                                onClick={() => fileInput.current?.click()}
-                                disabled={saving}
-                            >
-                                📷 {preview ? m("changePhoto") : m("addPhoto")}
-                            </button>
-                            <small style={{ color: "var(--mk-muted)", fontSize: 12 }}>{m("photoHint")}</small>
-                        </div>
-
-                        <input
-                            ref={fileInput}
-                            type="file"
-                            accept="image/jpeg,image/png,image/webp"
-                            hidden
-                            onChange={choosePhoto}
-                        />
+                    <div className="mk-field">
+                        <span className="mk-field-label">📷 {m("photo")}</span>
+                        <PhotoPicker items={photos} onChange={setPhotos} disabled={saving} />
                     </div>
 
 
@@ -243,11 +262,16 @@ export default function ProductForm({ product, farmer, onClose, onDone }) {
                             onChange={(event) => chooseProduct(event.target.value)}
                         >
                             <option value="">{m("chooseProduct")}</option>
-                            {PRODUCTS.map((item) => (
-                                <option key={item.key} value={item.key}>
-                                    {item.emoji} {language === "fr" ? item.fr : item.en}
-                                </option>
+                            {CATEGORIES.map((category) => (
+                                <optgroup key={category.key} label={`${category.emoji} ${language === "fr" ? category.fr : category.en}`}>
+                                    {PRODUCTS.filter((item) => item.category === category.key).map((item) => (
+                                        <option key={item.key} value={item.key}>
+                                            {item.emoji} {language === "fr" ? item.fr : item.en}
+                                        </option>
+                                    ))}
+                                </optgroup>
                             ))}
+                            <option value="OTHER">🧺 {language === "fr" ? findProduct("OTHER").fr : findProduct("OTHER").en}</option>
                         </select>
                     </div>
 
@@ -304,7 +328,9 @@ export default function ProductForm({ product, farmer, onClose, onDone }) {
 
                     <div className="mk-row">
                         <div className="mk-field">
-                            <label htmlFor="pf-price">{m("pricePerUnit", { unit: unitOne })}</label>
+                            <label htmlFor="pf-price">
+                                {m("pricePerUnit", { unit: unitOne, currency: currencySymbol(country.currency) })}
+                            </label>
                             <input
                                 id="pf-price"
                                 className="mk-input"
@@ -335,8 +361,8 @@ export default function ProductForm({ product, farmer, onClose, onDone }) {
                             {unitPrices.paid && (
                                 <div>
                                     📊 {m("priceOnMarket", {
-                                        low: formatAmount(unitPrices.paid.low),
-                                        high: formatAmount(unitPrices.paid.high),
+                                        low: formatMoney(unitPrices.paid.low, country.currency),
+                                        high: formatMoney(unitPrices.paid.high, country.currency),
                                         unit: unitOne,
                                         count: unitPrices.paid.count,
                                     })}
@@ -345,8 +371,8 @@ export default function ProductForm({ product, farmer, onClose, onDone }) {
                             {unitPrices.on_sale && (
                                 <div>
                                     🏷️ {m("onSaleRange", {
-                                        low: formatAmount(unitPrices.on_sale.low),
-                                        high: formatAmount(unitPrices.on_sale.high),
+                                        low: formatMoney(unitPrices.on_sale.low, country.currency),
+                                        high: formatMoney(unitPrices.on_sale.high, country.currency),
                                         unit: unitOne,
                                         count: unitPrices.on_sale.count,
                                     })}
@@ -371,7 +397,7 @@ export default function ProductForm({ product, farmer, onClose, onDone }) {
 
                     <div className="mk-row">
                         <div className="mk-field">
-                            <label htmlFor="pf-city">{m("city")}</label>
+                            <label htmlFor="pf-city">{m("city")} {country.flag}</label>
                             <select
                                 id="pf-city"
                                 className="mk-select"
@@ -380,7 +406,7 @@ export default function ProductForm({ product, farmer, onClose, onDone }) {
                                 onChange={(event) => update("city", event.target.value)}
                             >
                                 <option value="">{m("chooseCity")}</option>
-                                {CITY_NAMES.map((name) => (
+                                {cityNames(country.code).map((name) => (
                                     <option key={name} value={name}>{name}</option>
                                 ))}
                             </select>
@@ -394,7 +420,7 @@ export default function ProductForm({ product, farmer, onClose, onDone }) {
                                 maxLength={80}
                                 value={form.area}
                                 onChange={(event) => update("area", event.target.value)}
-                                placeholder="Foumbot"
+                                placeholder={language === "fr" ? "Village ou quartier" : "Village or area"}
                             />
                         </div>
                     </div>
@@ -417,7 +443,7 @@ export default function ProductForm({ product, farmer, onClose, onDone }) {
                                 id="pf-until"
                                 type="date"
                                 className="mk-input"
-                                min={form.availableFrom || cameroonToday()}
+                                min={form.availableFrom || todayIn(country.code)}
                                 value={form.availableUntil}
                                 onChange={(event) => update("availableUntil", event.target.value)}
                             />
@@ -438,14 +464,14 @@ export default function ProductForm({ product, farmer, onClose, onDone }) {
                         <textarea
                             id="pf-details"
                             className="mk-textarea"
-                            maxLength={300}
+                            maxLength={600}
                             value={form.details}
                             onChange={(event) => update("details", event.target.value)}
                             placeholder={m("detailsPlaceholder")}
                         />
                     </div>
 
-                    {status && <div className="mk-notice mk-notice-blue">{status}</div>}
+                    {status && <div className="mk-notice mk-notice-blue" role="status">{status}</div>}
 
                     {error && <div className="mk-notice mk-notice-red" role="alert">{error}</div>}
 

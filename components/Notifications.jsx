@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { apiGet, apiPost, pollWhileVisible } from "../lib/api";
 import { useLanguage } from "../lib/LanguageContext";
@@ -63,6 +64,10 @@ export default function Notifications({
         close: isFrench
             ? "Fermer"
             : "Close",
+
+        open: isFrench
+            ? "Ouvrir"
+            : "Open",
     };
 
 
@@ -681,7 +686,7 @@ export default function Notifications({
                                                     color:
                                                         "white",
                                                     fontSize:
-                                                        "8px",
+                                                        "11px",
                                                     fontWeight:
                                                         900,
                                                 }}
@@ -712,7 +717,7 @@ export default function Notifications({
                                             color:
                                                 "#ea580c",
                                             fontSize:
-                                                "9px",
+                                                "12px",
                                             fontWeight:
                                                 800,
                                             cursor:
@@ -755,7 +760,7 @@ export default function Notifications({
                                         color:
                                             "#9ca3af",
                                         fontSize:
-                                            "10px",
+                                            "13px",
                                     }}
                                 >
                                     {
@@ -811,7 +816,7 @@ export default function Notifications({
                                             color:
                                                 "#374151",
                                             fontSize:
-                                                "12px",
+                                                "14px",
                                         }}
                                     >
                                         {
@@ -867,7 +872,7 @@ export default function Notifications({
                                         color:
                                             "#9a3412",
                                         fontSize:
-                                            "8px",
+                                            "11px",
                                         textAlign:
                                             "center",
                                     }}
@@ -995,7 +1000,7 @@ function NotificationItem({
                                 color:
                                     "#111827",
                                 fontSize:
-                                    "11px",
+                                    "13px",
                                 fontWeight:
                                     900,
                                 lineHeight:
@@ -1036,7 +1041,7 @@ function NotificationItem({
                             color:
                                 "#6b7280",
                             fontSize:
-                                "10px",
+                                "13px",
                             lineHeight:
                                 1.55,
                         }}
@@ -1045,6 +1050,33 @@ function NotificationItem({
                             item.message
                         }
                     </p>
+
+                    {safeLink(item.link) && (
+                        <Link
+                            href={safeLink(item.link)}
+                            onClick={() =>
+                                markRead(
+                                    item.id
+                                )
+                            }
+                            style={{
+                                display:
+                                    "inline-block",
+                                marginTop:
+                                    "8px",
+                                color:
+                                    "#ea580c",
+                                fontSize:
+                                    "15px",
+                                fontWeight:
+                                    800,
+                                textDecoration:
+                                    "none",
+                            }}
+                        >
+                            {text.open} →
+                        </Link>
+                    )}
 
 
                     <div
@@ -1067,7 +1099,7 @@ function NotificationItem({
                                 color:
                                     "#9ca3af",
                                 fontSize:
-                                    "8px",
+                                    "11px",
                             }}
                         >
                             {
@@ -1092,7 +1124,7 @@ function NotificationItem({
                                     color:
                                         "#ea580c",
                                     fontSize:
-                                        "8px",
+                                        "11px",
                                     fontWeight:
                                         800,
                                     cursor:
@@ -1115,4 +1147,18 @@ function NotificationItem({
 
         </div>
     );
+}
+
+/*
+ * Only links inside Tayeb ("/market/…"), never another site
+ * or a "javascript:" address.
+ */
+function safeLink(link) {
+    const value = String(link || "");
+
+    if (!value.startsWith("/") || value.startsWith("//") || value.includes("\\")) {
+        return null;
+    }
+
+    return value;
 }

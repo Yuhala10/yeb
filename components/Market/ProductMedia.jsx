@@ -1,21 +1,27 @@
 import { productEmoji, productName } from "../../lib/produce";
 import { useLanguage } from "../../lib/LanguageContext";
 
+function coverOf(item) {
+    return item?.photos?.[0]?.url || item?.photo_url || null;
+}
+
 /*
- * The product photo, or a soft gradient with the product's
- * emoji when the farmer hasn't added one yet.
+ * The product's cover photo, or a soft gradient with the
+ * product's emoji when the farmer hasn't added one yet.
  */
 export default function ProductMedia({ listing, children, eager = false }) {
     const { language } = useLanguage();
 
+    const cover = coverOf(listing);
+
     return (
         <div className="mk-media">
 
-            {listing.photo_url ? (
-                // Supabase serves the photo; next/image would add a paid optimizer.
+            {cover ? (
+                // Supabase serves the photo, already shrunk; next/image would add a paid optimizer.
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                    src={listing.photo_url}
+                    src={cover}
                     alt={productName(listing, language)}
                     loading={eager ? "eager" : "lazy"}
                     decoding="async"
@@ -33,11 +39,13 @@ export default function ProductMedia({ listing, children, eager = false }) {
 }
 
 export function ProductThumb({ item }) {
+    const cover = coverOf(item);
+
     return (
         <div className="mk-thumb" aria-hidden="true">
-            {item?.photo_url ? (
+            {cover ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={item.photo_url} alt="" loading="lazy" decoding="async" />
+                <img src={cover} alt="" loading="lazy" decoding="async" />
             ) : (
                 productEmoji(item?.product)
             )}

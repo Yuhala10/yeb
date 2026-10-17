@@ -200,7 +200,7 @@ grant all on public.users, public.shipments, public.bids, public.notifications, 
 
 
 -- ============================================================
--- TAYEB MARCHÉ (same as supabase/marche.sql)
+-- MARKET, AFRICA-WIDE, MULTI-PHOTO (same as supabase/upgrade.sql)
 -- ============================================================
 -- FARMERS ARE A THIRD KIND OF ACCOUNT
 -- ============================================================
@@ -367,13 +367,98 @@ on conflict (id) do update
         allowed_mime_types = excluded.allowed_mime_types;
 
 
+
+
+-- ============================================================
+-- AFRICA-WIDE: COUNTRY AND CURRENCY
+-- ============================================================
+-- Everything before this upgrade was in Cameroon (CM, XAF).
+
+alter table public.users add column if not exists country text default 'CM';
+update public.users set country = 'CM' where country is null;
+
+alter table public.products add column if not exists country text not null default 'CM';
+alter table public.products add column if not exists currency text not null default 'XAF';
+
+alter table public.orders add column if not exists country text not null default 'CM';
+alter table public.orders add column if not exists currency text not null default 'XAF';
+alter table public.orders add column if not exists delivery_country text;
+
+alter table public.shipments add column if not exists country text not null default 'CM';
+alter table public.shipments add column if not exists currency text not null default 'XAF';
+
+-- Phone numbers are now international digits: 681731512 → 237681731512.
+-- Skipped when the international form already belongs to another account.
+update public.users as u
+set phone_number = '237' || u.phone_number
+where u.phone_number ~ '^[26][0-9]{8}$'
+  and not exists (
+      select 1 from public.users as other
+      where other.phone_number = '237' || u.phone_number and other.id <> u.id
+  );
+
+
+-- ============================================================
+-- SEVERAL PHOTOS PER PRODUCT
+-- ============================================================
+-- photos: [{ "url": "...", "path": "..." }, …], first = cover.
+
+alter table public.products add column if not exists photos jsonb not null default '[]'::jsonb;
+
+update public.products
+set photos = jsonb_build_array(jsonb_build_object('url', photo_url, 'path', photo_path))
+where photo_url is not null and photos = '[]'::jsonb;
+
+
+-- ============================================================
+-- NOTIFICATIONS OPEN THE RIGHT PAGE
+-- ============================================================
+
+alter table public.notifications add column if not exists link text;
+
+
+-- ============================================================
+-- "TELL ME WHEN IT'S AVAILABLE"
+-- ============================================================
+
+create table if not exists public.market_alerts (
+    id uuid primary key default gen_random_uuid(),
+    user_id uuid not null references public.users (id) on delete cascade,
+    product text not null,
+    country text not null default 'CM',
+    city text,
+    last_notified_at timestamptz,
+    created_at timestamptz not null default now()
+);
+
+create unique index if not exists market_alerts_unique_idx
+    on public.market_alerts (user_id, product, country, coalesce(city, ''));
+create index if not exists market_alerts_match_idx on public.market_alerts (product, country);
+
+alter table public.market_alerts enable row level security;
+revoke all on public.market_alerts from anon, authenticated;
+grant all on public.market_alerts to service_role;
+
+
+-- ============================================================
+-- INDEXES FOR COUNTRIES
+-- ============================================================
+
+create index if not exists products_country_idx on public.products (country, status, created_at desc);
+create index if not exists products_country_product_idx on public.products (country, product);
+create index if not exists shipments_country_idx on public.shipments (country, status);
+
+
 -- ============================================================
 -- CHECK
 -- ============================================================
--- Should list the 8 tables, all with rowsecurity = true.
+-- Should list 9 tables, all with rowsecurity = true, and the
+-- produce bucket as public.
 
 select tablename, rowsecurity
 from pg_tables
 where schemaname = 'public'
-  and tablename in ('users', 'shipments', 'bids', 'notifications', 'feedback', 'subscriptions', 'products', 'orders')
+  and tablename in ('users', 'shipments', 'bids', 'notifications', 'feedback', 'subscriptions', 'products', 'orders', 'market_alerts')
 order by tablename;
+
+select id, public from storage.buckets where id = 'produce';

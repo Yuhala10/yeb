@@ -1,3 +1,4 @@
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
@@ -11,7 +12,7 @@ import PhoneInput from "../components/Site/PhoneInput";
 import { apiGet, apiPost, pollWhileVisible } from "../lib/api";
 import { appError, useAppText } from "../lib/appText";
 import { CARGO_TYPES, cargoEmoji, cargoLabel } from "../lib/cargo";
-import { cityNames } from "../lib/cities";
+import { cityNames, findCity } from "../lib/cities";
 import { countryName, countryOrDefault, findCountry, sortedCountries } from "../lib/countries";
 import { useLanguage } from "../lib/LanguageContext";
 import { marketError, useMarketText } from "../lib/marketText";
@@ -34,6 +35,17 @@ import { leaveDashboard, useRoleUser } from "../lib/useSession";
  */
 
 const LIVE = ["MATCHED", "DEPARTED", "ARRIVED"];
+
+// Leaflet needs the browser: loaded only where a map is shown.
+const TripMap = dynamic(() => import("../components/Map/TripMap"), { ssr: false });
+
+function trackLink(shipment, language) {
+    if (typeof window === "undefined" || !shipment.track_token) {
+        return "";
+    }
+
+    return `${window.location.origin}${language === "en" ? "/en" : ""}/track/${shipment.id}?t=${shipment.track_token}`;
+}
 
 const EMPTY_FORM = {
     type: "Bags/Sacks",
@@ -884,7 +896,10 @@ function LoadCard({ shipment, bids, busy, onChoose, onCounter, onStatus }) {
                         target="_blank"
                         rel="noopener noreferrer"
                         href={`${shipment.receiver_phone ? whatsappHref(shipment.receiver_phone) : "https://wa.me/"}?text=${encodeURIComponent(
-                            a("s_codeMessage", { item: `${shipment.quantity} × ${cargoLabel(shipment.item_type, language)}`, code: shipment.delivery_code })
+                            [
+                                a("s_codeMessage", { item: `${shipment.quantity} × ${cargoLabel(shipment.item_type, language)}`, code: shipment.delivery_code }),
+                                trackLink(shipment, language) ? a("tk_followLink", { link: trackLink(shipment, language) }) : "",
+                            ].filter(Boolean).join("\n\n")
                         )}`}
                     >
                         💬 {shipment.receiver_phone ? a("s_sendCode") : a("s_shareCode")}
@@ -892,14 +907,7 @@ function LoadCard({ shipment, bids, busy, onChoose, onCounter, onStatus }) {
                 </div>
             )}
 
-            {shipment.tracking ? (
-                <TruckMap shipment={shipment} />
-            ) : shipment.status === "DEPARTED" ? (
-                <div className="ap-note ap-note-blue">
-                    <span aria-hidden="true">📡</span>
-                    <span>{a("s_waitingLocation")}</span>
-                </div>
-            ) : null}
+            {LIVE.includes(shipment.status) && <LiveCard shipment={shipment} />}
 
             {shipment.status === "MATCHED" && (
                 <button type="button" className="ts-btn ts-btn-primary ts-btn-lg" disabled={busy === shipment.id} onClick={() => onStatus("DEPARTED")}>
@@ -975,32 +983,50 @@ function BidRow({ bid, currency, busy, onChoose, onCounter }) {
 
 
 /* =========================================================
-   TRUCK ON THE MAP
+   LIVE MAP CARD
 ========================================================= */
 
-function TruckMap({ shipment }) {
+function LiveCard({ shipment }) {
     const a = useAppText();
 
-    const { lat, lng, minutes_ago: minutes, km_left: kmLeft } = shipment.tracking;
+    const { language } = useLanguage();
 
-    const box = [lng - 0.06, lat - 0.04, lng + 0.06, lat + 0.04].join(",");
+    const from = findCity(shipment.origin_city);
+    const to = findCity(shipment.destination_city);
+
+    const tracking = shipment.tracking;
+
+    const toPickup = shipment.status === "MATCHED";
+
+    const target = toPickup ? from : to;
 
     return (
         <div className="ap-map">
-            <iframe
-                title={a("s_truck")}
-                src={`https://www.openstreetmap.org/export/embed.html?bbox=${box}&layer=mapnik&marker=${lat},${lng}`}
-                loading="lazy"
+            <TripMap
+                compact
+                from={from ? { name: from.name, lat: from.lat, lng: from.lng } : null}
+                to={to ? { name: to.name, lat: to.lat, lng: to.lng } : null}
+                truck={tracking ? { lat: tracking.lat, lng: tracking.lng } : null}
+                heading={tracking?.heading ?? null}
+                phase={toPickup ? "TO_PICKUP" : shipment.status === "ARRIVED" ? "ARRIVED" : "TO_DESTINATION"}
+                padding={{ top: 30, right: 30, bottom: 30, left: 30 }}
+                label={a("s_truck")}
             />
             <div className="ap-map-foot">
                 <span>
-                    <strong style={{ color: "var(--ts-ink)" }}>🚚 {a("s_truck")}</strong>
-                    {minutes !== null && minutes !== undefined && ` · ${a("s_updated", { n: minutes })}`}
-                    {kmLeft > 0 && ` · ${a("s_kmLeft", { km: kmLeft, city: shipment.destination_city })}`}
+                    {tracking ? (
+                        <>
+                            <strong style={{ color: "var(--ts-ink)" }}>🚚 {tracking.minutes_ago > 0 ? a("s_updated", { n: tracking.minutes_ago }) : a("tk_live")}</strong>
+                            {target && tracking.km_left !== null && !toPickup && ` · ${a("s_kmLeft", { km: tracking.km_left, city: target.name })}`}
+                            {tracking.speed_kmh > 3 && ` · ${tracking.speed_kmh} km/h`}
+                        </>
+                    ) : (
+                        a("s_waitingLocation")
+                    )}
                 </span>
-                <a className="ts-link" href={`https://www.google.com/maps?q=${lat},${lng}`} target="_blank" rel="noopener noreferrer">
-                    {a("s_openMaps")} ↗
-                </a>
+                <Link className="ts-btn ts-btn-ink ts-btn-sm" href={`/track/${shipment.id}`} locale={language}>
+                    🛰️ {a("tk_openMap")} →
+                </Link>
             </div>
         </div>
     );

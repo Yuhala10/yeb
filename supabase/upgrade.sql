@@ -254,6 +254,34 @@ grant all on public.market_alerts to service_role;
 
 
 -- ============================================================
+-- LIVE TRACKING
+-- ============================================================
+-- Every position the driver's phone sends while a delivery is
+-- live, for the trail on the map, real speed and arrival time.
+
+alter table public.shipments add column if not exists last_speed real;
+alter table public.shipments add column if not exists last_heading real;
+
+create table if not exists public.shipment_positions (
+    id uuid primary key default gen_random_uuid(),
+    shipment_id uuid not null references public.shipments (id) on delete cascade,
+    lat double precision not null check (lat between -90 and 90),
+    lng double precision not null check (lng between -180 and 180),
+    accuracy integer,
+    speed real,
+    heading real,
+    recorded_at timestamptz not null default now()
+);
+
+create index if not exists shipment_positions_trip_idx
+    on public.shipment_positions (shipment_id, recorded_at desc);
+
+alter table public.shipment_positions enable row level security;
+revoke all on public.shipment_positions from anon, authenticated;
+grant all on public.shipment_positions to service_role;
+
+
+-- ============================================================
 -- INDEXES FOR COUNTRIES
 -- ============================================================
 
@@ -265,13 +293,13 @@ create index if not exists shipments_country_idx on public.shipments (country, s
 -- ============================================================
 -- CHECK
 -- ============================================================
--- Should list 9 tables, all with rowsecurity = true, and the
+-- Should list 10 tables, all with rowsecurity = true, and the
 -- produce bucket as public.
 
 select tablename, rowsecurity
 from pg_tables
 where schemaname = 'public'
-  and tablename in ('users', 'shipments', 'bids', 'notifications', 'feedback', 'subscriptions', 'products', 'orders', 'market_alerts')
+  and tablename in ('users', 'shipments', 'bids', 'notifications', 'feedback', 'subscriptions', 'products', 'orders', 'market_alerts', 'shipment_positions')
 order by tablename;
 
 select id, public from storage.buckets where id = 'produce';

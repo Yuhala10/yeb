@@ -10,7 +10,7 @@ import { siteOrigin } from "../lib/seo";
  * Unlisted pages (the staff entrance) are deliberately not
  * named here, since robots.txt is public: they carry noindex.
  */
-const PRIVATE = ["/admin", "/driver", "/shipper", "/farmer"];
+const PRIVATE = ["/admin", "/driver", "/shipper", "/farmer", "/track/"];
 
 export async function getServerSideProps({ req, res }) {
     const body = [

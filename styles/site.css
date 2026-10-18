@@ -1749,3 +1749,8 @@
     transition: none;
   }
 }
+
+/* Links to a section (#founder…) stop below the sticky header. */
+[id] {
+  scroll-margin-top: 90px;
+}

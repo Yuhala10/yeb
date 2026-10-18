@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 
@@ -497,7 +498,13 @@ export default function AdminPage() {
                             .filter((item) => matches(query, item.origin, item.destination, item.item_type, item.shipper_name, item.driver_name, item.shipper_phone))
                             .map((item) => [
                                 item.id,
-                                <><strong>{item.origin_city || item.origin} → {item.destination_city || item.destination}</strong>{item.order_id && <div className="ap-card-sub">🌾 Marché</div>}</>,
+                                <>
+                                    <strong>{item.origin_city || item.origin} → {item.destination_city || item.destination}</strong>
+                                    {item.order_id && <div className="ap-card-sub">🌾 Marché</div>}
+                                    {["MATCHED", "DEPARTED", "ARRIVED", "COMPLETED"].includes(item.status) && (
+                                        <div><Link href={`/track/${item.id}`} className="ts-link">🛰️ {a("tk_openMap")}</Link></div>
+                                    )}
+                                </>,
                                 `${item.quantity} × ${cargoLabel(item.item_type, language)}`,
                                 <span key="c499" className="num">{formatMoney(item.agreed_price ?? item.initial_offer, item.currency)}</span>,
                                 <span key="c500" className={`ap-chip ${LOAD_TONES[item.status] || ""}`}>{a(`load_${item.status}`)}</span>,

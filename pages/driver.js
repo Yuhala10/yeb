@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 
@@ -8,12 +9,13 @@ import { useFeedback } from "../components/App/Feedback";
 import { apiGet, apiPost, pollWhileVisible } from "../lib/api";
 import { appError, useAppText } from "../lib/appText";
 import { cargoEmoji, cargoLabel } from "../lib/cargo";
-import { cityNames, distanceKm } from "../lib/cities";
+import { cityNames, findCity } from "../lib/cities";
 import { countryOrDefault } from "../lib/countries";
 import { useLanguage } from "../lib/LanguageContext";
 import { formatMoney } from "../lib/money";
 import { formatPhone, telHref } from "../lib/phone";
 import { inviteShippersOnWhatsApp } from "../lib/shareLoad";
+import { useLiveLocation } from "../lib/useLiveLocation";
 import { leaveDashboard, useRoleUser } from "../lib/useSession";
 
 /*
@@ -50,10 +52,6 @@ export default function DriverPage() {
     const [counterFor, setCounterFor] = useState(null);
 
     const [busy, setBusy] = useState(null);
-
-    const [tracking, setTracking] = useState("idle");
-
-    const [trackingAttempt, setTrackingAttempt] = useState(0);
 
     /* =========================================================
        DATA
@@ -246,50 +244,13 @@ export default function DriverPage() {
        LIVE LOCATION
     =========================================================
      *
-     * While goods are on the road (DEPARTED) and this page is
-     * open, the phone's position goes to the shipper: at most
-     * once a minute, or sooner after 300 m.
+     * On the way to the pickup and on the road, the phone's
+     * position goes to Tayeb (see lib/useLiveLocation.js).
      */
 
-    const roadJobId = activeJobs.find((item) => item.status === "DEPARTED")?.id;
+    const sharedJob = activeJobs.find((item) => item.status === "DEPARTED") || activeJobs.find((item) => item.status === "MATCHED");
 
-    useEffect(() => {
-        if (!roadJobId || typeof navigator === "undefined" || !navigator.geolocation) {
-            return;
-        }
-
-        let lastSentAt = 0;
-        let lastPoint = null;
-
-        const watchId = navigator.geolocation.watchPosition(
-            (position) => {
-                setTracking("on");
-
-                const point = { lat: position.coords.latitude, lng: position.coords.longitude };
-
-                const moved = lastPoint ? distanceKm(lastPoint, point) : Infinity;
-
-                if (Date.now() - lastSentAt < 60000 && moved < 0.3) {
-                    return;
-                }
-
-                lastSentAt = Date.now();
-                lastPoint = point;
-
-                apiPost("/api/driver", {
-                    action: "location",
-                    shipmentId: roadJobId,
-                    lat: point.lat,
-                    lng: point.lng,
-                    accuracy: position.coords.accuracy,
-                }).catch(() => {});
-            },
-            (error) => setTracking(error.code === error.PERMISSION_DENIED ? "denied" : "idle"),
-            { enableHighAccuracy: true, maximumAge: 30000, timeout: 60000 }
-        );
-
-        return () => navigator.geolocation.clearWatch(watchId);
-    }, [roadJobId, trackingAttempt]);
+    const sharing = useLiveLocation(sharedJob?.id, Boolean(sharedJob));
 
     /* =========================================================
        SCREEN
@@ -424,11 +385,8 @@ export default function DriverPage() {
                                         key={job.id}
                                         job={job}
                                         busy={busy === job.id}
-                                        tracking={tracking}
-                                        onRetryTracking={() => {
-                                            setTracking("idle");
-                                            setTrackingAttempt((count) => count + 1);
-                                        }}
+                                        tracking={job.id === sharedJob?.id ? sharing.state : "idle"}
+                                        onRetryTracking={sharing.retry}
                                         onStatus={(status, code) => setStatus(job, status, code)}
                                     />
                                 ))}
@@ -783,6 +741,9 @@ function TripCard({ job, busy, tracking, onRetryTracking, onStatus }) {
     const from = splitPlace(job.origin, job.origin_city);
     const to = splitPlace(job.destination, job.destination_city);
 
+    // Where to drive now: the pickup, then the delivery.
+    const target = findCity(job.status === "MATCHED" ? job.origin_city : job.destination_city);
+
     async function finish(event) {
         event.preventDefault();
 
@@ -847,8 +808,25 @@ function TripCard({ job, busy, tracking, onRetryTracking, onStatus }) {
                 </a>
             )}
 
-            {/* Live location while on the road */}
-            {job.status === "DEPARTED" && (
+            {/* Live map and directions */}
+            <div className="ap-actions">
+                <Link href={`/track/${job.id}`} className="ts-btn ts-btn-ink ts-btn-sm">
+                    🛰️ {a("tk_openMap")}
+                </Link>
+                {target && (
+                    <a
+                        className="ts-btn ts-btn-light ts-btn-sm"
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${target.lat},${target.lng}&travelmode=driving`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        🧭 {a("tk_navigate")}
+                    </a>
+                )}
+            </div>
+
+            {/* Live location on the way to the pickup and on the road */}
+            {(job.status === "DEPARTED" || job.status === "MATCHED") && (
                 <div className={`ap-note ${tracking === "on" ? "ap-note-green" : "ap-note-orange"}`} style={{ display: "grid", gap: 10 }}>
                     <span>📡 {tracking === "on" ? a("d_trackingOn") : tracking === "denied" ? a("d_trackingBlocked") : a("d_trackingOff")}</span>
                     {tracking !== "on" && (

@@ -4,30 +4,38 @@
  * ============================================================
  *
  * Content-Security-Policy: the browser only runs Tayeb's own
- * scripts, loads photos from Tayeb's storage, and opens the
- * OpenStreetMap tracking map. Injected scripts and data sent
- * to other sites are refused. Production only: the dev
+ * scripts, loads photos from Tayeb's storage and map tiles
+ * from the map provider. Injected scripts, frames and data
+ * sent to other sites are refused. Production only: the dev
  * server needs eval for hot reload.
  */
 const isProduction = process.env.NODE_ENV === "production";
 
-function storageOrigin() {
+function originOf(value) {
   try {
-    return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin;
+    return new URL(String(value).replace(/\{[a-z]\}/g, "a")).origin;
   } catch {
     return "";
   }
 }
 
+// Map tiles: OpenStreetMap unless NEXT_PUBLIC_MAP_TILES says
+// otherwise. "{s}." subdomains (a., b., c.) become "*.".
+const tileTemplate = process.env.NEXT_PUBLIC_MAP_TILES || "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+
+const mapTiles = tileTemplate.includes("{s}.")
+  ? originOf(tileTemplate).replace("://a.", "://*.")
+  : originOf(tileTemplate);
+
 const contentSecurityPolicy = [
   "default-src 'self'",
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
-  `img-src 'self' data: blob: https://*.supabase.co ${storageOrigin()}`.trim(),
+  `img-src 'self' data: blob: https://*.supabase.co ${originOf(process.env.NEXT_PUBLIC_SUPABASE_URL)} ${mapTiles}`.replace(/\s+/g, " ").trim(),
   "font-src 'self'",
   "connect-src 'self'",
   "media-src 'self'",
-  "frame-src https://www.openstreetmap.org",
+  "frame-src 'none'",
   "worker-src 'self'",
   "manifest-src 'self'",
   "object-src 'none'",

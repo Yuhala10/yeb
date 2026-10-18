@@ -10,6 +10,9 @@ export default function Document() {
     <Html>
       <Head>
         <link rel="preload" href="/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+        {/* Light or dark before the first paint (a tiny file: the security policy allows no inline script). */}
+        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+        <script src="/theme.js" />
       </Head>
 
       <body className="antialiased">

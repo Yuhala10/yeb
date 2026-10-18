@@ -275,7 +275,7 @@ export default function OrderPanel({ listing, user, loading }) {
                     </small>
                 )}
 
-                {quantityError && amount > 0 && <small style={{ color: "#b91c1c" }}>{quantityError}</small>}
+                {quantityError && amount > 0 && <small style={{ color: "var(--tint-red-fg)" }}>{quantityError}</small>}
             </div>
 
             <div className="mk-total">
@@ -395,7 +395,7 @@ export default function OrderPanel({ listing, user, loading }) {
                                 {routeInfo?.hint && (
                                     <>
                                         {" · "}
-                                        <strong style={{ color: "#c2410c" }}>
+                                        <strong style={{ color: "var(--ts-orange-deep)" }}>
                                             {m("budgetUsual", {
                                                 low: formatMoney(routeInfo.hint.low, currency),
                                                 high: formatMoney(routeInfo.hint.high, currency),

@@ -439,7 +439,7 @@ export default function TrackPage() {
 
                         {/* Shipper: share with the receiver */}
                         {link && data.live && (
-                            <div className="ap-card" style={{ padding: 14, background: "linear-gradient(135deg, #ecfdf3, #ffffff)" }}>
+                            <div className="ap-card is-tint-green" style={{ padding: 14 }}>
                                 <div>
                                     <strong style={{ color: "var(--ts-ink)" }}>🔗 {a("tk_shareTitle")}</strong>
                                     <div className="ap-card-sub">{a("tk_shareText")}</div>

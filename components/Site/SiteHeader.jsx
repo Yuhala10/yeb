@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useLanguage } from "../../lib/LanguageContext";
 import { useSiteText } from "../../lib/siteText";
 import { DASHBOARDS } from "../../lib/useSession";
+import ThemeToggle from "./ThemeToggle";
 
 function rememberLanguage(language) {
     try {
@@ -71,6 +72,8 @@ export default function SiteHeader({ user, loading, variant = "light", active })
 
                 <div className="ts-header-actions">
 
+                    <ThemeToggle />
+
                     <div className="ts-lang" role="group" aria-label="Language / Langue">
                         <Link
                             href={router.asPath}
@@ -94,8 +97,9 @@ export default function SiteHeader({ user, loading, variant = "light", active })
                         </Link>
                     </div>
 
-                    {!loading && (
-                        user ? (
+                    {/* "Log in" right away; "Dashboard" once a session is found. */}
+                    {(
+                        user && !loading ? (
                             <Link href={DASHBOARDS[user.role] || "/"} className="ts-btn ts-btn-primary ts-btn-sm">
                                 {s("dashboard")}
                             </Link>

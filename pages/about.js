@@ -71,6 +71,7 @@ export default function AboutPage({ origin }) {
             },
             worksFor: { "@type": "Organization", name: "Tayeb", url: origin },
             knowsAbout: ["Agriculture", "Logistics", "Marketplaces", "Software engineering", "Africa"],
+            ...(FOUNDER.profiles.length ? { sameAs: FOUNDER.profiles } : {}),
         },
     ];
 

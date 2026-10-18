@@ -3,6 +3,7 @@ import "../styles/globals.css";
 import "../styles/market.css";
 import "../styles/site.css";
 import "../styles/app.css";
+import "../styles/theme.css";
 
 import { LanguageProvider } from "../lib/LanguageContext";
 import ServiceWorkerRegistration from "../components/ServiceWorkerRegistration";
@@ -49,6 +50,14 @@ export default function App({ Component, pageProps }) {
           content="width=device-width, initial-scale=1, viewport-fit=cover"
           key="viewport"
         />
+
+        {/* Search engines: set these on Vercel to prove the site is yours. */}
+        {process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION && (
+          <meta name="google-site-verification" content={process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION} />
+        )}
+        {process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION && (
+          <meta name="msvalidate.01" content={process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION} />
+        )}
 
         <link
           rel="manifest"

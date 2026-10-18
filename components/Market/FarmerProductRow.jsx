@@ -29,7 +29,7 @@ export default function FarmerProductRow({ product, busy, onEdit, onStatus }) {
 
             <div style={{ minWidth: 0 }}>
                 <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
-                    <strong style={{ color: "#0f172a", fontSize: 15 }}>
+                    <strong style={{ color: "var(--ts-heading)", fontSize: 15 }}>
                         {productName(product, language)}
                     </strong>
                     <span className={`mk-pill ${STATUS_PILL[product.status] || ""}`}>
@@ -38,7 +38,7 @@ export default function FarmerProductRow({ product, busy, onEdit, onStatus }) {
                 </div>
 
                 <div className="mk-card-meta" style={{ marginTop: 4 }}>
-                    <strong style={{ color: "#0f172a" }}>
+                    <strong style={{ color: "var(--ts-heading)" }}>
                         {formatMoney(product.price_per_unit, product.currency)}
                     </strong>{" "}
                     / {unitName(product.unit, language)} ·{" "}
@@ -57,7 +57,7 @@ export default function FarmerProductRow({ product, busy, onEdit, onStatus }) {
                 </div>
 
                 {product.status === "ACTIVE" && !product.visible && (
-                    <div className="mk-card-meta" style={{ color: "#b91c1c" }}>
+                    <div className="mk-card-meta" style={{ color: "var(--tint-red-fg)" }}>
                         {m("hiddenExpired")}
                     </div>
                 )}

@@ -5,6 +5,7 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 
 import PhoneInput from "../components/Site/PhoneInput";
+import ThemeToggle from "../components/Site/ThemeToggle";
 import { apiGet, apiPost } from "../lib/api";
 import { appError, useAppText } from "../lib/appText";
 import { cityNames } from "../lib/cities";
@@ -272,7 +273,10 @@ export default function LoginPage() {
                             </span>
                             <span className="ts-brand-name">Tayeb</span>
                         </Link>
-                        <Link href="/" className="lg-back">← {a("l_back")}</Link>
+                        <div style={{ display: "flex", gap: 8 }}>
+                            <ThemeToggle onDark />
+                            <Link href="/" className="lg-back">← {a("l_back")}</Link>
+                        </div>
                     </div>
 
                     <div>

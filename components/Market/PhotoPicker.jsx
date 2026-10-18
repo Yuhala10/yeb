@@ -152,13 +152,13 @@ export default function PhotoPicker({ items, onChange, disabled }) {
                 onChange={add}
             />
 
-            <small style={{ color: "#64748b", fontSize: 12.5 }}>
+            <small style={{ color: "var(--ts-muted)", fontSize: 12.5 }}>
                 {fr
                     ? `Jusqu'à ${MAX_PHOTOS} photos. La première est la couverture. Lumière du jour, produit bien visible : ça vend plus vite.`
                     : `Up to ${MAX_PHOTOS} photos. The first is the cover. Daylight and a clear view of the produce sell faster.`}
             </small>
 
-            {error && <small style={{ color: "#b91c1c" }}>{error}</small>}
+            {error && <small style={{ color: "var(--tint-red-fg)" }}>{error}</small>}
 
         </div>
     );

@@ -1,0 +1,271 @@
+/* =========================================================
+   TAYEB — LIGHT AND DARK
+=========================================================
+ *
+ * Light by day, dark at night: Tayeb follows the phone's
+ * setting, and people can choose one for good with the
+ * sun/moon button (saved as data-theme on <html>, set before
+ * the page paints by public/theme.js).
+ *
+ * The orange and the deep ink of the hero sections are the
+ * same in both; only surfaces, text and lines change.
+ *
+ * Loaded last, so these tokens win over the older ones.
+ */
+
+:root {
+  color-scheme: light;
+
+  --ts-heading: #0b1220;
+  --ts-paper: #fffaf5;
+  --ts-surface: #ffffff;
+  --ts-surface-2: #faf8f5;
+  --ts-surface-3: #f4f1ee;
+  --ts-text: #334155;
+  --ts-muted: #64748b;
+  --ts-line: #ece7e1;
+  --ts-line-strong: #e3dcd4;
+  --ts-orange-soft: #fff7ed;
+  --ts-glass: rgba(255, 250, 245, 0.9);
+  --ts-solid: #0b1220;
+  --ts-on-solid: #ffffff;
+
+  --tint-green-bg: #ecfdf3;
+  --tint-green-fg: #15803d;
+  --tint-green-line: #bbf7d0;
+  --tint-blue-bg: #eff6ff;
+  --tint-blue-fg: #1d4ed8;
+  --tint-blue-line: #bfdbfe;
+  --tint-red-bg: #fef2f2;
+  --tint-red-fg: #b91c1c;
+  --tint-red-line: #fecaca;
+  --tint-amber-bg: #fffbeb;
+  --tint-amber-fg: #b45309;
+  --tint-orange-fg: #9a3412;
+  --tint-orange-line: #fed7aa;
+
+  /* Tayeb Marché names, now following the theme. */
+  --mk-ink: var(--ts-heading);
+  --mk-text: var(--ts-text);
+  --mk-muted: var(--ts-muted);
+  --mk-line: var(--ts-line-strong);
+  --mk-paper: var(--ts-paper);
+  --mk-cream: var(--ts-surface-2);
+  --mk-green: var(--tint-green-fg);
+  --mk-green-soft: var(--tint-green-bg);
+  --mk-green-line: var(--tint-green-line);
+  --tayeb-border: var(--ts-line);
+  --tayeb-orange-light: var(--ts-orange-soft);
+}
+
+
+/* ---------------------------------------------------------
+   DARK TOKENS: the phone asks for dark (and nobody chose
+   light), or someone chose dark.
+--------------------------------------------------------- */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --ts-heading: #f8fafc;
+    --ts-paper: #0d1424;
+    --ts-surface: #131c30;
+    --ts-surface-2: #172238;
+    --ts-surface-3: #1d2942;
+    --ts-text: #cbd5e1;
+    --ts-muted: #94a3b8;
+    --ts-line: rgba(255, 255, 255, 0.08);
+    --ts-line-strong: rgba(255, 255, 255, 0.14);
+    --ts-orange-soft: rgba(249, 115, 22, 0.14);
+    --ts-glass: rgba(13, 20, 36, 0.9);
+    --ts-solid: #f8fafc;
+    --ts-on-solid: #0b1220;
+    --ts-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 30px rgba(0, 0, 0, 0.35);
+    --ts-shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.35), 0 24px 60px rgba(0, 0, 0, 0.5);
+    --mk-shadow: var(--ts-shadow);
+    --mk-shadow-hover: var(--ts-shadow-lg);
+    --tayeb-shadow: var(--ts-shadow);
+
+    --tint-green-bg: rgba(34, 197, 94, 0.13);
+    --tint-green-fg: #86efac;
+    --tint-green-line: rgba(34, 197, 94, 0.35);
+    --tint-blue-bg: rgba(59, 130, 246, 0.14);
+    --tint-blue-fg: #93c5fd;
+    --tint-blue-line: rgba(59, 130, 246, 0.35);
+    --tint-red-bg: rgba(239, 68, 68, 0.14);
+    --tint-red-fg: #fca5a5;
+    --tint-red-line: rgba(239, 68, 68, 0.35);
+    --tint-amber-bg: rgba(245, 158, 11, 0.14);
+    --tint-amber-fg: #fcd34d;
+    --tint-orange-fg: #fdba74;
+    --tint-orange-line: rgba(249, 115, 22, 0.35);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --ts-heading: #f8fafc;
+  --ts-paper: #0d1424;
+  --ts-surface: #131c30;
+  --ts-surface-2: #172238;
+  --ts-surface-3: #1d2942;
+  --ts-text: #cbd5e1;
+  --ts-muted: #94a3b8;
+  --ts-line: rgba(255, 255, 255, 0.08);
+  --ts-line-strong: rgba(255, 255, 255, 0.14);
+  --ts-orange-soft: rgba(249, 115, 22, 0.14);
+  --ts-glass: rgba(13, 20, 36, 0.9);
+  --ts-solid: #f8fafc;
+  --ts-on-solid: #0b1220;
+  --ts-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 30px rgba(0, 0, 0, 0.35);
+  --ts-shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.35), 0 24px 60px rgba(0, 0, 0, 0.5);
+  --mk-shadow: var(--ts-shadow);
+  --mk-shadow-hover: var(--ts-shadow-lg);
+  --tayeb-shadow: var(--ts-shadow);
+
+  --tint-green-bg: rgba(34, 197, 94, 0.13);
+  --tint-green-fg: #86efac;
+  --tint-green-line: rgba(34, 197, 94, 0.35);
+  --tint-blue-bg: rgba(59, 130, 246, 0.14);
+  --tint-blue-fg: #93c5fd;
+  --tint-blue-line: rgba(59, 130, 246, 0.35);
+  --tint-red-bg: rgba(239, 68, 68, 0.14);
+  --tint-red-fg: #fca5a5;
+  --tint-red-line: rgba(239, 68, 68, 0.35);
+  --tint-amber-bg: rgba(245, 158, 11, 0.14);
+  --tint-amber-fg: #fcd34d;
+  --tint-orange-fg: #fdba74;
+  --tint-orange-line: rgba(249, 115, 22, 0.35);
+}
+
+
+/* ---------------------------------------------------------
+   PAGE
+--------------------------------------------------------- */
+
+body,
+.ts-page,
+.ap-page {
+  background: var(--ts-paper);
+  color: var(--ts-text);
+}
+
+.ap-card.is-tint-green {
+  background: linear-gradient(135deg, var(--tint-green-bg), var(--ts-surface) 70%);
+}
+
+.ap-card.is-tint-orange {
+  background: linear-gradient(135deg, var(--ts-orange-soft), var(--ts-surface) 70%);
+}
+
+
+/* ---------------------------------------------------------
+   DARK: details that tokens alone don't cover. Written once
+   and applied by both dark selectors.
+--------------------------------------------------------- */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .ts-section-cream { background: linear-gradient(180deg, #121b2f, var(--ts-paper)); }
+  :root:not([data-theme="light"]) .ts-carousel,
+  :root:not([data-theme="light"]) .mk-media,
+  :root:not([data-theme="light"]) .mk-thumb,
+  :root:not([data-theme="light"]) .ts-card-main .ts-card-media { background: linear-gradient(135deg, #2a1d14, #1d2942 55%, #14281f); }
+  :root:not([data-theme="light"]) .mk-progress span { background: var(--ts-surface-3); }
+  :root:not([data-theme="light"]) .mk-mobile-cta,
+  :root:not([data-theme="light"]) .mk-filters { background: var(--ts-glass); }
+  :root:not([data-theme="light"]) .ap-steps .now i { background: linear-gradient(90deg, var(--ts-orange) 0%, var(--ts-orange) 50%, var(--ts-surface-3) 50%); background-size: 200% 100%; }
+  :root:not([data-theme="light"]) .ap-switch { background: #334155; }
+  :root:not([data-theme="light"]) .ap-skeleton { background: linear-gradient(90deg, #172238 25%, #1d2942 50%, #172238 75%); background-size: 200% 100%; }
+  :root:not([data-theme="light"]) .tk-handle::before { background: rgba(255, 255, 255, 0.22); }
+  :root:not([data-theme="light"]) .ap-tab.active { background: var(--ts-orange); }
+  :root:not([data-theme="light"]) .ap-chip-ink,
+  :root:not([data-theme="light"]) .ts-btn-ink { background: #f8fafc; color: #0b1220; }
+  :root:not([data-theme="light"]) .ap-person-avatar { background: linear-gradient(135deg, #3b2412, #4a3510); color: #fdba74; }
+  :root:not([data-theme="light"]) .tk-map .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88) saturate(0.55); }
+  :root:not([data-theme="light"]) .tk-map { background: #1a2233; }
+  :root:not([data-theme="light"]) .tk-map .leaflet-control-zoom a { background: var(--ts-surface); color: var(--ts-heading); border-color: var(--ts-line); }
+  :root:not([data-theme="light"]) .tk-map .leaflet-control-attribution a { color: #fdba74; }
+  :root:not([data-theme="light"]) .ts-header.is-light .ts-brand-name,
+  :root:not([data-theme="light"]) .ts-header.is-scrolled .ts-brand-name { color: white; }
+  :root:not([data-theme="light"]) img.ts-dim-dark { filter: brightness(0.9); }
+}
+
+:root[data-theme="dark"] .ts-section-cream { background: linear-gradient(180deg, #121b2f, var(--ts-paper)); }
+:root[data-theme="dark"] .ts-carousel,
+:root[data-theme="dark"] .mk-media,
+:root[data-theme="dark"] .mk-thumb,
+:root[data-theme="dark"] .ts-card-main .ts-card-media { background: linear-gradient(135deg, #2a1d14, #1d2942 55%, #14281f); }
+:root[data-theme="dark"] .mk-progress span { background: var(--ts-surface-3); }
+:root[data-theme="dark"] .mk-mobile-cta,
+:root[data-theme="dark"] .mk-filters { background: var(--ts-glass); }
+:root[data-theme="dark"] .ap-steps .now i { background: linear-gradient(90deg, var(--ts-orange) 0%, var(--ts-orange) 50%, var(--ts-surface-3) 50%); background-size: 200% 100%; }
+:root[data-theme="dark"] .ap-switch { background: #334155; }
+:root[data-theme="dark"] .ap-skeleton { background: linear-gradient(90deg, #172238 25%, #1d2942 50%, #172238 75%); background-size: 200% 100%; }
+:root[data-theme="dark"] .tk-handle::before { background: rgba(255, 255, 255, 0.22); }
+:root[data-theme="dark"] .ap-tab.active { background: var(--ts-orange); }
+:root[data-theme="dark"] .ap-chip-ink,
+:root[data-theme="dark"] .ts-btn-ink { background: #f8fafc; color: #0b1220; }
+:root[data-theme="dark"] .ap-person-avatar { background: linear-gradient(135deg, #3b2412, #4a3510); color: #fdba74; }
+:root[data-theme="dark"] .tk-map .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88) saturate(0.55); }
+:root[data-theme="dark"] .tk-map { background: #1a2233; }
+:root[data-theme="dark"] .tk-map .leaflet-control-zoom a { background: var(--ts-surface); color: var(--ts-heading); border-color: var(--ts-line); }
+:root[data-theme="dark"] .tk-map .leaflet-control-attribution a { color: #fdba74; }
+:root[data-theme="dark"] .ts-header.is-light .ts-brand-name,
+:root[data-theme="dark"] .ts-header.is-scrolled .ts-brand-name { color: white; }
+
+
+/* ---------------------------------------------------------
+   THE SUN / MOON BUTTON
+--------------------------------------------------------- */
+
+.ts-theme {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border: 1px solid var(--ts-line-strong);
+  border-radius: 13px;
+  background: var(--ts-surface);
+  color: var(--ts-heading);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.2s var(--ts-ease), background 0.2s var(--ts-ease);
+}
+
+.ts-theme:hover {
+  transform: rotate(-12deg);
+}
+
+.ts-theme.is-on-dark,
+.ts-header.is-dark:not(.is-scrolled) .ts-theme {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+}
+
+/* Each icon shows only in its theme; no flash before scripts run. */
+.ts-theme .when-dark { display: none; }
+.ts-theme .when-light { display: inline; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .ts-theme .when-dark { display: inline; }
+  :root:not([data-theme="light"]) .ts-theme .when-light { display: none; }
+}
+
+:root[data-theme="dark"] .ts-theme .when-dark { display: inline; }
+:root[data-theme="dark"] .ts-theme .when-light { display: none; }
+
+/* Small phones: the site header keeps logo, theme, language and login. */
+@media (max-width: 420px) {
+  .ts-header .ts-brand-name {
+    display: none;
+  }
+
+  .ts-header-actions {
+    gap: 6px;
+  }
+}

@@ -5,6 +5,7 @@ import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 
 import Notifications from "../Notifications";
+import ThemeToggle, { setTheme } from "../Site/ThemeToggle";
 import { useAppText } from "../../lib/appText";
 import { FOUNDER } from "../../lib/founder";
 import { useLanguage } from "../../lib/LanguageContext";
@@ -126,6 +127,8 @@ export default function AppShell({
                                 </button>
                             </div>
 
+                            <ThemeToggle onDark />
+
                             {user.role !== "ADMIN" && <Notifications userId={user.id} />}
 
                             <div className="ap-popover" ref={menuBox}>
@@ -154,6 +157,9 @@ export default function AppShell({
                                         <Link href="/" role="menuitem">🏠 {a("menuHome")}</Link>
                                         <Link href="/feedback" role="menuitem">💬 {a("menuHelp")}</Link>
                                         <a href={support} target="_blank" rel="noopener noreferrer" role="menuitem">🟢 {a("menuSupport")}</a>
+                                        <button type="button" role="menuitem" onClick={() => { setTheme(null); setMenu(false); }}>
+                                            🌗 {a("menuThemeAuto")}
+                                        </button>
                                         <button type="button" role="menuitem" className="is-danger" onClick={() => logout(router)}>
                                             ↪ {a("menuLogout")}
                                         </button>

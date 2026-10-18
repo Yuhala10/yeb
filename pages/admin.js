@@ -416,7 +416,7 @@ export default function AdminPage() {
                                 <div key={day} title={`${day} · ${stats.newPeople[index]} / ${stats.newLoads[index]}`} style={{ display: "grid", gap: 3, alignItems: "end", height: "100%" }}>
                                     <div style={{ display: "flex", gap: 2, alignItems: "flex-end", height: "100%" }}>
                                         <i style={{ flex: 1, height: `${(stats.newPeople[index] / max([...stats.newPeople, ...stats.newLoads])) * 100}%`, minHeight: 3, borderRadius: 4, background: "var(--ts-orange)" }} />
-                                        <i style={{ flex: 1, height: `${(stats.newLoads[index] / max([...stats.newPeople, ...stats.newLoads])) * 100}%`, minHeight: 3, borderRadius: 4, background: "var(--ts-ink)" }} />
+                                        <i style={{ flex: 1, height: `${(stats.newLoads[index] / max([...stats.newPeople, ...stats.newLoads])) * 100}%`, minHeight: 3, borderRadius: 4, background: "var(--ts-heading)" }} />
                                     </div>
                                 </div>
                             ))}

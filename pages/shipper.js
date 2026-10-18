@@ -349,7 +349,7 @@ export default function ShipperPage() {
                             </div>
 
                             {market.ready && (
-                                <Link href="/market" className="ap-card" style={{ textDecoration: "none", background: "linear-gradient(135deg, #fff7ed, #ffffff)" }}>
+                                <Link href="/market" className="ap-card is-tint-orange" style={{ textDecoration: "none" }}>
                                     <h3 className="ap-card-title">🌾 {a("s_marketTitle")}</h3>
                                     <div className="ap-card-sub">{a("s_marketText")}</div>
                                     <span className="ts-link">{a("s_goMarket")} →</span>

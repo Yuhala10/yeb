@@ -470,7 +470,7 @@ export default function DriverPage() {
                                 </div>
                             </div>
 
-                            <div className="ap-card" style={{ background: "linear-gradient(135deg, #ecfdf3, #ffffff)" }}>
+                            <div className="ap-card is-tint-green">
                                 <h3 className="ap-card-title">💬 {a("d_invite")}</h3>
                                 <div className="ap-card-sub">{a("d_noLoadsText")}</div>
                                 <div>

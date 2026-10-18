@@ -9,7 +9,7 @@ import Seo from "../components/Site/Seo";
 import SiteFooter from "../components/Site/SiteFooter";
 import SiteHeader from "../components/Site/SiteHeader";
 import { COUNTRIES, countryName } from "../lib/countries";
-import { FOUNDER, QUOTES } from "../lib/founder";
+import { FOUNDER, QUOTES, TAYEB_PROFILES } from "../lib/founder";
 import { useLanguage } from "../lib/LanguageContext";
 import { formatMoney } from "../lib/money";
 import { CATEGORIES, productEmoji, productName } from "../lib/produce";
@@ -111,10 +111,12 @@ export default function Home({ featured, ready, origin }) {
             slogan: siteText(language, "tagline"),
             description: siteText(language, "visionText"),
             areaServed: COUNTRIES.map((country) => ({ "@type": "Country", name: country.en })),
+            ...(TAYEB_PROFILES.length ? { sameAs: TAYEB_PROFILES } : {}),
             founder: {
                 "@type": "Person",
                 name: FOUNDER.name,
                 url: localizedUrl(origin, "/about", language),
+                ...(FOUNDER.profiles.length ? { sameAs: FOUNDER.profiles } : {}),
             },
         },
         {

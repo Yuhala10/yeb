@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
  * arrows on computers, dots and thumbnails to jump. No
  * library: CSS scroll-snap does the motion.
  */
-export default function PhotoCarousel({ photos = [], alt = "", emoji = "🧺", children }) {
+export default function PhotoCarousel({ photos = [], alt = "", emoji = "🧺", children, thumbs = true, eager = true }) {
     const track = useRef(null);
 
     const [index, setIndex] = useState(0);
@@ -80,7 +80,7 @@ export default function PhotoCarousel({ photos = [], alt = "", emoji = "🧺", c
                                 <img
                                     src={photo.url}
                                     alt={`${alt} — ${position + 1}`}
-                                    loading={position === 0 ? "eager" : "lazy"}
+                                    loading={position === 0 && eager ? "eager" : "lazy"}
                                     decoding="async"
                                     draggable={false}
                                 />
@@ -116,7 +116,7 @@ export default function PhotoCarousel({ photos = [], alt = "", emoji = "🧺", c
 
             </div>
 
-            {count > 1 && (
+            {count > 1 && thumbs && (
                 <div className="ts-thumbs">
                     {photos.map((photo, position) => (
                         <button

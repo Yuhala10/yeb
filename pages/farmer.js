@@ -9,6 +9,7 @@ import { useFeedback } from "../components/App/Feedback";
 import FarmerProductRow from "../components/Market/FarmerProductRow";
 import OrderCard from "../components/Market/OrderCard";
 import ProductForm from "../components/Market/ProductForm";
+import ProfileEditor from "../components/Market/ProfileEditor";
 import { apiGet, apiPost, pollWhileVisible } from "../lib/api";
 import { useAppText } from "../lib/appText";
 import { useLanguage } from "../lib/LanguageContext";
@@ -41,7 +42,8 @@ export default function FarmerPage() {
 
     const [data, setData] = useState(null);
 
-    const [tab, setTab] = useState("orders");
+    // "Edit my page" on the farm page opens the profile here.
+    const [tab, setTab] = useState(() => (typeof window !== "undefined" && window.location.hash === "#profile" ? "profile" : "orders"));
 
     const [busyId, setBusyId] = useState(null);
 
@@ -282,7 +284,8 @@ export default function FarmerPage() {
             {tab === "profile" && (
                 <section className="ap-section ap-fade">
                     <SectionHead title={a("f_tabProfile")} />
-                    <div style={{ maxWidth: 720 }}>
+                    <div style={{ maxWidth: 720, display: "grid", gap: 18 }}>
+                        {data.social && <ProfileEditor user={user} onSaved={setUser} />}
                         <AccountPanel user={user}>
                             {(salesText || user.rating_count > 0) && (
                                 <div className="ap-kv">

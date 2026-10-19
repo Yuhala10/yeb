@@ -4,7 +4,7 @@ import Reveal from "../components/Site/Reveal";
 import Seo from "../components/Site/Seo";
 import SiteFooter from "../components/Site/SiteFooter";
 import SiteHeader from "../components/Site/SiteHeader";
-import { COUNTRIES } from "../lib/countries";
+import { LIVE_COUNTRIES } from "../lib/countries";
 import { FOUNDER, QUOTES } from "../lib/founder";
 import { useLanguage } from "../lib/LanguageContext";
 import { localizedUrl, siteCardUrl, siteOrigin } from "../lib/seo";
@@ -249,7 +249,7 @@ export default function AboutPage({ origin }) {
                             <h2>{s("joinTitle")}</h2>
                             <p>{s("joinText")}</p>
                             <p style={{ fontSize: 22, letterSpacing: 4 }} aria-hidden="true">
-                                {COUNTRIES.map((country) => country.flag).join(" ")}
+                                {LIVE_COUNTRIES.map((country) => country.flag).join(" ")}
                             </p>
                             <a href={whatsapp} target="_blank" rel="noopener noreferrer" className="ts-btn ts-btn-ink ts-btn-lg">
                                 💬 {s("contactFounder")}

@@ -8,7 +8,8 @@ import Reveal from "../components/Site/Reveal";
 import Seo from "../components/Site/Seo";
 import SiteFooter from "../components/Site/SiteFooter";
 import SiteHeader from "../components/Site/SiteHeader";
-import { COUNTRIES, countryName } from "../lib/countries";
+import { cityNames } from "../lib/cities";
+import { LIVE_COUNTRIES, countryName } from "../lib/countries";
 import { FOUNDER, QUOTES, TAYEB_PROFILES } from "../lib/founder";
 import { useLanguage } from "../lib/LanguageContext";
 import { formatMoney } from "../lib/money";
@@ -110,7 +111,7 @@ export default function Home({ featured, ready, origin }) {
             logo: `${origin}/branding/tayeb-logo.jpeg`,
             slogan: siteText(language, "tagline"),
             description: siteText(language, "visionText"),
-            areaServed: COUNTRIES.map((country) => ({ "@type": "Country", name: country.en })),
+            areaServed: LIVE_COUNTRIES.map((country) => ({ "@type": "Country", name: country.en })),
             ...(TAYEB_PROFILES.length ? { sameAs: TAYEB_PROFILES } : {}),
             founder: {
                 "@type": "Person",
@@ -183,7 +184,7 @@ export default function Home({ featured, ready, origin }) {
                             <div>
                                 <span className="ts-badge">
                                     <span className="ts-pulse" aria-hidden="true" />
-                                    {s("heroBadge", { count: COUNTRIES.length })}
+                                    {s("heroBadge", { count: cityNames("CM").length })}
                                 </span>
 
                                 <h1>
@@ -223,12 +224,12 @@ export default function Home({ featured, ready, origin }) {
                                         <strong>{s("actionSell")}</strong>
                                         <span>{s("actionSellText")}</span>
                                     </Link>
-                                    <Link href={roleHref("SHIPPER")} className="ts-tile">
-                                        <span className="ts-tile-icon" aria-hidden="true">📦</span>
+                                    <Link href="/go" className="ts-tile">
+                                        <span className="ts-tile-icon" aria-hidden="true">⚡</span>
                                         <strong>{s("actionSend")}</strong>
                                         <span>{s("actionSendText")}</span>
                                     </Link>
-                                    <Link href={roleHref("DRIVER")} className="ts-tile">
+                                    <Link href={user?.role === "DRIVER" ? "/drive" : roleHref("DRIVER")} className="ts-tile">
                                         <span className="ts-tile-icon" aria-hidden="true">🚚</span>
                                         <strong>{s("actionDrive")}</strong>
                                         <span>{s("actionDriveText")}</span>
@@ -435,17 +436,17 @@ export default function Home({ featured, ready, origin }) {
 
                         <Reveal className="ts-head">
                             <div>
-                                <span className="ts-eyebrow">🌍 {COUNTRIES.length}</span>
+                                <span className="ts-eyebrow">🇨🇲 {cityNames("CM").length}</span>
                                 <h2 className="ts-title">{s("countriesTitle")}</h2>
                                 <p className="ts-lead">{s("countriesText")}</p>
                             </div>
                         </Reveal>
 
                         <Reveal className="ts-countries">
-                            {COUNTRIES.map((country) => (
-                                <Link key={country.code} href={`/market?country=${country.code}`} className="ts-country">
-                                    <span aria-hidden="true">{country.flag}</span>
-                                    {countryName(country.code, language)}
+                            {cityNames("CM").map((city) => (
+                                <Link key={city} href={`/market?country=CM&city=${encodeURIComponent(city)}`} className="ts-country">
+                                    <span aria-hidden="true">📍</span>
+                                    {city}
                                 </Link>
                             ))}
                         </Reveal>

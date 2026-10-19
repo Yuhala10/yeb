@@ -1,4 +1,4 @@
-import { EngineError, sendError } from "../../lib/server/core";
+import { EngineError, sendError, socialReady } from "../../lib/server/core";
 import {
     farmerAddPhoto,
     farmerArrangePhotos,
@@ -10,6 +10,7 @@ import {
     farmerSetProductStatus,
 } from "../../lib/server/market";
 import { requireRole } from "../../lib/server/session";
+import { ensureHandle } from "../../lib/server/social";
 
 /*
  * GET  → the farmer's products and orders
@@ -45,7 +46,13 @@ export default async function handler(req, res) {
 
     try {
         if (req.method === "GET") {
-            return res.status(200).json(await farmerDashboard(farmer));
+            // Every farmer gets their page address the first time.
+            const fresh = await ensureHandle(farmer);
+
+            return res.status(200).json({
+                ...(await farmerDashboard(fresh)),
+                social: await socialReady(),
+            });
         }
 
         if (req.method !== "POST") {

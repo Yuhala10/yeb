@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import PhotoPicker from "./PhotoPicker";
+import VoiceRecorder from "./VoiceRecorder";
 import { apiGet, apiPost } from "../../lib/api";
 import { cityNames } from "../../lib/cities";
 import { countryOrDefault, todayIn } from "../../lib/countries";
@@ -8,6 +9,8 @@ import { useLanguage } from "../../lib/LanguageContext";
 import { marketError, useMarketText } from "../../lib/marketText";
 import { currencySymbol, formatMoney } from "../../lib/money";
 import { CATEGORIES, PRODUCTS, UNITS, findProduct, findUnit, unitName } from "../../lib/produce";
+import { CAPTION_LANGUAGES } from "../../lib/languages";
+import { useSocialText } from "../../lib/socialText";
 
 function initialState(product, farmer) {
     const today = todayIn(farmer?.country);
@@ -28,6 +31,7 @@ function initialState(product, farmer) {
             availableFrom: product.available_from || today,
             availableUntil: product.available_until || "",
             perishable: Boolean(product.perishable),
+            captionLang: product.caption_lang || "",
         };
     }
 
@@ -46,6 +50,7 @@ function initialState(product, farmer) {
         availableFrom: today,
         availableUntil: "",
         perishable: false,
+        captionLang: (Array.isArray(farmer?.languages) && farmer.languages[0]) || "",
     };
 }
 
@@ -66,7 +71,12 @@ export default function ProductForm({ product, farmer, onClose, onDone }) {
 
     const m = useMarketText();
 
+    const s = useSocialText();
+
     const country = countryOrDefault(farmer?.country);
+
+    // { dataUrl, seconds } just recorded, { url, seconds } saved, or null.
+    const [voice, setVoice] = useState(() => (product?.voice_url ? { url: product.voice_url, seconds: product.voice_seconds } : null));
 
     const [form, setForm] = useState(() => initialState(product, farmer));
 
@@ -214,6 +224,29 @@ export default function ProductForm({ product, farmer, onClose, onDone }) {
                 saved.photo_url = arranged[0]?.url || null;
             }
 
+            // The voice note, once the post exists.
+            try {
+                if (voice?.dataUrl) {
+                    setStatus(s("voiceSaving"));
+
+                    const result = await apiPost("/api/social", { action: "voice", productId: saved.id, audio: voice.dataUrl, seconds: voice.seconds });
+
+                    saved.voice_url = result.voice_url;
+                    saved.voice_seconds = result.voice_seconds;
+
+                    setVoice({ url: result.voice_url, seconds: result.voice_seconds });
+                } else if (!voice && product?.voice_url) {
+                    await apiPost("/api/social", { action: "removeVoice", productId: saved.id });
+
+                    saved.voice_url = null;
+                }
+            } catch (failure) {
+                // Before the social market is set up, posts work without voice notes.
+                if (failure?.code !== "SOCIAL_NOT_READY") {
+                    throw failure;
+                }
+            }
+
             onDone(saved, isNew);
         } catch (failure) {
             setError(marketError(language, failure));
@@ -247,6 +280,46 @@ export default function ProductForm({ product, farmer, onClose, onDone }) {
                     <div className="mk-field">
                         <span className="mk-field-label">📷 {m("photo")}</span>
                         <PhotoPicker items={photos} onChange={setPhotos} disabled={saving} />
+                    </div>
+
+
+                    {/* CAPTION, IN THE FARMER'S OWN LANGUAGE, AND A VOICE NOTE */}
+
+                    <div className="mk-field">
+                        <label htmlFor="pf-details">✍️ {s("captionLabel")}</label>
+                        <textarea
+                            id="pf-details"
+                            className="mk-textarea"
+                            maxLength={600}
+                            rows={3}
+                            value={form.details}
+                            onChange={(event) => update("details", event.target.value)}
+                            placeholder={s("captionPlaceholder")}
+                        />
+                        <small>{s("captionHint")}</small>
+                    </div>
+
+                    <div className="mk-field">
+                        <span className="mk-field-label">🗣️ {s("captionLang")}</span>
+                        <div className="sm-lang-chips">
+                            {CAPTION_LANGUAGES.map((item) => (
+                                <button
+                                    key={item.code}
+                                    type="button"
+                                    className={form.captionLang === item.code ? "active" : ""}
+                                    onClick={() => update("captionLang", form.captionLang === item.code ? "" : item.code)}
+                                    aria-pressed={form.captionLang === item.code}
+                                    disabled={saving}
+                                >
+                                    {language === "en" ? item.en : item.fr}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="mk-field">
+                        <span className="mk-field-label">🎙️ {s("voiceNote")}</span>
+                        <VoiceRecorder value={voice} onChange={setVoice} disabled={saving} />
                     </div>
 
 
@@ -458,18 +531,6 @@ export default function ProductForm({ product, farmer, onClose, onDone }) {
                         />
                         ❄️ {m("perishable")}
                     </label>
-
-                    <div className="mk-field">
-                        <label htmlFor="pf-details">{m("details")}</label>
-                        <textarea
-                            id="pf-details"
-                            className="mk-textarea"
-                            maxLength={600}
-                            value={form.details}
-                            onChange={(event) => update("details", event.target.value)}
-                            placeholder={m("detailsPlaceholder")}
-                        />
-                    </div>
 
                     {status && <div className="mk-notice mk-notice-blue" role="status">{status}</div>}
 

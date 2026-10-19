@@ -1,3 +1,4 @@
+import { isLiveCountry } from "../../../lib/countries";
 import supabaseAdmin from "../../../lib/supabaseAdmin";
 import { findCity } from "../../../lib/cities";
 import { DEFAULT_COUNTRY } from "../../../lib/countries";
@@ -210,6 +211,11 @@ export default async function handler(req, res) {
 
             if (fullName.length < 2) {
                 return fail(res, 400, "Please enter your full name.", "NAME_REQUIRED");
+            }
+
+            // Tayeb opens country by country: Cameroon first.
+            if (!isLiveCountry(phoneCountry)) {
+                return fail(res, 400, "Tayeb is open in Cameroon for now. Use a Cameroonian number.", "COUNTRY_CLOSED");
             }
 
             if (!role) {

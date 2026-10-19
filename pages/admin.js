@@ -39,7 +39,7 @@ const T = {
         updated: "Updated {when}",
         people: "people",
         drivers: "drivers",
-        availableDrivers: "{count} available",
+        availableDrivers: "{online} online now · {count} available",
         openLoads: "open loads",
         onRoad: "on the road",
         delivered: "delivered",
@@ -107,7 +107,7 @@ const T = {
         updated: "Mis à jour {when}",
         people: "personnes",
         drivers: "chauffeurs",
-        availableDrivers: "{count} disponibles",
+        availableDrivers: "{online} en ligne · {count} disponibles",
         openLoads: "chargements ouverts",
         onRoad: "en route",
         delivered: "livrés",
@@ -292,6 +292,8 @@ export default function AdminPage() {
             people: users.length,
             drivers: count(users, (item) => item.role === "DRIVER"),
             available: count(users, (item) => item.role === "DRIVER" && item.is_available),
+            // Tayeb Go: online, with a position from the last 3 minutes.
+            online: count(users, (item) => item.role === "DRIVER" && item.online && item.location_at && base - Date.parse(item.location_at) < 180000),
             open: count(shipments, (item) => item.status === "OPEN"),
             road: count(shipments, (item) => ["MATCHED", "DEPARTED", "ARRIVED"].includes(item.status)),
             done: count(shipments, (item) => item.status === "COMPLETED"),
@@ -344,7 +346,7 @@ export default function AdminPage() {
             }
             stats={[
                 { value: stats.people, label: t("people") },
-                { value: stats.drivers, label: t("drivers"), small: t("availableDrivers", { count: stats.available }) },
+                { value: stats.drivers, label: t("drivers"), small: t("availableDrivers", { count: stats.available, online: stats.online }) },
                 { value: stats.open, label: t("openLoads"), hot: stats.open > 0 },
                 { value: stats.road, label: t("onRoad") },
                 { value: stats.done, label: t("delivered") },

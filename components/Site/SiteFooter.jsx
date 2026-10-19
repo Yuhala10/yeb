@@ -1,7 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 
-import { COUNTRIES, countryName } from "../../lib/countries";
+import { cityNames } from "../../lib/cities";
+import { LIVE_COUNTRIES } from "../../lib/countries";
 import { useLanguage } from "../../lib/LanguageContext";
 import { CATEGORIES } from "../../lib/produce";
 import { useSiteText } from "../../lib/siteText";
@@ -65,10 +66,10 @@ export default function SiteFooter() {
                     <div>
                         <h4>{s("footerCountries")}</h4>
                         <ul>
-                            {COUNTRIES.slice(0, 8).map((country) => (
-                                <li key={country.code}>
-                                    <Link href={`/market?country=${country.code}`}>
-                                        {country.flag} {countryName(country.code, language)}
+                            {cityNames("CM").slice(0, 8).map((city) => (
+                                <li key={city}>
+                                    <Link href={`/market?country=CM&city=${encodeURIComponent(city)}`}>
+                                        📍 {city}
                                     </Link>
                                 </li>
                             ))}
@@ -82,7 +83,7 @@ export default function SiteFooter() {
                         <Link href="/hq" className="ts-quiet" prefetch={false} rel="nofollow">©</Link>{" "}
                         {YEAR} {s("footerRights")}
                     </span>
-                    <span>{COUNTRIES.map((country) => country.flag).join(" ")}</span>
+                    <span>{LIVE_COUNTRIES.map((country) => country.flag).join(" ")}</span>
                 </div>
 
             </div>

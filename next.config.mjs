@@ -34,7 +34,8 @@ const contentSecurityPolicy = [
   `img-src 'self' data: blob: https://*.supabase.co ${originOf(process.env.NEXT_PUBLIC_SUPABASE_URL)} ${mapTiles}`.replace(/\s+/g, " ").trim(),
   "font-src 'self'",
   "connect-src 'self'",
-  "media-src 'self'",
+  // Voice notes: from Tayeb's storage, or just recorded on the phone.
+  `media-src 'self' data: blob: https://*.supabase.co ${originOf(process.env.NEXT_PUBLIC_SUPABASE_URL)}`.replace(/\s+/g, " ").trim(),
   "frame-src 'none'",
   "worker-src 'self'",
   "manifest-src 'self'",
@@ -48,7 +49,7 @@ const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "X-Frame-Options", value: "SAMEORIGIN" },
-  { key: "Permissions-Policy", value: "camera=(self), geolocation=(self), microphone=(), payment=(), usb=()" },
+  { key: "Permissions-Policy", value: "camera=(self), geolocation=(self), microphone=(self), payment=(), usb=()" },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin-allow-popups" },
   ...(isProduction
     ? [

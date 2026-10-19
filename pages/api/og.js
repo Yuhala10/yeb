@@ -1,6 +1,7 @@
 import { cargoLabel } from "../../lib/cargo";
 import { cityRoadKm, resolveCity } from "../../lib/cities";
-import { COUNTRIES, countryName, countryOrDefault, todayIn } from "../../lib/countries";
+import { cityNames } from "../../lib/cities";
+import { countryName, countryOrDefault, todayIn } from "../../lib/countries";
 import { FOUNDER } from "../../lib/founder";
 import { formatDay } from "../../lib/marketText";
 import { formatMoney } from "../../lib/money";
@@ -189,26 +190,26 @@ async function loadCard(id, language, host) {
 function siteCard(page, language, host) {
     const fr = language === "fr";
 
-    const countries = COUNTRIES.length;
+    const countries = cityNames("CM").length;
 
     const school = "Polytech Yaoundé";
 
     const cards = {
         home: fr
             ? {
-                eyebrow: "AFRIQUE",
-                title: "Des fermes africaines",
+                eyebrow: "CAMEROUN",
+                title: "Des fermes camerounaises",
                 highlight: "à tous les marchés.",
-                text: "Achetez aux producteurs, faites livrer par des chauffeurs notés. Publiez un chargement et recevez des prix en quelques minutes.",
-                chips: [`${countries} pays`, "Gratuit", "FR · EN"],
+                text: "Achetez aux producteurs, faites livrer par le chauffeur le plus proche, suivez-le en direct. Prix fixe, payé en Mobile Money.",
+                chips: [`${countries} villes`, "Gratuit", "FR · EN"],
                 cta: "Ouvrir Tayeb",
             }
             : {
-                eyebrow: "AFRICA",
-                title: "From African farms",
+                eyebrow: "CAMEROON",
+                title: "From Cameroon's farms",
                 highlight: "to every market.",
-                text: "Buy from farmers, get it delivered by rated drivers. Post a load and get prices in minutes.",
-                chips: [`${countries} countries`, "Free", "EN · FR"],
+                text: "Buy from farmers, get it delivered by the nearest driver and follow it live. Fixed prices, paid by Mobile Money.",
+                chips: [`${countries} towns`, "Free", "EN · FR"],
                 cta: "Open Tayeb",
             },
         market: fr

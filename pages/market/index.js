@@ -2,19 +2,22 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useMemo, useState } from "react";
 
+import { FeedIcon, GridIcon } from "../../components/Market/Icons";
+import PostCard from "../../components/Market/PostCard";
 import ProductCard from "../../components/Market/ProductCard";
 import InstallPrompt from "../../components/Site/InstallPrompt";
 import Reveal from "../../components/Site/Reveal";
 import Seo from "../../components/Site/Seo";
 import SiteFooter from "../../components/Site/SiteFooter";
 import SiteHeader from "../../components/Site/SiteHeader";
-import { apiPost } from "../../lib/api";
+import { apiGet, apiPost } from "../../lib/api";
 import { cityNames, distanceKm, findCity } from "../../lib/cities";
-import { countryName, findCountry, sortedCountries } from "../../lib/countries";
+import { LIVE_COUNTRIES, countryName, findCountry, sortedCountries } from "../../lib/countries";
 import { useLanguage } from "../../lib/LanguageContext";
 import { marketError, marketText, useMarketText } from "../../lib/marketText";
 import { CATEGORIES, PRODUCTS, findCategory, findProduct, matchProducts, productName } from "../../lib/produce";
 import { localizedUrl, siteCardUrl, siteOrigin } from "../../lib/seo";
+import { useSocialText } from "../../lib/socialText";
 import { listMarket, marketReady } from "../../lib/server/market";
 import { countryFromRequest } from "../../lib/useCountry";
 import { DASHBOARDS, loginThenReturn, useSession } from "../../lib/useSession";
@@ -29,6 +32,10 @@ import { DASHBOARDS, loginThenReturn, useSession } from "../../lib/useSession";
  * filtered view has its own address. Without a country in
  * the address, the visitor's country is used, and all of
  * Africa when it has nothing yet.
+ *
+ * Shown like a social feed: posts from farms (photos, caption,
+ * voice note, likes), with tabs For you · Following · Near me
+ * · Saved, or as a grid.
  */
 
 export async function getServerSideProps({ query, req, res }) {
@@ -37,7 +44,8 @@ export async function getServerSideProps({ query, req, res }) {
     const category = findCategory(String(query.category || "")) ? String(query.category) : "";
     const q = String(query.q || "").slice(0, 60);
 
-    let country = askedCountry || countryFromRequest(req) || "";
+    // One country open (Cameroon first): show it; otherwise the visitor's.
+    let country = askedCountry || (LIVE_COUNTRIES.length === 1 ? LIVE_COUNTRIES[0].code : countryFromRequest(req)) || "";
 
     const city = findCity(String(query.city || ""), country || undefined)?.name || "";
 
@@ -109,7 +117,44 @@ export default function MarketPage({ ready, listings, total, facets, filters, wi
 
     const [formCountry, setFormCountry] = useState(filters.country);
 
+    const s = useSocialText();
+
+    // foryou | following | near | saved
+    const [tab, setTab] = useState("foryou");
+
+    const [view, setView] = useState("feed");
+
+    // Posts for the Following and Saved tabs: { [tab]: { loading, listings } }.
+    const [extra, setExtra] = useState({});
+
+    function chooseView(next) {
+        setView(next);
+    }
+
+    async function openTab(next) {
+        setTab(next);
+
+        if (next === "near" && !near) {
+            locate();
+        }
+
+        if ((next === "following" || next === "saved") && user && !extra[next]?.listings) {
+            setExtra((current) => ({ ...current, [next]: { loading: true, listings: null } }));
+
+            try {
+                const result = await apiGet(`/api/social?feed=${next}`);
+
+                setExtra((current) => ({ ...current, [next]: { loading: false, listings: result.listings || [] } }));
+            } catch {
+                setExtra((current) => ({ ...current, [next]: { loading: false, listings: [] } }));
+            }
+        }
+    }
+
     const country = findCountry(filters.country);
+
+    // Only Cameroon is open: no country to choose.
+    const oneCountry = LIVE_COUNTRIES.length === 1;
 
     const hasFilters = Boolean(filters.product || filters.category || filters.city || filters.q);
 
@@ -118,7 +163,7 @@ export default function MarketPage({ ready, listings, total, facets, filters, wi
 
     // "Near me": sort by distance from where the phone is.
     const shown = useMemo(() => {
-        if (!near) {
+        if (!near || tab !== "near") {
             return listings.map((listing) => ({ listing, km: null }));
         }
 
@@ -129,7 +174,7 @@ export default function MarketPage({ ready, listings, total, facets, filters, wi
                 return { listing, km };
             })
             .sort((a, b) => (a.km ?? Infinity) - (b.km ?? Infinity));
-    }, [listings, near]);
+    }, [listings, near, tab]);
 
     const productChips = Object.entries(facets)
         .filter(([key]) => findProduct(key) && key !== "OTHER")
@@ -250,7 +295,7 @@ export default function MarketPage({ ready, listings, total, facets, filters, wi
                 noindex={Boolean(filters.q) || (total === 0 && Boolean(filters.country || filters.category || filters.product || filters.city))}
             />
 
-            <div className="ts-page">
+            <div className="ts-page sm-market">
 
                 <SiteHeader user={user} loading={loading} variant="dark" active="market" />
 
@@ -259,7 +304,7 @@ export default function MarketPage({ ready, listings, total, facets, filters, wi
                     HERO
                 ================================================= */}
 
-                <section className="ts-hero" style={{ paddingBottom: 40 }}>
+                <section className="ts-hero sm-market-hero">
                     <div className="ts-wrap">
                         <span className="ts-badge">
                             <span className="ts-pulse" aria-hidden="true" />
@@ -291,7 +336,7 @@ export default function MarketPage({ ready, listings, total, facets, filters, wi
 
                     <div className="mk-filters">
 
-                        <form className="mk-filter-row" method="get" action="/market" role="search">
+                        <form className={`mk-filter-row ${oneCountry ? "is-one-country" : ""}`} method="get" action="/market" role="search">
                             {filters.product && <input type="hidden" name="product" value={filters.product} />}
                             {filters.category && <input type="hidden" name="category" value={filters.category} />}
 
@@ -305,20 +350,24 @@ export default function MarketPage({ ready, listings, total, facets, filters, wi
                                 maxLength={60}
                             />
 
-                            <select
-                                className="mk-select"
-                                name="country"
-                                value={formCountry}
-                                onChange={(event) => setFormCountry(event.target.value)}
-                                aria-label={language === "fr" ? "Pays" : "Country"}
-                            >
-                                <option value="">🌍 {language === "fr" ? "Toute l'Afrique" : "All of Africa"}</option>
-                                {sortedCountries(language).map((item) => (
-                                    <option key={item.code} value={item.code}>
-                                        {item.flag} {language === "fr" ? item.fr : item.en}
-                                    </option>
-                                ))}
-                            </select>
+                            {oneCountry ? (
+                                <input type="hidden" name="country" value={LIVE_COUNTRIES[0].code} />
+                            ) : (
+                                <select
+                                    className="mk-select"
+                                    name="country"
+                                    value={formCountry}
+                                    onChange={(event) => setFormCountry(event.target.value)}
+                                    aria-label={language === "fr" ? "Pays" : "Country"}
+                                >
+                                    <option value="">🌍 {language === "fr" ? "Toute l'Afrique" : "All of Africa"}</option>
+                                    {sortedCountries(language).map((item) => (
+                                        <option key={item.code} value={item.code}>
+                                            {item.flag} {language === "fr" ? item.fr : item.en}
+                                        </option>
+                                    ))}
+                                </select>
+                            )}
 
                             <select
                                 className="mk-select"
@@ -404,18 +453,6 @@ export default function MarketPage({ ready, listings, total, facets, filters, wi
                                 </h2>
 
                                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                                    {listings.length > 1 && (
-                                        <button
-                                            type="button"
-                                            className={`ts-btn ts-btn-sm ${near ? "ts-btn-ink" : "ts-btn-light"}`}
-                                            onClick={() => (near ? setNear(null) : locate())}
-                                            disabled={locating}
-                                        >
-                                            {locating ? "…" : near ? "✕ " : "📍 "}
-                                            {language === "fr" ? "Près de moi" : "Near me"}
-                                        </button>
-                                    )}
-
                                     {hasFilters && (
                                         <Link href={filterHref({ country: filters.country }, {})} className="ts-btn ts-btn-light ts-btn-sm">
                                             ✕ {m("clearFilters")}
@@ -453,16 +490,81 @@ export default function MarketPage({ ready, listings, total, facets, filters, wi
                                 </div>
                             ) : (
                                 <>
-                                    <div className="mk-grid">
-                                        {shown.map(({ listing, km }) => (
-                                            <ProductCard
-                                                key={listing.id}
-                                                listing={listing}
-                                                showCountry={!filters.country}
-                                                distanceKm={km}
-                                            />
-                                        ))}
+                                    <div className="sm-feed-bar">
+                                        <div className="sm-feed-tabs" role="tablist">
+                                            {[
+                                                ["foryou", `✨ ${s("forYou")}`],
+                                                ["following", `👥 ${s("following")}`],
+                                                ["near", `📍 ${s("nearMe")}`],
+                                                ["saved", `🔖 ${s("saved")}`],
+                                            ].map(([key, label]) => (
+                                                <button key={key} type="button" role="tab" aria-selected={tab === key} className={tab === key ? "active" : ""} onClick={() => openTab(key)}>
+                                                    {key === "near" && locating ? "…" : label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <div className="sm-view">
+                                            <button type="button" className={view === "feed" ? "active" : ""} onClick={() => chooseView("feed")} aria-label={s("feedView")} aria-pressed={view === "feed"}>
+                                                <FeedIcon />
+                                            </button>
+                                            <button type="button" className={view === "grid" ? "active" : ""} onClick={() => chooseView("grid")} aria-label={s("gridView")} aria-pressed={view === "grid"}>
+                                                <GridIcon />
+                                            </button>
+                                        </div>
                                     </div>
+
+                                    {(() => {
+                                        const social = tab === "following" || tab === "saved";
+
+                                        if (social && !user) {
+                                            return (
+                                                <div className="sm-login-note">
+                                                    <span>{s("loginToFollow")}</span>
+                                                    <button type="button" className="ts-btn ts-btn-primary ts-btn-sm" onClick={() => loginThenReturn(router, "SHIPPER", router.asPath)}>
+                                                        {s("login")}
+                                                    </button>
+                                                </div>
+                                            );
+                                        }
+
+                                        if (social && (!extra[tab] || extra[tab].loading)) {
+                                            return <div className="sm-login-note">{s("loading")}</div>;
+                                        }
+
+                                        const items = social
+                                            ? extra[tab].listings.map((listing) => ({ listing, km: null }))
+                                            : shown;
+
+                                        if (social && items.length === 0) {
+                                            return (
+                                                <div className="mk-empty">
+                                                    <div className="mk-empty-icon">{tab === "saved" ? "🔖" : "👥"}</div>
+                                                    <h3>{s(tab === "saved" ? "savedEmptyTitle" : "followingEmptyTitle")}</h3>
+                                                    <p>{s(tab === "saved" ? "savedEmpty" : "followingEmpty")}</p>
+                                                    <button type="button" className="ts-btn ts-btn-light" onClick={() => setTab("foryou")}>✨ {s("forYou")}</button>
+                                                </div>
+                                            );
+                                        }
+
+                                        return view === "feed" ? (
+                                            <div className="sm-feed">
+                                                {items.map(({ listing, km }, index) => (
+                                                    <PostCard key={listing.id} listing={listing} user={user} distanceKm={km} eager={index === 0} />
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="mk-grid">
+                                                {items.map(({ listing, km }) => (
+                                                    <ProductCard
+                                                        key={listing.id}
+                                                        listing={listing}
+                                                        showCountry={!filters.country}
+                                                        distanceKm={km}
+                                                    />
+                                                ))}
+                                            </div>
+                                        );
+                                    })()}
 
                                     {alertLabel && (
                                         <div className="mk-alert-cta">

@@ -561,15 +561,91 @@ grant all on public.dispatch_offers to service_role;
 
 
 -- ============================================================
+-- SOCIAL MARKET: FARM PROFILES, POSTS, LIKES, SAVES, FOLLOWS
+-- ============================================================
+-- A farm has a page (tayeb…/farm/<handle>) with a photo, a
+-- cover, a bio and the languages it speaks. A product is a
+-- post: its description is the caption, written in any
+-- language, with an optional voice note.
+
+alter table public.users add column if not exists handle text;
+alter table public.users add column if not exists farm_name text;
+alter table public.users add column if not exists bio text;
+alter table public.users add column if not exists languages text[] not null default '{}';
+alter table public.users add column if not exists avatar_url text;
+alter table public.users add column if not exists avatar_path text;
+alter table public.users add column if not exists cover_url text;
+alter table public.users add column if not exists cover_path text;
+alter table public.users add column if not exists followers_count integer not null default 0;
+-- Set by the Tayeb team after checking an ID card or visiting the farm.
+alter table public.users add column if not exists verified_id boolean not null default false;
+alter table public.users add column if not exists farm_visited boolean not null default false;
+
+create unique index if not exists users_handle_idx on public.users (handle) where handle is not null;
+
+alter table public.users drop constraint if exists users_handle_check;
+alter table public.users
+    add constraint users_handle_check
+    check (handle is null or handle ~ '^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$');
+
+alter table public.products add column if not exists caption_lang text;
+alter table public.products add column if not exists voice_url text;
+alter table public.products add column if not exists voice_path text;
+alter table public.products add column if not exists voice_seconds integer;
+alter table public.products add column if not exists likes_count integer not null default 0;
+
+create table if not exists public.product_likes (
+    product_id uuid not null references public.products (id) on delete cascade,
+    user_id uuid not null references public.users (id) on delete cascade,
+    created_at timestamptz not null default now(),
+    primary key (product_id, user_id)
+);
+
+create table if not exists public.product_saves (
+    product_id uuid not null references public.products (id) on delete cascade,
+    user_id uuid not null references public.users (id) on delete cascade,
+    created_at timestamptz not null default now(),
+    primary key (product_id, user_id)
+);
+
+create table if not exists public.follows (
+    farmer_id uuid not null references public.users (id) on delete cascade,
+    follower_id uuid not null references public.users (id) on delete cascade,
+    created_at timestamptz not null default now(),
+    primary key (farmer_id, follower_id),
+    check (farmer_id <> follower_id)
+);
+
+create index if not exists product_likes_user_idx on public.product_likes (user_id, created_at desc);
+create index if not exists product_saves_user_idx on public.product_saves (user_id, created_at desc);
+create index if not exists follows_follower_idx on public.follows (follower_id);
+
+alter table public.product_likes enable row level security;
+alter table public.product_saves enable row level security;
+alter table public.follows enable row level security;
+revoke all on public.product_likes, public.product_saves, public.follows from anon, authenticated;
+grant all on public.product_likes, public.product_saves, public.follows to service_role;
+
+-- Voice notes: public like the photos (they play on the market),
+-- only the server uploads, audio files only, 1.5 MB at most.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('voices', 'voices', true, 1572864, array['audio/webm', 'audio/ogg', 'audio/mp4', 'audio/mpeg'])
+on conflict (id) do update
+    set public = true,
+        file_size_limit = excluded.file_size_limit,
+        allowed_mime_types = excluded.allowed_mime_types;
+
+
+-- ============================================================
 -- CHECK
 -- ============================================================
--- Should list 11 tables, all with rowsecurity = true, and the
+-- Should list 14 tables, all with rowsecurity = true, and the
 -- produce bucket as public.
 
 select tablename, rowsecurity
 from pg_tables
 where schemaname = 'public'
-  and tablename in ('users', 'shipments', 'bids', 'notifications', 'feedback', 'subscriptions', 'products', 'orders', 'market_alerts', 'shipment_positions', 'dispatch_offers')
+  and tablename in ('users', 'shipments', 'bids', 'notifications', 'feedback', 'subscriptions', 'products', 'orders', 'market_alerts', 'shipment_positions', 'dispatch_offers', 'product_likes', 'product_saves', 'follows')
 order by tablename;
 
-select id, public from storage.buckets where id = 'produce';
+select id, public from storage.buckets where id in ('produce', 'voices');

@@ -2,6 +2,9 @@ import Link from "next/link";
 
 import OrderPanel from "../../components/Market/OrderPanel";
 import ProductCard from "../../components/Market/ProductCard";
+import Avatar from "../../components/Market/Avatar";
+import FollowButton from "../../components/Market/FollowButton";
+import ListingSocial from "../../components/Market/ListingSocial";
 import PhotoCarousel from "../../components/Site/PhotoCarousel";
 import Seo from "../../components/Site/Seo";
 import ShareSheet from "../../components/Site/ShareSheet";
@@ -50,6 +53,12 @@ export async function getServerSideProps({ params, req, res }) {
             origin: siteOrigin(req),
         },
     };
+}
+
+function FarmAvatarLink({ farmer }) {
+    const avatar = <Avatar person={farmer} size={46} ring />;
+
+    return farmer.handle ? <Link href={`/farm/${farmer.handle}`} aria-label={farmer.farm_name || farmer.full_name}>{avatar}</Link> : avatar;
 }
 
 export default function ListingPage({ listing, origin }) {
@@ -271,20 +280,22 @@ export default function ListingPage({ listing, origin }) {
                                 </div>
                             )}
 
-                            {listing.details && (
-                                <p className="mk-description">{listing.details}</p>
-                            )}
+                            <ListingSocial listing={listing} user={user} />
 
                             {farmer && (
                                 <div className="mk-farmer">
 
-                                    <div className="mk-avatar" aria-hidden="true">
-                                        {String(farmer.full_name || "F").charAt(0).toUpperCase()}
-                                    </div>
+                                    <FarmAvatarLink farmer={farmer} />
 
-                                    <div style={{ minWidth: 0, flex: 1 }}>
+                                    <div style={{ minWidth: 0, flex: "1 1 180px" }}>
                                         <strong style={{ display: "block", color: "var(--mk-ink)", fontSize: 15 }}>
-                                            {farmer.full_name}
+                                            {farmer.handle ? (
+                                                <Link href={`/farm/${farmer.handle}`} style={{ color: "inherit", textDecoration: "none" }}>
+                                                    {farmer.farm_name || farmer.full_name}
+                                                </Link>
+                                            ) : (
+                                                farmer.farm_name || farmer.full_name
+                                            )}
                                         </strong>
                                         <span className="mk-card-meta">
                                             {m("farmIn", { city: farmer.base_city || listing.city })}
@@ -301,6 +312,8 @@ export default function ListingPage({ listing, origin }) {
                                             ? m("farmerRating", { rating: farmer.rating, count: farmer.rating_count })
                                             : m("newFarmer")}
                                     </span>
+
+                                    <FollowButton farmer={farmer} user={user} />
 
                                 </div>
                             )}

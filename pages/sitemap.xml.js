@@ -2,6 +2,7 @@ import { COUNTRIES } from "../lib/countries";
 import { CATEGORIES, findProduct } from "../lib/produce";
 import { localizedUrl, siteOrigin } from "../lib/seo";
 import { sitemapListings } from "../lib/server/market";
+import { sitemapFarms } from "../lib/server/social";
 
 /*
  * /sitemap.xml for search engines. Every page is listed in
@@ -47,8 +48,10 @@ export async function getServerSideProps({ req, res }) {
 
     let listings = [];
 
+    let farms = [];
+
     try {
-        listings = await sitemapListings();
+        [listings, farms] = await Promise.all([sitemapListings(), sitemapFarms()]);
     } catch (error) {
         console.error("Sitemap error:", error);
     }
@@ -68,6 +71,10 @@ export async function getServerSideProps({ req, res }) {
         ...COUNTRIES.filter((item) => countries.has(item.code)).map((item) => ({ path: `/market?country=${item.code}` })),
         ...CATEGORIES.filter((item) => categories.has(item.key)).map((item) => ({ path: `/market?category=${item.key}` })),
         ...[...products].map((key) => ({ path: `/market?product=${key}` })),
+        // Farm pages, only for farms with something on sale.
+        ...farms
+            .filter((farm) => listings.some((listing) => listing.farmer_id === farm.id))
+            .map((farm) => ({ path: `/farm/${farm.handle}` })),
         ...listings.map((listing) => ({
             path: `/market/${listing.id}`,
             lastmod: listing.updated_at,

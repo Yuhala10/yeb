@@ -136,7 +136,7 @@ export default function ProfileEditor({ user, onSaved }) {
                 <button type="button" className="ts-btn ts-btn-light ts-btn-sm" onClick={() => avatarInput.current?.click()} disabled={Boolean(busy)}>
                     🙂 {busy === "avatar" ? "…" : `${s("profilePhoto")} · ${user.avatar_url ? s("change") : s("addPhoto")}`}
                 </button>
-                <input ref={avatarInput} type="file" accept="image/*" capture="user" hidden onChange={(event) => upload("avatar", event.target.files?.[0])} />
+                <input ref={avatarInput} type="file" accept="image/*" hidden onChange={(event) => upload("avatar", event.target.files?.[0])} />
             </div>
 
             {/* ---------------- words ---------------- */}

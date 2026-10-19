@@ -478,15 +478,98 @@ create index if not exists shipments_country_idx on public.shipments (country, s
 
 
 -- ============================================================
+-- TAYEB GO: ON-DEMAND DELIVERY (nearest driver, fixed price)
+-- ============================================================
+-- Drivers go online and their phone shares where they are;
+-- a customer orders a vehicle and the nearest drivers get the
+-- request one after another (dispatch_offers).
+
+alter table public.users add column if not exists vehicle_class text;
+alter table public.users add column if not exists online boolean not null default false;
+alter table public.users add column if not exists location_lat double precision;
+alter table public.users add column if not exists location_lng double precision;
+alter table public.users add column if not exists location_heading real;
+alter table public.users add column if not exists location_accuracy integer;
+alter table public.users add column if not exists location_at timestamptz;
+alter table public.users add column if not exists jobs_cancelled integer not null default 0;
+
+alter table public.users drop constraint if exists users_vehicle_class_check;
+alter table public.users
+    add constraint users_vehicle_class_check
+    check (vehicle_class is null or vehicle_class in ('MOTO', 'TRICYCLE', 'PICKUP', 'VAN', 'TRUCK'));
+
+-- BOARD: drivers send prices (as before). INSTANT: Tayeb Go.
+alter table public.shipments add column if not exists mode text not null default 'BOARD';
+alter table public.shipments drop constraint if exists shipments_mode_check;
+alter table public.shipments add constraint shipments_mode_check check (mode in ('BOARD', 'INSTANT'));
+
+alter table public.shipments add column if not exists vehicle_class text;
+alter table public.shipments add column if not exists pickup_lat double precision;
+alter table public.shipments add column if not exists pickup_lng double precision;
+alter table public.shipments add column if not exists dropoff_lat double precision;
+alter table public.shipments add column if not exists dropoff_lng double precision;
+alter table public.shipments add column if not exists pickup_address text;
+alter table public.shipments add column if not exists dropoff_address text;
+alter table public.shipments add column if not exists distance_km numeric;
+alter table public.shipments add column if not exists quoted_price integer;
+alter table public.shipments add column if not exists payment_method text;
+-- SEARCHING → ASSIGNED, or NO_DRIVER after 5 minutes.
+alter table public.shipments add column if not exists dispatch_status text;
+alter table public.shipments add column if not exists searching_since timestamptz;
+alter table public.shipments add column if not exists at_pickup_at timestamptz;
+alter table public.shipments add column if not exists cancelled_at timestamptz;
+alter table public.shipments add column if not exists cancelled_by text;
+alter table public.shipments add column if not exists cancel_reason text;
+
+alter table public.shipments drop constraint if exists shipments_go_check;
+alter table public.shipments
+    add constraint shipments_go_check
+    check (
+        (pickup_lat is null or pickup_lat between -90 and 90)
+        and (dropoff_lat is null or dropoff_lat between -90 and 90)
+        and (pickup_lng is null or pickup_lng between -180 and 180)
+        and (dropoff_lng is null or dropoff_lng between -180 and 180)
+        and (quoted_price is null or quoted_price > 0)
+        and (payment_method is null or payment_method in ('CASH', 'MOMO'))
+        and (dispatch_status is null or dispatch_status in ('SEARCHING', 'ASSIGNED', 'NO_DRIVER'))
+    );
+
+-- One row each time a driver is asked to take a trip.
+create table if not exists public.dispatch_offers (
+    id uuid primary key default gen_random_uuid(),
+    shipment_id uuid not null references public.shipments (id) on delete cascade,
+    driver_id uuid not null references public.users (id) on delete cascade,
+    wave integer not null default 1,
+    distance_km numeric,
+    pickup_eta_min integer,
+    status text not null default 'PENDING'
+        check (status in ('PENDING', 'ACCEPTED', 'DECLINED', 'EXPIRED', 'TAKEN', 'CANCELLED')),
+    created_at timestamptz not null default now(),
+    expires_at timestamptz not null,
+    responded_at timestamptz
+);
+
+create index if not exists dispatch_offers_driver_idx on public.dispatch_offers (driver_id, status, expires_at desc);
+create index if not exists dispatch_offers_trip_idx on public.dispatch_offers (shipment_id, created_at);
+create index if not exists users_online_idx on public.users (role, online, location_at desc);
+create index if not exists shipments_mode_idx on public.shipments (mode, status, created_at desc);
+create index if not exists shipments_driver_live_idx on public.shipments (driver_id, status);
+
+alter table public.dispatch_offers enable row level security;
+revoke all on public.dispatch_offers from anon, authenticated;
+grant all on public.dispatch_offers to service_role;
+
+
+-- ============================================================
 -- CHECK
 -- ============================================================
--- Should list 10 tables, all with rowsecurity = true, and the
+-- Should list 11 tables, all with rowsecurity = true, and the
 -- produce bucket as public.
 
 select tablename, rowsecurity
 from pg_tables
 where schemaname = 'public'
-  and tablename in ('users', 'shipments', 'bids', 'notifications', 'feedback', 'subscriptions', 'products', 'orders', 'market_alerts', 'shipment_positions')
+  and tablename in ('users', 'shipments', 'bids', 'notifications', 'feedback', 'subscriptions', 'products', 'orders', 'market_alerts', 'shipment_positions', 'dispatch_offers')
 order by tablename;
 
 select id, public from storage.buckets where id = 'produce';

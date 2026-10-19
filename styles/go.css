@@ -1,0 +1,1507 @@
+/* =========================================================
+   TAYEB GO (customer /go) AND TAYEB PRO (driver /drive)
+=========================================================
+ *
+ * Full-screen map with a sheet at the bottom on phones and a
+ * panel on the left on computers. Colours come from the theme
+ * tokens, so light and dark both work.
+ */
+
+.go-page {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--ts-surface-3);
+  color: var(--ts-text);
+}
+
+.go-page-plain {
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--ts-paper);
+}
+
+.go-map-wrap {
+  position: absolute;
+  inset: 0;
+}
+
+.go-map-wrap .go-map {
+  position: absolute;
+  inset: 0;
+  min-height: 0;
+}
+
+
+/* ---------------- the pin in the middle of the map ---------------- */
+
+.go-center-pin {
+  position: absolute;
+  z-index: 5;
+  display: grid;
+  justify-items: center;
+  transform: translate(-50%, -100%);
+  pointer-events: none;
+}
+
+.go-center-pin-head {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 4px solid white;
+  background: var(--ts-orange);
+  color: white;
+  font-size: 17px;
+  font-weight: 900;
+  box-shadow: 0 10px 24px rgba(11, 18, 32, 0.35);
+}
+
+.go-center-pin.is-to .go-center-pin-head {
+  border-radius: 14px;
+  background: #16a34a;
+}
+
+.go-center-pin-stick {
+  width: 4px;
+  height: 18px;
+  margin-top: -2px;
+  border-radius: 0 0 4px 4px;
+  background: var(--ts-ink);
+}
+
+.go-center-pin-dot {
+  width: 12px;
+  height: 5px;
+  margin-top: -2px;
+  border-radius: 50%;
+  background: rgba(11, 18, 32, 0.35);
+}
+
+
+/* ---------------- top bar ---------------- */
+
+.go-top {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  left: 12px;
+  right: 12px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.go-top > * {
+  pointer-events: auto;
+}
+
+.go-top-title {
+  min-width: 0;
+  flex: 1;
+  padding: 8px 14px;
+  border-radius: 16px;
+  background: var(--ts-glass);
+  box-shadow: var(--ts-shadow-lg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.go-top-title strong {
+  display: block;
+  overflow: hidden;
+  color: var(--ts-heading);
+  font-size: 15px;
+  font-weight: 900;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.go-top-title span {
+  display: block;
+  overflow: hidden;
+  color: var(--ts-muted);
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+
+/* ---------------- the sheet ---------------- */
+
+.go-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  max-height: 78vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: env(safe-area-inset-bottom);
+  border-radius: 26px 26px 0 0;
+  background: var(--ts-paper);
+  box-shadow: 0 -12px 48px rgba(11, 18, 32, 0.22);
+  animation: go-rise 0.35s var(--ts-ease);
+}
+
+.go-sheet.is-search {
+  height: calc(100vh - 70px);
+  height: calc(100dvh - 70px);
+  max-height: none;
+}
+
+.go-sheet.is-options {
+  max-height: 64vh;
+}
+
+/* A trip: the map keeps the top half, the sheet scrolls. */
+.go-sheet.is-trip,
+.go-sheet.is-driver.is-job {
+  max-height: 58vh;
+}
+
+.go-grab {
+  display: block;
+  width: 44px;
+  height: 5px;
+  margin: 10px auto 0;
+  border-radius: 5px;
+  background: var(--ts-line-strong);
+}
+
+.go-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  padding: 14px 18px 20px;
+}
+
+.go-body > *,
+.go-stack > *,
+.go-field > * {
+  min-width: 0;
+}
+
+.go-h1 {
+  margin: 0;
+  color: var(--ts-heading);
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.go-muted {
+  margin: 0;
+  color: var(--ts-muted);
+  font-size: 14.5px;
+  line-height: 1.45;
+}
+
+.go-small {
+  margin: 0;
+  color: var(--ts-muted);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.go-label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--ts-muted);
+  font-size: 11.5px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.go-field {
+  display: grid;
+  gap: 8px;
+}
+
+.go-field .go-label {
+  margin: 0;
+}
+
+.go-label small {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 700;
+}
+
+.go-row {
+  display: flex;
+  gap: 10px;
+}
+
+.go-grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.go-stack {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+
+.go-center {
+  justify-items: center;
+  text-align: center;
+}
+
+.go-big-icon {
+  font-size: 52px;
+  line-height: 1;
+}
+
+.go-hint {
+  margin: 0;
+  color: var(--ts-muted);
+  font-size: 13.5px;
+}
+
+.go-link {
+  justify-self: center;
+  color: var(--ts-orange-deep);
+  font-size: 14px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.go-cancel {
+  justify-self: center;
+  padding: 10px;
+  border: 0;
+  background: none;
+  color: var(--tint-red-fg);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.go-cancel:disabled {
+  opacity: 0.5;
+}
+
+
+/* ---------------- pickup and drop-off ---------------- */
+
+.go-places {
+  padding: 4px 14px;
+  border: 1px solid var(--ts-line);
+  border-radius: 20px;
+  background: var(--ts-surface);
+  box-shadow: var(--ts-shadow);
+}
+
+.go-place {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.go-place small {
+  display: block;
+  color: var(--ts-muted);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.go-place strong {
+  display: block;
+  overflow: hidden;
+  color: var(--ts-heading);
+  font-size: 15.5px;
+  font-weight: 800;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.go-place strong.is-empty {
+  color: var(--ts-muted);
+  font-weight: 700;
+}
+
+.go-places-line {
+  display: block;
+  height: 1px;
+  margin-left: 30px;
+  background: var(--ts-line);
+}
+
+.go-places.is-compact .go-place {
+  padding: 8px 0;
+}
+
+.go-places.is-compact .go-place strong {
+  font-size: 14.5px;
+}
+
+.go-dot {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border-radius: 50%;
+  border: 4px solid var(--ts-orange);
+  background: var(--ts-surface);
+}
+
+.go-dot.is-to {
+  border: 0;
+  border-radius: 4px;
+  background: #16a34a;
+}
+
+.go-pin-card {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--ts-line);
+  border-radius: 18px;
+  background: var(--ts-surface);
+}
+
+.go-pin-card small {
+  display: block;
+  color: var(--ts-muted);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.go-pin-card strong {
+  display: block;
+  color: var(--ts-heading);
+  font-size: 16.5px;
+  font-weight: 900;
+  transition: opacity 0.2s;
+}
+
+.go-pin-card strong.is-moving {
+  opacity: 0.45;
+}
+
+
+/* ---------------- chips and choices ---------------- */
+
+.go-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.go-chip {
+  padding: 8px 13px;
+  border: 1px solid var(--ts-line-strong);
+  border-radius: 999px;
+  background: var(--ts-surface);
+  color: var(--ts-heading);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.2s var(--ts-ease), color 0.2s var(--ts-ease), border-color 0.2s var(--ts-ease);
+}
+
+.go-chip.active {
+  border-color: transparent;
+  background: var(--ts-solid);
+  color: var(--ts-on-solid);
+}
+
+.go-segment {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+  background: var(--ts-surface-3);
+}
+
+.go-segment button {
+  padding: 11px 8px;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--ts-muted);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.go-segment button.active {
+  background: var(--ts-surface);
+  color: var(--ts-heading);
+  box-shadow: var(--ts-shadow);
+}
+
+
+/* ---------------- search ---------------- */
+
+.go-search {
+  padding-top: 10px;
+}
+
+.go-search-bar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0 8px;
+  background: var(--ts-paper);
+}
+
+.go-icon-btn {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex: none;
+  border: 1px solid var(--ts-line);
+  border-radius: 14px;
+  background: var(--ts-surface);
+  color: var(--ts-heading);
+  font-size: 18px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.go-search-input {
+  min-width: 0;
+  flex: 1;
+  height: 46px;
+  padding: 0 12px;
+  border: 1.5px solid var(--ts-line-strong);
+  border-radius: 14px;
+  background: var(--ts-surface);
+  color: var(--ts-heading);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.go-search-input:focus {
+  outline: none;
+  border-color: var(--ts-orange);
+  box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.15);
+}
+
+.go-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.go-list li > button {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 2px;
+  border: 0;
+  border-bottom: 1px solid var(--ts-line);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.go-list li > button strong {
+  display: block;
+  overflow: hidden;
+  color: var(--ts-heading);
+  font-size: 15px;
+  font-weight: 800;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.go-list li > button small {
+  display: block;
+  overflow: hidden;
+  color: var(--ts-muted);
+  font-size: 13px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.go-list-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--ts-surface-3);
+  font-size: 17px;
+}
+
+.go-list-head {
+  padding: 16px 2px 4px;
+  color: var(--ts-muted);
+  font-size: 11.5px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.go-list-empty {
+  padding: 14px 2px;
+  color: var(--ts-muted);
+  font-size: 14px;
+}
+
+
+/* ---------------- vehicles ---------------- */
+
+.go-route-sum {
+  margin: 0;
+  color: var(--ts-heading);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.go-classes {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(122px, 1fr);
+  gap: 10px;
+  margin: 0 -18px;
+  padding: 2px 18px 6px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.go-classes::-webkit-scrollbar {
+  display: none;
+}
+
+.go-class {
+  display: grid;
+  gap: 2px;
+  padding: 12px 12px 10px;
+  border: 2px solid var(--ts-line);
+  border-radius: 18px;
+  background: var(--ts-surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  scroll-snap-align: start;
+  transition: border-color 0.2s var(--ts-ease), background 0.2s var(--ts-ease), transform 0.2s var(--ts-ease), box-shadow 0.2s var(--ts-ease);
+}
+
+.go-class:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.go-class-emoji {
+  font-size: 27px;
+  line-height: 1.1;
+}
+
+.go-class strong {
+  color: var(--ts-heading);
+  font-size: 14.5px;
+  font-weight: 900;
+}
+
+.go-class-price {
+  color: var(--ts-heading);
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.go-class-eta {
+  color: var(--ts-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.go-class-eta.is-near {
+  color: var(--tint-green-fg);
+}
+
+.go-class.active {
+  border-color: var(--ts-orange);
+  background: var(--ts-orange-soft);
+  box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.14);
+}
+
+.go-class.is-off {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.go-class-sub {
+  margin: 6px 0 0;
+  color: var(--ts-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.go-cta {
+  position: sticky;
+  bottom: 0;
+  display: grid;
+  gap: 6px;
+  margin: 4px -18px -20px;
+  padding: 12px 18px calc(16px + env(safe-area-inset-bottom));
+  background: linear-gradient(to bottom, transparent, var(--ts-paper) 26%);
+  text-align: center;
+}
+
+.go-cta small {
+  color: var(--ts-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.go-order {
+  width: 100%;
+}
+
+
+/* ---------------- a trip ---------------- */
+
+.go-finding {
+  display: grid;
+  gap: 14px;
+}
+
+.go-finding-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.go-finding-pulse {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  flex: none;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--ts-orange-glow), var(--ts-orange-deep));
+  box-shadow: var(--ts-glow);
+}
+
+.go-finding-pulse::before,
+.go-finding-pulse::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--ts-orange);
+  animation: go-pulse 1.8s ease-out infinite;
+}
+
+.go-finding-pulse::after {
+  animation-delay: 0.9s;
+}
+
+.go-progress {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--ts-surface-3);
+}
+
+.go-progress i {
+  display: block;
+  height: 100%;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--ts-orange), var(--ts-amber));
+  transition: width 2.5s linear;
+}
+
+.go-eta-card {
+  display: grid;
+  gap: 4px;
+  padding: 16px 18px;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(249, 115, 22, 0.42), transparent 55%),
+    var(--ts-ink);
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.go-eta-card.is-green {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(74, 222, 128, 0.35), transparent 55%),
+    #0f2a1c;
+}
+
+.go-eta-card small {
+  color: #fdba74;
+  font-size: 11.5px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.go-eta-card.is-green small {
+  color: #86efac;
+}
+
+.go-eta-card strong {
+  color: white;
+  font-size: 23px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.go-eta-card span {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.go-driver-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--ts-line);
+  border-radius: 22px;
+  background: var(--ts-surface);
+  box-shadow: var(--ts-shadow);
+}
+
+.go-driver-top {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.go-avatar {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 3px solid var(--ts-surface);
+  background: linear-gradient(135deg, var(--ts-orange-glow), var(--ts-orange-deep));
+  color: white;
+  font-size: 22px;
+  font-weight: 900;
+  box-shadow: 0 6px 16px rgba(234, 88, 12, 0.35);
+}
+
+.go-driver-who {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.go-driver-who strong {
+  overflow: hidden;
+  color: var(--ts-heading);
+  font-size: 16px;
+  font-weight: 900;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.go-driver-who span {
+  color: var(--ts-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.go-plate {
+  padding: 5px 9px;
+  border: 2px solid #0b1220;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #0b1220;
+  font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  box-shadow: inset 0 0 0 2px #fde68a;
+}
+
+.go-summary {
+  display: grid;
+  gap: 10px;
+}
+
+.go-kv {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.go-kv > div {
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--ts-surface-3);
+}
+
+.go-kv small {
+  display: block;
+  color: var(--ts-muted);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.go-kv strong {
+  display: block;
+  overflow: hidden;
+  color: var(--ts-heading);
+  font-size: 14.5px;
+  font-weight: 900;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.go-note {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--ts-orange-soft);
+  color: var(--ts-heading);
+  font-size: 14px;
+}
+
+.go-rate {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+}
+
+.go-rate strong {
+  color: var(--ts-heading);
+}
+
+.go-spinner {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 4px solid var(--ts-line-strong);
+  border-top-color: var(--ts-orange);
+  animation: go-spin 0.8s linear infinite;
+}
+
+.go-message {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  max-width: 440px;
+  text-align: center;
+}
+
+
+/* ---------------- on the map ---------------- */
+
+.go-radar {
+  position: relative;
+  width: 0;
+  height: 0;
+}
+
+.go-radar i {
+  position: absolute;
+  left: -120px;
+  top: -120px;
+  width: 240px;
+  height: 240px;
+  border-radius: 50%;
+  border: 2px solid rgba(249, 115, 22, 0.4);
+  background: radial-gradient(circle, rgba(249, 115, 22, 0.22), rgba(249, 115, 22, 0) 70%);
+  animation: go-radar 2.7s ease-out infinite;
+}
+
+.go-radar i:nth-child(2) {
+  animation-delay: 0.9s;
+}
+
+.go-radar i:nth-child(3) {
+  animation-delay: 1.8s;
+}
+
+.go-car {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 36px;
+  filter: drop-shadow(0 3px 4px rgba(11, 18, 32, 0.35));
+}
+
+.go-driver {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+}
+
+.go-driver-halo {
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: rgba(249, 115, 22, 0.26);
+  animation: tk-ping 2s ease-out infinite;
+}
+
+.go-driver-car {
+  position: relative;
+  display: grid;
+  place-items: center;
+  filter: drop-shadow(0 5px 6px rgba(11, 18, 32, 0.4));
+  transition: transform 0.8s var(--ts-ease);
+}
+
+
+/* ---------------- driver: waiting ---------------- */
+
+.go-offline {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+}
+
+.go-go {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+  border: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--ts-orange-glow), var(--ts-orange) 45%, var(--ts-orange-deep));
+  color: white;
+  font: inherit;
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  box-shadow: 0 16px 36px rgba(249, 115, 22, 0.45), inset 0 2px 0 rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  transition: transform 0.2s var(--ts-ease);
+}
+
+.go-go::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 3px solid rgba(249, 115, 22, 0.45);
+  animation: go-pulse 2s ease-out infinite;
+}
+
+.go-go:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.go-go span {
+  position: relative;
+}
+
+.go-online {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+}
+
+.go-online-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 15px;
+  border-radius: 999px;
+  background: var(--tint-green-bg);
+  color: var(--tint-green-fg);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.go-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.go-stats > div {
+  min-width: 0;
+  padding: 10px 6px;
+  border-radius: 14px;
+  background: var(--ts-surface-3);
+  text-align: center;
+}
+
+.go-stats small {
+  display: block;
+  overflow: hidden;
+  color: var(--ts-muted);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.go-stats strong {
+  display: block;
+  overflow: hidden;
+  color: var(--ts-heading);
+  font-size: 14.5px;
+  font-weight: 900;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.go-vehicle-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--ts-line);
+  border-radius: 18px;
+  background: var(--ts-surface);
+}
+
+.go-vehicle-row small {
+  display: block;
+  color: var(--ts-muted);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.go-vehicle-row strong {
+  color: var(--ts-heading);
+  font-size: 15.5px;
+  font-weight: 900;
+}
+
+.go-vehicle-emoji {
+  font-size: 30px;
+  line-height: 1;
+}
+
+.go-earned {
+  margin: 0;
+  color: var(--tint-green-fg);
+  font-size: 36px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+
+.go-class-list {
+  display: grid;
+  gap: 8px;
+}
+
+.go-class-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1.5px solid var(--ts-line);
+  border-radius: 16px;
+  background: var(--ts-surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.go-class-row strong {
+  display: block;
+  color: var(--ts-heading);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.go-class-row small {
+  display: block;
+  color: var(--ts-muted);
+  font-size: 12.5px;
+}
+
+.go-class-row.active {
+  border-color: var(--ts-orange);
+  background: var(--ts-orange-soft);
+  color: var(--ts-orange-deep);
+  font-weight: 900;
+}
+
+
+/* ---------------- driver: a request ---------------- */
+
+.go-offer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: linear-gradient(to bottom, rgba(11, 18, 32, 0.1), rgba(11, 18, 32, 0.6));
+  animation: go-fade 0.25s ease;
+}
+
+.go-offer {
+  display: grid;
+  gap: 14px;
+  width: min(560px, 100%);
+  padding: 20px 18px calc(18px + env(safe-area-inset-bottom));
+  border-radius: 28px 28px 0 0;
+  background: var(--ts-paper);
+  box-shadow: 0 -20px 60px rgba(11, 18, 32, 0.35);
+  animation: go-rise 0.35s var(--ts-ease);
+}
+
+.go-offer-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.go-kicker {
+  color: var(--ts-orange-deep);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.go-offer-price {
+  margin: 4px 0 8px;
+  color: var(--ts-heading);
+  font-size: 36px;
+  font-weight: 900;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+}
+
+.go-chip-inline {
+  display: inline-flex;
+  margin: 0 6px 6px 0;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--ts-surface-3);
+  color: var(--ts-heading);
+  font-size: 12.5px;
+  font-weight: 800;
+}
+
+.go-ring {
+  display: grid;
+  place-items: center;
+  width: 68px;
+  height: 68px;
+  flex: none;
+  border-radius: 50%;
+  background: conic-gradient(var(--ts-orange) calc(var(--share) * 360deg), var(--ts-surface-3) 0);
+  transition: background 0.25s linear;
+}
+
+.go-ring span {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: var(--ts-paper);
+  color: var(--ts-heading);
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.go-offer-route {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--ts-line);
+  border-radius: 18px;
+  background: var(--ts-surface);
+}
+
+.go-offer-stop {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+}
+
+.go-offer-stop .go-dot {
+  margin-top: 3px;
+}
+
+.go-offer-stop small {
+  display: block;
+  color: var(--ts-muted);
+  font-size: 12.5px;
+  font-weight: 800;
+}
+
+.go-offer-stop strong {
+  display: block;
+  color: var(--ts-heading);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.go-offer-cargo {
+  margin: 0;
+  color: var(--ts-text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.go-offer-actions {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 10px;
+}
+
+.go-accept {
+  position: relative;
+  min-height: 60px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ts-orange-deep);
+  color: white;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: var(--ts-glow);
+}
+
+.go-accept i {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, var(--ts-orange-glow), var(--ts-orange));
+  transform-origin: left center;
+  transition: transform 0.25s linear;
+}
+
+.go-accept span {
+  position: relative;
+}
+
+.go-accept:disabled {
+  opacity: 0.7;
+}
+
+
+/* ---------------- driver: on a job ---------------- */
+
+.go-job-head {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+}
+
+.go-step-badge {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--ts-orange);
+  color: white;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.go-step-badge.is-deliver,
+.go-step-badge.is-code {
+  border-radius: 12px;
+  background: #16a34a;
+}
+
+.go-job-price {
+  color: var(--ts-heading);
+  font-size: 16px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.go-contacts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.go-contact {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--ts-line);
+  border-radius: 14px;
+  background: var(--ts-surface);
+  color: inherit;
+  text-decoration: none;
+}
+
+.go-contact small {
+  display: block;
+  color: var(--ts-muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.go-contact strong {
+  display: block;
+  overflow: hidden;
+  color: var(--ts-heading);
+  font-size: 14px;
+  font-weight: 900;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.go-code-input {
+  width: 100%;
+  height: 74px;
+  border: 2px solid var(--ts-line-strong);
+  border-radius: 18px;
+  background: var(--ts-surface);
+  color: var(--ts-heading);
+  font: inherit;
+  font-size: 36px;
+  font-weight: 900;
+  letter-spacing: 0.5em;
+  text-align: center;
+  text-indent: 0.5em;
+}
+
+.go-code-input:focus {
+  outline: none;
+  border-color: var(--ts-orange);
+  box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.15);
+}
+
+
+/* ---------------- computers: a panel on the left ---------------- */
+
+@media (min-width: 901px) {
+  .go-sheet,
+  .go-sheet.is-options,
+  .go-sheet.is-search {
+    top: calc(78px + env(safe-area-inset-top));
+    left: 14px;
+    right: auto;
+    bottom: 14px;
+    width: 420px;
+    height: auto;
+    max-height: none;
+    border-radius: 26px;
+    box-shadow: 0 24px 70px rgba(11, 18, 32, 0.28);
+  }
+
+  .go-sheet.is-home,
+  .go-sheet.is-pin {
+    bottom: auto;
+  }
+
+  .go-grab {
+    display: none;
+  }
+
+  .go-top-title {
+    flex: 0 1 400px;
+  }
+
+  .go-top-title + .tk-round {
+    margin-left: auto;
+  }
+
+  .go-offer {
+    margin-bottom: 24px;
+    border-radius: 28px;
+  }
+
+  .go-offer-backdrop {
+    align-items: flex-end;
+  }
+}
+
+
+/* ---------------- motion ---------------- */
+
+@keyframes go-rise {
+  from { transform: translateY(24px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+@keyframes go-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes go-pulse {
+  0% { transform: scale(1); opacity: 0.9; }
+  100% { transform: scale(1.7); opacity: 0; }
+}
+
+@keyframes go-radar {
+  0% { transform: scale(0.12); opacity: 1; }
+  100% { transform: scale(1); opacity: 0; }
+}
+
+@keyframes go-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .go-sheet,
+  .go-offer,
+  .go-offer-backdrop,
+  .go-radar i,
+  .go-finding-pulse::before,
+  .go-finding-pulse::after,
+  .go-go::after,
+  .go-driver-halo {
+    animation: none;
+  }
+}

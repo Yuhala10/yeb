@@ -3,6 +3,7 @@ import "../styles/globals.css";
 import "../styles/market.css";
 import "../styles/site.css";
 import "../styles/app.css";
+import "../styles/go.css";
 import "../styles/theme.css";
 
 import { LanguageProvider } from "../lib/LanguageContext";

@@ -302,7 +302,10 @@ export default function ShipperPage() {
             subtitle={a("s_sub")}
             actions={
                 <>
-                    <button type="button" className="ts-btn ts-btn-primary" onClick={() => setTab("send")}>
+                    <Link href="/go" className="ts-btn ts-btn-primary">
+                        ⚡ {language === "fr" ? "Livrer maintenant" : "Deliver now"}
+                    </Link>
+                    <button type="button" className="ts-btn ts-btn-glass" onClick={() => setTab("send")}>
                         ➕ {a("s_newLoad")}
                     </button>
                     {market.ready && (
@@ -333,6 +336,17 @@ export default function ShipperPage() {
                         <PostForm user={user} busy={busy === "post"} onPost={post} />
 
                         <div className="ap-stack">
+                            <Link href="/go" className="ap-card is-tint-orange" style={{ textDecoration: "none" }}>
+                                <span className="ap-label">⚡ Tayeb Go</span>
+                                <h3 className="ap-card-title">{language === "fr" ? "Livraison immédiate, prix fixe" : "Delivery now, fixed price"}</h3>
+                                <div className="ap-card-sub">
+                                    {language === "fr"
+                                        ? "Choisissez départ et arrivée sur la carte : le chauffeur le plus proche arrive, suivez-le en direct. Moto, tricycle, pick-up, camionnette ou camion."
+                                        : "Set pickup and drop-off on the map: the nearest driver comes, and you follow them live. Moto, tricycle, pick-up, van or truck."}
+                                </div>
+                                <span className="ts-link">{language === "fr" ? "Commander maintenant" : "Order now"} →</span>
+                            </Link>
+
                             <div className="ap-card" style={{ background: "var(--ts-ink)", color: "rgba(255,255,255,0.78)", borderColor: "transparent" }}>
                                 <span className="ap-label" style={{ color: "#fdba74" }}>Tayeb</span>
                                 {[
@@ -811,9 +825,17 @@ function LoadCard({ shipment, bids, busy, onChoose, onCounter, onStatus }) {
                 <span className="ap-chip ap-chip-ink">{formatMoney(shipment.agreed_price ?? shipment.initial_offer, shipment.currency)}</span>
             </div>
 
+            {/* ---------- Tayeb Go: Tayeb finds the driver ---------- */}
+
+            {shipment.mode === "INSTANT" && (
+                <Link href={`/go?trip=${shipment.id}`} className="ts-btn ts-btn-primary">
+                    ⚡ {isOpen ? (language === "fr" ? "Recherche du chauffeur… Voir" : "Finding your driver… Open") : (language === "fr" ? "Suivre dans Tayeb Go" : "Follow in Tayeb Go")}
+                </Link>
+            )}
+
             {/* ---------- waiting for a driver ---------- */}
 
-            {isOpen && (
+            {isOpen && shipment.mode !== "INSTANT" && (
                 <>
                     {shipment.price_hint && (
                         <div className="ap-note">

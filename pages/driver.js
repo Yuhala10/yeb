@@ -276,6 +276,10 @@ export default function DriverPage() {
             title={<>{a("helloWord")}, <em>{firstName(user.full_name)}</em></>}
             subtitle={a("d_sub")}
             actions={
+                <>
+                <Link href="/drive" className="ts-btn ts-btn-primary">
+                    ⚡ {language === "fr" ? "Tayeb Pro : passer en ligne" : "Tayeb Pro: go online"}
+                </Link>
                 <button
                     type="button"
                     className="ts-btn ts-btn-glass"
@@ -287,6 +291,7 @@ export default function DriverPage() {
                     {a("d_available")}
                     <span className={`ap-switch ${available ? "on" : ""}`} aria-hidden="true" style={{ transform: "scale(0.8)" }} />
                 </button>
+                </>
             }
             stats={[
                 { value: openLoads.length, label: a("d_statOpen") },
@@ -810,6 +815,11 @@ function TripCard({ job, busy, tracking, onRetryTracking, onStatus }) {
 
             {/* Live map and directions */}
             <div className="ap-actions">
+                {job.mode === "INSTANT" && (
+                    <Link href="/drive" className="ts-btn ts-btn-primary ts-btn-sm">
+                        ⚡ Tayeb Pro
+                    </Link>
+                )}
                 <Link href={`/track/${job.id}`} className="ts-btn ts-btn-ink ts-btn-sm">
                     🛰️ {a("tk_openMap")}
                 </Link>

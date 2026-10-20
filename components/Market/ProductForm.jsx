@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import PhotoPicker from "./PhotoPicker";
 import VoiceRecorder from "./VoiceRecorder";
+import Icon from "../Site/Icon";
 import { apiGet, apiPost } from "../../lib/api";
 import { cityNames } from "../../lib/cities";
 import { countryOrDefault, todayIn } from "../../lib/countries";
@@ -269,7 +270,7 @@ export default function ProductForm({ product, farmer, onClose, onDone }) {
                 <div className="mk-modal-head">
                     <h2>{form.id ? m("editFormTitle") : m("productFormTitle")}</h2>
                     <button type="button" className="mk-close" onClick={onClose} disabled={saving} aria-label={m("cancel")}>
-                        ✕
+                        <Icon name="x" />
                     </button>
                 </div>
 
@@ -278,7 +279,7 @@ export default function ProductForm({ product, farmer, onClose, onDone }) {
                     {/* PHOTOS */}
 
                     <div className="mk-field">
-                        <span className="mk-field-label">📷 {m("photo")}</span>
+                        <span className="mk-field-label"><Icon name="camera" /> {m("photo")}</span>
                         <PhotoPicker items={photos} onChange={setPhotos} disabled={saving} />
                     </div>
 
@@ -286,7 +287,7 @@ export default function ProductForm({ product, farmer, onClose, onDone }) {
                     {/* CAPTION, IN THE FARMER'S OWN LANGUAGE, AND A VOICE NOTE */}
 
                     <div className="mk-field">
-                        <label htmlFor="pf-details">✍️ {s("captionLabel")}</label>
+                        <label htmlFor="pf-details">{s("captionLabel")}</label>
                         <textarea
                             id="pf-details"
                             className="mk-textarea"
@@ -300,7 +301,7 @@ export default function ProductForm({ product, farmer, onClose, onDone }) {
                     </div>
 
                     <div className="mk-field">
-                        <span className="mk-field-label">🗣️ {s("captionLang")}</span>
+                        <span className="mk-field-label"><Icon name="language" /> {s("captionLang")}</span>
                         <div className="sm-lang-chips">
                             {CAPTION_LANGUAGES.map((item) => (
                                 <button
@@ -318,7 +319,7 @@ export default function ProductForm({ product, farmer, onClose, onDone }) {
                     </div>
 
                     <div className="mk-field">
-                        <span className="mk-field-label">🎙️ {s("voiceNote")}</span>
+                        <span className="mk-field-label"><Icon name="mic" /> {s("voiceNote")}</span>
                         <VoiceRecorder value={voice} onChange={setVoice} disabled={saving} />
                     </div>
 
@@ -336,15 +337,15 @@ export default function ProductForm({ product, farmer, onClose, onDone }) {
                         >
                             <option value="">{m("chooseProduct")}</option>
                             {CATEGORIES.map((category) => (
-                                <optgroup key={category.key} label={`${category.emoji} ${language === "fr" ? category.fr : category.en}`}>
+                                <optgroup key={category.key} label={language === "fr" ? category.fr : category.en}>
                                     {PRODUCTS.filter((item) => item.category === category.key).map((item) => (
                                         <option key={item.key} value={item.key}>
-                                            {item.emoji} {language === "fr" ? item.fr : item.en}
+                                            {language === "fr" ? item.fr : item.en}
                                         </option>
                                     ))}
                                 </optgroup>
                             ))}
-                            <option value="OTHER">🧺 {language === "fr" ? findProduct("OTHER").fr : findProduct("OTHER").en}</option>
+                            <option value="OTHER">{language === "fr" ? findProduct("OTHER").fr : findProduct("OTHER").en}</option>
                         </select>
                     </div>
 
@@ -433,7 +434,7 @@ export default function ProductForm({ product, farmer, onClose, onDone }) {
                         <div className="mk-notice mk-notice-green">
                             {unitPrices.paid && (
                                 <div>
-                                    📊 {m("priceOnMarket", {
+                                    <Icon name="chart" /> {m("priceOnMarket", {
                                         low: formatMoney(unitPrices.paid.low, country.currency),
                                         high: formatMoney(unitPrices.paid.high, country.currency),
                                         unit: unitOne,
@@ -443,7 +444,7 @@ export default function ProductForm({ product, farmer, onClose, onDone }) {
                             )}
                             {unitPrices.on_sale && (
                                 <div>
-                                    🏷️ {m("onSaleRange", {
+                                    <Icon name="tag" /> {m("onSaleRange", {
                                         low: formatMoney(unitPrices.on_sale.low, country.currency),
                                         high: formatMoney(unitPrices.on_sale.high, country.currency),
                                         unit: unitOne,
@@ -529,7 +530,7 @@ export default function ProductForm({ product, farmer, onClose, onDone }) {
                             checked={form.perishable}
                             onChange={(event) => update("perishable", event.target.checked)}
                         />
-                        ❄️ {m("perishable")}
+                        <Icon name="snowflake" /> {m("perishable")}
                     </label>
 
                     {status && <div className="mk-notice mk-notice-blue" role="status">{status}</div>}
@@ -538,7 +539,7 @@ export default function ProductForm({ product, farmer, onClose, onDone }) {
 
                     <div className="mk-actions">
                         <button type="submit" className="mk-btn mk-btn-primary mk-btn-lg" disabled={saving}>
-                            {saving ? <span className="tayeb-spinner" /> : form.id ? m("save") : `✓ ${m("publish")}`}
+                            {saving ? <span className="tayeb-spinner" /> : form.id ? m("save") : m("publish")}
                         </button>
                         <button type="button" className="mk-btn mk-btn-light mk-btn-lg" onClick={onClose} disabled={saving}>
                             {m("cancel")}

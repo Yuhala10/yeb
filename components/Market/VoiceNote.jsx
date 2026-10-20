@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
+import Icon from "../Site/Icon";
 import { useSocialText } from "../../lib/socialText";
 
 /*
@@ -84,7 +85,7 @@ export default function VoiceNote({ url, seconds, className = "" }) {
 
     return (
         <button type="button" className={`sm-voice ${playing ? "is-playing" : ""} ${className}`} onClick={toggle} aria-label={playing ? s("pause") : `${s("listen")} · ${s("voiceNote")}`}>
-            <span className="sm-voice-icon" aria-hidden="true">{playing ? "❚❚" : "▶"}</span>
+            <span className="sm-voice-icon" aria-hidden="true"><Icon name={playing ? "pause" : "play"} size={14} stroke={2.4} /></span>
             <span className="sm-voice-wave" aria-hidden="true">
                 <i style={{ transform: `scaleX(${progress})` }} />
             </span>

@@ -55,12 +55,12 @@
   background: var(--ts-orange);
   color: white;
   font-size: 17px;
-  font-weight: 900;
+  font-weight: 700;
   box-shadow: 0 10px 24px rgba(11, 18, 32, 0.35);
 }
 
 .go-center-pin.is-to .go-center-pin-head {
-  border-radius: 14px;
+  border-radius: 10px;
   background: #16a34a;
 }
 
@@ -103,7 +103,7 @@
   min-width: 0;
   flex: 1;
   padding: 8px 14px;
-  border-radius: 16px;
+  border-radius: 12px;
   background: var(--ts-glass);
   box-shadow: var(--ts-shadow-lg);
   backdrop-filter: blur(10px);
@@ -115,7 +115,7 @@
   overflow: hidden;
   color: var(--ts-heading);
   font-size: 15px;
-  font-weight: 900;
+  font-weight: 700;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -144,7 +144,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   padding-bottom: env(safe-area-inset-bottom);
-  border-radius: 26px 26px 0 0;
+  border-radius: 18px 18px 0 0;
   background: var(--ts-paper);
   box-shadow: 0 -12px 48px rgba(11, 18, 32, 0.22);
   animation: go-rise 0.35s var(--ts-ease);
@@ -192,7 +192,7 @@
   margin: 0;
   color: var(--ts-heading);
   font-size: 22px;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1.15;
 }
@@ -216,7 +216,7 @@
   margin-bottom: 8px;
   color: var(--ts-muted);
   font-size: 11.5px;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -270,9 +270,9 @@
 
 .go-link {
   justify-self: center;
-  color: var(--ts-orange-deep);
+  color: var(--ts-accent-text);
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 600;
   text-decoration: none;
 }
 
@@ -284,7 +284,7 @@
   color: var(--tint-red-fg);
   font: inherit;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 3px;
   cursor: pointer;
@@ -300,7 +300,7 @@
 .go-places {
   padding: 4px 14px;
   border: 1px solid var(--ts-line);
-  border-radius: 20px;
+  border-radius: 14px;
   background: var(--ts-surface);
   box-shadow: var(--ts-shadow);
 }
@@ -324,7 +324,7 @@
   display: block;
   color: var(--ts-muted);
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -334,7 +334,7 @@
   overflow: hidden;
   color: var(--ts-heading);
   font-size: 15.5px;
-  font-weight: 800;
+  font-weight: 600;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -382,7 +382,7 @@
   gap: 12px;
   padding: 14px;
   border: 1px solid var(--ts-line);
-  border-radius: 18px;
+  border-radius: 12px;
   background: var(--ts-surface);
 }
 
@@ -390,7 +390,7 @@
   display: block;
   color: var(--ts-muted);
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -399,7 +399,7 @@
   display: block;
   color: var(--ts-heading);
   font-size: 16.5px;
-  font-weight: 900;
+  font-weight: 700;
   transition: opacity 0.2s;
 }
 
@@ -424,7 +424,7 @@
   color: var(--ts-heading);
   font: inherit;
   font-size: 13.5px;
-  font-weight: 800;
+  font-weight: 600;
   cursor: pointer;
   transition: background 0.2s var(--ts-ease), color 0.2s var(--ts-ease), border-color 0.2s var(--ts-ease);
 }
@@ -440,7 +440,7 @@
   grid-template-columns: 1fr 1fr;
   gap: 4px;
   padding: 4px;
-  border-radius: 14px;
+  border-radius: 10px;
   background: var(--ts-surface-3);
 }
 
@@ -452,7 +452,7 @@
   color: var(--ts-muted);
   font: inherit;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 600;
   cursor: pointer;
 }
 
@@ -487,11 +487,11 @@
   height: 42px;
   flex: none;
   border: 1px solid var(--ts-line);
-  border-radius: 14px;
+  border-radius: 10px;
   background: var(--ts-surface);
   color: var(--ts-heading);
   font-size: 18px;
-  font-weight: 900;
+  font-weight: 700;
   cursor: pointer;
 }
 
@@ -501,7 +501,7 @@
   height: 46px;
   padding: 0 12px;
   border: 1.5px solid var(--ts-line-strong);
-  border-radius: 14px;
+  border-radius: 10px;
   background: var(--ts-surface);
   color: var(--ts-heading);
   font: inherit;
@@ -543,7 +543,7 @@
   overflow: hidden;
   color: var(--ts-heading);
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 600;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -571,7 +571,7 @@
   padding: 16px 2px 4px;
   color: var(--ts-muted);
   font-size: 11.5px;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -589,7 +589,7 @@
   margin: 0;
   color: var(--ts-heading);
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .go-classes {
@@ -613,7 +613,7 @@
   gap: 2px;
   padding: 12px 12px 10px;
   border: 2px solid var(--ts-line);
-  border-radius: 18px;
+  border-radius: 12px;
   background: var(--ts-surface);
   color: inherit;
   font: inherit;
@@ -635,20 +635,20 @@
 .go-class strong {
   color: var(--ts-heading);
   font-size: 14.5px;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .go-class-price {
   color: var(--ts-heading);
   font-size: 16px;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: -0.02em;
 }
 
 .go-class-eta {
   color: var(--ts-muted);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .go-class-eta.is-near {
@@ -714,8 +714,8 @@
   height: 46px;
   flex: none;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--ts-orange-glow), var(--ts-orange-deep));
-  box-shadow: var(--ts-glow);
+  border: 1.5px solid var(--tint-orange-line);
+  background: radial-gradient(circle, var(--ts-accent) 0 6px, transparent 7px), var(--ts-orange-soft);
 }
 
 .go-finding-pulse::before,
@@ -751,23 +751,23 @@
   display: grid;
   gap: 4px;
   padding: 16px 18px;
-  border-radius: 22px;
+  border-radius: 14px;
   background:
-    radial-gradient(circle at 100% 0%, rgba(249, 115, 22, 0.42), transparent 55%),
+    radial-gradient(circle at 100% 0%, rgba(249, 115, 22, 0.17), transparent 55%),
     var(--ts-ink);
   color: rgba(255, 255, 255, 0.75);
 }
 
 .go-eta-card.is-green {
   background:
-    radial-gradient(circle at 100% 0%, rgba(74, 222, 128, 0.35), transparent 55%),
+    radial-gradient(circle at 100% 0%, rgba(74, 222, 128, 0.14), transparent 55%),
     #0f2a1c;
 }
 
 .go-eta-card small {
   color: #fdba74;
   font-size: 11.5px;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -779,7 +779,7 @@
 .go-eta-card strong {
   color: white;
   font-size: 23px;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.15;
 }
@@ -794,7 +794,7 @@
   gap: 12px;
   padding: 14px;
   border: 1px solid var(--ts-line);
-  border-radius: 22px;
+  border-radius: 14px;
   background: var(--ts-surface);
   box-shadow: var(--ts-shadow);
 }
@@ -813,11 +813,11 @@
   height: 52px;
   border-radius: 50%;
   border: 3px solid var(--ts-surface);
-  background: linear-gradient(135deg, var(--ts-orange-glow), var(--ts-orange-deep));
+  background: var(--ts-accent);
   color: white;
   font-size: 22px;
-  font-weight: 900;
-  box-shadow: 0 6px 16px rgba(234, 88, 12, 0.35);
+  font-weight: 700;
+  box-shadow: var(--ts-shadow-btn);
 }
 
 .go-driver-who {
@@ -830,7 +830,7 @@
   overflow: hidden;
   color: var(--ts-heading);
   font-size: 16px;
-  font-weight: 900;
+  font-weight: 700;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -849,7 +849,7 @@
   color: #0b1220;
   font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
   font-size: 13px;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: 0.06em;
   white-space: nowrap;
   box-shadow: inset 0 0 0 2px #fde68a;
@@ -869,7 +869,7 @@
 .go-kv > div {
   min-width: 0;
   padding: 10px 12px;
-  border-radius: 14px;
+  border-radius: 10px;
   background: var(--ts-surface-3);
 }
 
@@ -877,7 +877,7 @@
   display: block;
   color: var(--ts-muted);
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
@@ -887,7 +887,7 @@
   overflow: hidden;
   color: var(--ts-heading);
   font-size: 14.5px;
-  font-weight: 900;
+  font-weight: 700;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -1007,13 +1007,13 @@
   height: 96px;
   border: 0;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--ts-orange-glow), var(--ts-orange) 45%, var(--ts-orange-deep));
+  background: var(--ts-accent);
   color: white;
   font: inherit;
   font-size: 26px;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: 0.05em;
-  box-shadow: 0 16px 36px rgba(249, 115, 22, 0.45), inset 0 2px 0 rgba(255, 255, 255, 0.3);
+  box-shadow: var(--ts-shadow-btn);
   cursor: pointer;
   transition: transform 0.2s var(--ts-ease);
 }
@@ -1050,7 +1050,7 @@
   background: var(--tint-green-bg);
   color: var(--tint-green-fg);
   font-size: 15px;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .go-stats {
@@ -1062,7 +1062,7 @@
 .go-stats > div {
   min-width: 0;
   padding: 10px 6px;
-  border-radius: 14px;
+  border-radius: 10px;
   background: var(--ts-surface-3);
   text-align: center;
 }
@@ -1072,7 +1072,7 @@
   overflow: hidden;
   color: var(--ts-muted);
   font-size: 10px;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -1084,7 +1084,7 @@
   overflow: hidden;
   color: var(--ts-heading);
   font-size: 14.5px;
-  font-weight: 900;
+  font-weight: 700;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -1096,7 +1096,7 @@
   gap: 12px;
   padding: 10px 12px;
   border: 1px solid var(--ts-line);
-  border-radius: 18px;
+  border-radius: 12px;
   background: var(--ts-surface);
 }
 
@@ -1104,7 +1104,7 @@
   display: block;
   color: var(--ts-muted);
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
@@ -1112,7 +1112,7 @@
 .go-vehicle-row strong {
   color: var(--ts-heading);
   font-size: 15.5px;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .go-vehicle-emoji {
@@ -1124,7 +1124,7 @@
   margin: 0;
   color: var(--tint-green-fg);
   font-size: 36px;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: -0.03em;
 }
 
@@ -1140,7 +1140,7 @@
   gap: 12px;
   padding: 12px;
   border: 1.5px solid var(--ts-line);
-  border-radius: 16px;
+  border-radius: 12px;
   background: var(--ts-surface);
   color: inherit;
   font: inherit;
@@ -1152,7 +1152,7 @@
   display: block;
   color: var(--ts-heading);
   font-size: 15px;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .go-class-row small {
@@ -1164,8 +1164,8 @@
 .go-class-row.active {
   border-color: var(--ts-orange);
   background: var(--ts-orange-soft);
-  color: var(--ts-orange-deep);
-  font-weight: 900;
+  color: var(--ts-accent-text);
+  font-weight: 700;
 }
 
 
@@ -1187,7 +1187,7 @@
   gap: 14px;
   width: min(560px, 100%);
   padding: 20px 18px calc(18px + env(safe-area-inset-bottom));
-  border-radius: 28px 28px 0 0;
+  border-radius: 18px 18px 0 0;
   background: var(--ts-paper);
   box-shadow: 0 -20px 60px rgba(11, 18, 32, 0.35);
   animation: go-rise 0.35s var(--ts-ease);
@@ -1201,9 +1201,9 @@
 }
 
 .go-kicker {
-  color: var(--ts-orange-deep);
+  color: var(--ts-accent-text);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -1212,8 +1212,8 @@
   margin: 4px 0 8px;
   color: var(--ts-heading);
   font-size: 36px;
-  font-weight: 900;
-  letter-spacing: -0.035em;
+  font-weight: 700;
+  letter-spacing: -0.028em;
   line-height: 1.05;
 }
 
@@ -1225,7 +1225,7 @@
   background: var(--ts-surface-3);
   color: var(--ts-heading);
   font-size: 12.5px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .go-ring {
@@ -1248,7 +1248,7 @@
   background: var(--ts-paper);
   color: var(--ts-heading);
   font-size: 22px;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .go-offer-route {
@@ -1256,7 +1256,7 @@
   gap: 12px;
   padding: 14px;
   border: 1px solid var(--ts-line);
-  border-radius: 18px;
+  border-radius: 12px;
   background: var(--ts-surface);
 }
 
@@ -1275,14 +1275,14 @@
   display: block;
   color: var(--ts-muted);
   font-size: 12.5px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .go-offer-stop strong {
   display: block;
   color: var(--ts-heading);
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .go-offer-cargo {
@@ -1303,20 +1303,20 @@
   min-height: 60px;
   overflow: hidden;
   border: 0;
-  border-radius: 999px;
-  background: var(--ts-orange-deep);
+  border-radius: 12px;
+  background: var(--ts-accent-hover);
   color: white;
   font: inherit;
   font-size: 18px;
-  font-weight: 900;
+  font-weight: 700;
   cursor: pointer;
-  box-shadow: var(--ts-glow);
+  box-shadow: var(--ts-shadow-btn);
 }
 
 .go-accept i {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, var(--ts-orange-glow), var(--ts-orange));
+  background: var(--ts-accent);
   transform-origin: left center;
   transition: transform 0.25s linear;
 }
@@ -1345,10 +1345,10 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: var(--ts-orange);
+  background: var(--ts-accent);
   color: white;
   font-size: 16px;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .go-step-badge.is-deliver,
@@ -1360,7 +1360,7 @@
 .go-job-price {
   color: var(--ts-heading);
   font-size: 16px;
-  font-weight: 900;
+  font-weight: 700;
   white-space: nowrap;
 }
 
@@ -1377,7 +1377,7 @@
   gap: 8px;
   padding: 10px 12px;
   border: 1px solid var(--ts-line);
-  border-radius: 14px;
+  border-radius: 10px;
   background: var(--ts-surface);
   color: inherit;
   text-decoration: none;
@@ -1387,7 +1387,7 @@
   display: block;
   color: var(--ts-muted);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .go-contact strong {
@@ -1395,7 +1395,7 @@
   overflow: hidden;
   color: var(--ts-heading);
   font-size: 14px;
-  font-weight: 900;
+  font-weight: 700;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -1404,12 +1404,12 @@
   width: 100%;
   height: 74px;
   border: 2px solid var(--ts-line-strong);
-  border-radius: 18px;
+  border-radius: 12px;
   background: var(--ts-surface);
   color: var(--ts-heading);
   font: inherit;
   font-size: 36px;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: 0.5em;
   text-align: center;
   text-indent: 0.5em;
@@ -1435,7 +1435,7 @@
     width: 420px;
     height: auto;
     max-height: none;
-    border-radius: 26px;
+    border-radius: 18px;
     box-shadow: 0 24px 70px rgba(11, 18, 32, 0.28);
   }
 
@@ -1458,7 +1458,7 @@
 
   .go-offer {
     margin-bottom: 24px;
-    border-radius: 28px;
+    border-radius: 18px;
   }
 
   .go-offer-backdrop {
@@ -1504,4 +1504,80 @@
   .go-driver-halo {
     animation: none;
   }
+}
+
+
+/* ---------------- icons (line icons instead of emojis) ---------------- */
+
+.go-big-icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--ts-surface-3);
+  color: var(--ts-heading);
+  font-size: 0;
+}
+
+.go-big-icon.is-good {
+  background: var(--tint-green-bg);
+  color: var(--tint-green-fg);
+}
+
+.go-center .go-big-icon,
+.go-message .go-big-icon {
+  margin: 0 auto;
+}
+
+.go-list-icon {
+  color: var(--ts-heading);
+}
+
+.go-class-emoji {
+  display: block;
+  color: var(--ts-heading);
+}
+
+.go-class.active .go-class-emoji {
+  color: var(--ts-accent-text);
+}
+
+.go-vehicle-emoji {
+  display: grid;
+  place-items: center;
+  color: var(--ts-heading);
+}
+
+.go-status-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 4px;
+  border-radius: 50%;
+  background: #94a3b8;
+  vertical-align: 1px;
+}
+
+.go-status-dot.is-on {
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2);
+}
+
+.go-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.go-chip,
+.go-chip-inline,
+.sm-badge,
+.sm-lang {
+  gap: 6px;
+}
+
+.go-chip {
+  display: inline-flex;
+  align-items: center;
 }

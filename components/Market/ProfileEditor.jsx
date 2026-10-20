@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 
 import Avatar from "./Avatar";
 import { useFeedback } from "../App/Feedback";
+import Icon from "../Site/Icon";
 import { apiPost } from "../../lib/api";
 import { compressImage } from "../../lib/image";
 import { CAPTION_LANGUAGES } from "../../lib/languages";
@@ -114,7 +115,7 @@ export default function ProfileEditor({ user, onSaved }) {
         <form className="ap-card sm-editor" onSubmit={save}>
 
             <div>
-                <span className="ap-label">🌱 {s("myPage")}</span>
+                <span className="ap-label"><Icon name="sprout" /> {s("myPage")}</span>
                 <h2 className="ap-card-title" style={{ fontSize: 22, marginTop: 4 }}>{form.farmName || user.full_name}</h2>
             </div>
 
@@ -126,7 +127,7 @@ export default function ProfileEditor({ user, onSaved }) {
                     <img src={user.cover_url} alt="" />
                 )}
                 <button type="button" className="ts-btn ts-btn-glass ts-btn-sm" onClick={() => coverInput.current?.click()} disabled={Boolean(busy)}>
-                    📷 {busy === "cover" ? "…" : `${s("coverPhoto")} · ${user.cover_url ? s("change") : s("addPhoto")}`}
+                    <Icon name="camera" /> {busy === "cover" ? "…" : `${s("coverPhoto")} · ${user.cover_url ? s("change") : s("addPhoto")}`}
                 </button>
                 <input ref={coverInput} type="file" accept="image/*" hidden onChange={(event) => upload("cover", event.target.files?.[0])} />
             </div>
@@ -134,7 +135,7 @@ export default function ProfileEditor({ user, onSaved }) {
             <div className="sm-editor-avatar">
                 <Avatar person={{ ...user, farm_name: form.farmName || user.farm_name }} size={92} ring />
                 <button type="button" className="ts-btn ts-btn-light ts-btn-sm" onClick={() => avatarInput.current?.click()} disabled={Boolean(busy)}>
-                    🙂 {busy === "avatar" ? "…" : `${s("profilePhoto")} · ${user.avatar_url ? s("change") : s("addPhoto")}`}
+                    <Icon name="user" /> {busy === "avatar" ? "…" : `${s("profilePhoto")} · ${user.avatar_url ? s("change") : s("addPhoto")}`}
                 </button>
                 <input ref={avatarInput} type="file" accept="image/*" hidden onChange={(event) => upload("avatar", event.target.files?.[0])} />
             </div>
@@ -169,7 +170,7 @@ export default function ProfileEditor({ user, onSaved }) {
             </div>
 
             <div className="ap-field">
-                <span className="ap-field-label">🗣️ {s("languagesSpoken")}</span>
+                <span className="ap-field-label"><Icon name="language" /> {s("languagesSpoken")}</span>
                 <div className="sm-lang-chips">
                     {CAPTION_LANGUAGES.filter((item) => item.code !== "mis").map((item) => (
                         <button
@@ -187,16 +188,16 @@ export default function ProfileEditor({ user, onSaved }) {
 
             <div className="ap-actions">
                 <button type="submit" className="ts-btn ts-btn-primary" disabled={busy === "save" || !changed}>
-                    {busy === "save" ? "…" : `✓ ${s("saveProfile")}`}
+                    {busy === "save" ? "…" : s("saveProfile")}
                 </button>
                 {user.handle && (
                     <Link href={`/farm/${user.handle}`} className="ts-btn ts-btn-light">
-                        👁️ {s("viewMyPage")}
+                        <Icon name="eye" /> {s("viewMyPage")}
                     </Link>
                 )}
                 {user.handle && (
                     <button type="button" className="ts-btn ts-btn-whatsapp" onClick={share}>
-                        💬 {s("sharePage")}
+                        <Icon name="chat" /> {s("sharePage")}
                     </button>
                 )}
             </div>

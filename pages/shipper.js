@@ -9,16 +9,17 @@ import { AppLoading, CodeDigits, DeliverySteps, digits, Empty, Person, Route, Se
 import { useFeedback } from "../components/App/Feedback";
 import OrderCard from "../components/Market/OrderCard";
 import PhoneInput from "../components/Site/PhoneInput";
+import Icon from "../components/Site/Icon";
 import { apiGet, apiPost, pollWhileVisible } from "../lib/api";
 import { appError, useAppText } from "../lib/appText";
-import { CARGO_TYPES, cargoEmoji, cargoLabel } from "../lib/cargo";
+import { CARGO_TYPES, cargoIcon, cargoLabel } from "../lib/cargo";
 import { cityNames, findCity } from "../lib/cities";
 import { countryName, countryOrDefault, findCountry, sortedCountries } from "../lib/countries";
 import { useLanguage } from "../lib/LanguageContext";
 import { marketError, useMarketText } from "../lib/marketText";
 import { formatMoney } from "../lib/money";
 import { formatPhone, telHref, whatsappHref } from "../lib/phone";
-import { productEmoji, productName } from "../lib/produce";
+import { productName } from "../lib/produce";
 import { shareLoadOnWhatsApp } from "../lib/shareLoad";
 import { leaveDashboard, useRoleUser } from "../lib/useSession";
 
@@ -208,7 +209,7 @@ export default function ShipperPage() {
             title: a("s_chooseTitle", { name: bid.driver?.full_name || "", price }),
             text: a("s_chooseText"),
             confirmLabel: a("s_choose", { price }),
-            icon: "🤝",
+            icon: "check",
         });
 
         if (yes) {
@@ -226,9 +227,9 @@ export default function ShipperPage() {
 
     async function setStatus(shipment, status) {
         const ask = {
-            CANCELLED: [a("s_cancelTitle"), a("s_cancelText"), a("s_cancel"), "danger", "✕", a("s_cancelled")],
-            DEPARTED: [a("s_handedTitle"), a("s_handedText"), a("s_handedOver"), null, "📦", null],
-            COMPLETED: [a("s_receivedTitle"), a("s_receivedText"), a("s_received"), null, "✅", a("s_completed")],
+            CANCELLED: [a("s_cancelTitle"), a("s_cancelText"), a("s_cancel"), "danger", "x", a("s_cancelled")],
+            DEPARTED: [a("s_handedTitle"), a("s_handedText"), a("s_handedOver"), null, "package", null],
+            COMPLETED: [a("s_receivedTitle"), a("s_receivedText"), a("s_received"), null, "check", a("s_completed")],
         }[status];
 
         if (!(await confirm({ title: ask[0], text: ask[1], confirmLabel: ask[2], tone: ask[3], icon: ask[4] }))) {
@@ -245,7 +246,7 @@ export default function ShipperPage() {
     async function orderAction(action, order, extra = {}) {
         const question = action === "cancel" ? m("cancelQuestion") : action === "received" ? m("receivedQuestion") : null;
 
-        if (question && !(await confirm({ title: question, tone: action === "cancel" ? "danger" : null, icon: action === "cancel" ? "✕" : "✅" }))) {
+        if (question && !(await confirm({ title: question, tone: action === "cancel" ? "danger" : null, icon: action === "cancel" ? "x" : "check" }))) {
             return;
         }
 
@@ -288,10 +289,10 @@ export default function ShipperPage() {
     }
 
     const tabs = [
-        { key: "send", label: a("s_tabSend"), icon: "➕" },
-        { key: "loads", label: a("s_tabLoads"), icon: "🚚", count: toAnswer },
-        ...(market.ready ? [{ key: "orders", label: a("s_tabOrders"), icon: "🧺", count: liveOrders }] : []),
-        { key: "profile", label: a("s_tabProfile"), icon: "👤" },
+        { key: "send", label: a("s_tabSend"), icon: "plus" },
+        { key: "loads", label: a("s_tabLoads"), icon: "truck", count: toAnswer },
+        ...(market.ready ? [{ key: "orders", label: a("s_tabOrders"), icon: "basket", count: liveOrders }] : []),
+        { key: "profile", label: a("s_tabProfile"), icon: "user" },
     ];
 
     return (
@@ -303,14 +304,14 @@ export default function ShipperPage() {
             actions={
                 <>
                     <Link href="/go" className="ts-btn ts-btn-primary">
-                        ⚡ {language === "fr" ? "Livrer maintenant" : "Deliver now"}
+                        <Icon name="zap" /> {language === "fr" ? "Livrer maintenant" : "Deliver now"}
                     </Link>
                     <button type="button" className="ts-btn ts-btn-glass" onClick={() => setTab("send")}>
-                        ➕ {a("s_newLoad")}
+                        <Icon name="plus" /> {a("s_newLoad")}
                     </button>
                     {market.ready && (
                         <Link href="/market" className="ts-btn ts-btn-glass">
-                            🌾 {a("menuMarket")}
+                            <Icon name="sprout" /> {a("menuMarket")}
                         </Link>
                     )}
                 </>
@@ -337,7 +338,7 @@ export default function ShipperPage() {
 
                         <div className="ap-stack">
                             <Link href="/go" className="ap-card is-tint-orange" style={{ textDecoration: "none" }}>
-                                <span className="ap-label">⚡ Tayeb Go</span>
+                                <span className="ap-label"><Icon name="zap" /> Tayeb Go</span>
                                 <h3 className="ap-card-title">{language === "fr" ? "Livraison immédiate, prix fixe" : "Delivery now, fixed price"}</h3>
                                 <div className="ap-card-sub">
                                     {language === "fr"
@@ -364,7 +365,7 @@ export default function ShipperPage() {
 
                             {market.ready && (
                                 <Link href="/market" className="ap-card is-tint-orange" style={{ textDecoration: "none" }}>
-                                    <h3 className="ap-card-title">🌾 {a("s_marketTitle")}</h3>
+                                    <h3 className="ap-card-title">{a("s_marketTitle")}</h3>
                                     <div className="ap-card-sub">{a("s_marketText")}</div>
                                     <span className="ts-link">{a("s_goMarket")} →</span>
                                 </Link>
@@ -384,14 +385,14 @@ export default function ShipperPage() {
                     <section className="ap-section ap-fade">
                         <SectionHead title={a("s_loadsTitle")} count={toAnswer}>
                             <button type="button" className="ts-btn ts-btn-light ts-btn-sm" onClick={() => setTab("send")}>
-                                ➕ {a("s_newLoad")}
+                                <Icon name="plus" /> {a("s_newLoad")}
                             </button>
                         </SectionHead>
 
                         {live.length === 0 ? (
-                            <Empty icon="📦" title={a("s_noLoads")} text={a("s_noLoadsText")}>
+                            <Empty icon="package" title={a("s_noLoads")} text={a("s_noLoadsText")}>
                                 <button type="button" className="ts-btn ts-btn-primary" onClick={() => setTab("send")}>
-                                    ➕ {a("s_newLoad")}
+                                    <Icon name="plus" /> {a("s_newLoad")}
                                 </button>
                             </Empty>
                         ) : (
@@ -420,7 +421,7 @@ export default function ShipperPage() {
                                         <div className="ap-card-head">
                                             <div style={{ minWidth: 0 }}>
                                                 <h3 className="ap-card-title" style={{ fontSize: 16 }}>
-                                                    {cargoEmoji(shipment.item_type, shipment.is_produce)} {shipment.origin_city} → {shipment.destination_city}
+                                                    <Icon name={cargoIcon(shipment.item_type, shipment.is_produce)} /> {shipment.origin_city} → {shipment.destination_city}
                                                 </h3>
                                                 <div className="ap-card-sub">
                                                     {shipment.quantity} × {cargoLabel(shipment.item_type, language)} · {timeAgo(shipment.completed_at || shipment.created_at, language, a)}
@@ -435,10 +436,10 @@ export default function ShipperPage() {
                                             <>
                                                 <div className="ap-row">
                                                     <span className="ap-money" style={{ fontSize: 20 }}>{formatMoney(shipment.agreed_price, shipment.currency)}</span>
-                                                    {shipment.driver && <span className="ap-card-sub">🚚 {shipment.driver.full_name}</span>}
+                                                    {shipment.driver && <span className="ap-card-sub"><Icon name="truck" /> {shipment.driver.full_name}</span>}
                                                 </div>
                                                 {shipment.driver_rating ? (
-                                                    <span className="ap-chip ap-chip-amber">{"★".repeat(shipment.driver_rating)} · {a("s_rated")}</span>
+                                                    <span className="ap-chip ap-chip-amber"><Icon name="star" fill /> {shipment.driver_rating}/5 · {a("s_rated")}</span>
                                                 ) : shipment.driver ? (
                                                     <div className="ap-field">
                                                         <span className="ap-field-label">{a("s_rateTitle", { name: shipment.driver.full_name })}</span>
@@ -464,12 +465,12 @@ export default function ShipperPage() {
                 <>
                     <section className="ap-section ap-fade" id="orders">
                         <SectionHead title={a("s_ordersTitle")} count={liveOrders}>
-                            <Link href="/market" className="ts-btn ts-btn-light ts-btn-sm">🌾 {a("s_goMarket")}</Link>
+                            <Link href="/market" className="ts-btn ts-btn-light ts-btn-sm"><Icon name="sprout" /> {a("s_goMarket")}</Link>
                         </SectionHead>
 
                         {market.orders.length === 0 ? (
-                            <Empty icon="🧺" title={a("s_noOrders")} text={a("s_noOrdersText")}>
-                                <Link href="/market" className="ts-btn ts-btn-primary">🌾 {a("s_goMarket")}</Link>
+                            <Empty icon="basket" title={a("s_noOrders")} text={a("s_noOrdersText")}>
+                                <Link href="/market" className="ts-btn ts-btn-primary"><Icon name="sprout" /> {a("s_goMarket")}</Link>
                             </Empty>
                         ) : (
                             <div className="ap-stack">
@@ -482,13 +483,13 @@ export default function ShipperPage() {
 
                     {market.alerts?.length > 0 && (
                         <section className="ap-section">
-                            <SectionHead title={`🔔 ${a("s_alertsTitle")}`} sub={a("s_alertsText")} />
+                            <SectionHead title={`${a("s_alertsTitle")}`} sub={a("s_alertsText")} />
                             <div className="ap-grid">
                                 {market.alerts.map((alert) => (
                                     <div key={alert.id} className="ap-card" style={{ gridTemplateColumns: "1fr auto", alignItems: "center" }}>
                                         <div style={{ minWidth: 0 }}>
                                             <strong style={{ color: "var(--ts-ink)" }}>
-                                                {productEmoji(alert.product)} {productName({ product: alert.product }, language)}
+                                                {productName({ product: alert.product }, language)}
                                             </strong>
                                             <div className="ap-card-sub">
                                                 {findCountry(alert.country)?.flag} {alert.city || countryName(alert.country, language)}
@@ -642,7 +643,7 @@ function PostForm({ user, busy, onPost }) {
                             onClick={() => update({ type: item.value })}
                             aria-pressed={form.type === item.value}
                         >
-                            <span aria-hidden="true">{item.emoji}</span>
+                            <Icon name={item.icon} size={20} />
                             <span>{language === "fr" ? item.fr : item.en}</span>
                         </button>
                     ))}
@@ -652,7 +653,7 @@ function PostForm({ user, busy, onPost }) {
                         onClick={() => update({ type: "OTHER" })}
                         aria-pressed={other}
                     >
-                        <span aria-hidden="true">✏️</span>
+                        <Icon name="edit" />
                         <span>{language === "fr" ? "Autre" : "Other"}</span>
                     </button>
                 </div>
@@ -686,11 +687,11 @@ function PostForm({ user, busy, onPost }) {
             {/* Where */}
             <div className="ap-form-grid">
                 {[
-                    ["origin", a("from"), "🟠"],
-                    ["destination", a("to"), "🟢"],
+                    ["origin", a("from"), "is-from"],
+                    ["destination", a("to"), "is-to"],
                 ].map(([side, label, dot]) => (
                     <fieldset key={side} className="ap-card is-muted" style={{ padding: 14, margin: 0, gap: 10 }}>
-                        <legend className="ap-field-label" style={{ padding: 0 }}>{dot} {label}</legend>
+                        <legend className="ap-field-label" style={{ padding: 0 }}><span className={`go-dot ${dot}`} aria-hidden="true" /> {label}</legend>
                         <select
                             className="mk-select"
                             value={form[`${side}Country`]}
@@ -729,7 +730,7 @@ function PostForm({ user, busy, onPost }) {
 
             {route && (route.route_km > 0 || route.hint) && (
                 <div className="ap-note ap-note-blue">
-                    <span aria-hidden="true">🛣️</span>
+                    <Icon name="route" />
                     <span>
                         {route.route_km > 0 && <strong>{a("s_route", { km: route.route_km })}</strong>}
                         {route.hint && (
@@ -807,7 +808,7 @@ function LoadCard({ shipment, bids, busy, onChoose, onCounter, onStatus }) {
             <div className="ap-card-head">
                 <div style={{ minWidth: 0 }}>
                     <h3 className="ap-card-title">
-                        {cargoEmoji(shipment.item_type, shipment.is_produce)} {shipment.quantity} × {cargoLabel(shipment.item_type, language)}
+                        <Icon name={cargoIcon(shipment.item_type, shipment.is_produce)} /> {shipment.quantity} × {cargoLabel(shipment.item_type, language)}
                     </h3>
                     <div className="ap-card-sub">{timeAgo(shipment.created_at, language, a)}</div>
                 </div>
@@ -819,9 +820,9 @@ function LoadCard({ shipment, bids, busy, onChoose, onCounter, onStatus }) {
             <Route from={from.city} fromArea={from.area} to={to.city} toArea={to.area} />
 
             <div className="ap-chips">
-                {shipment.is_produce && <span className="ap-chip ap-chip-green">🌾 {a("produceLoad")}</span>}
-                {shipment.route_km > 0 && <span className="ap-chip">🛣️ {a("km", { km: shipment.route_km })}</span>}
-                {shipment.receiver_phone && <span className="ap-chip">📞 {formatPhone(shipment.receiver_phone)}</span>}
+                {shipment.is_produce && <span className="ap-chip ap-chip-green"><Icon name="sprout" /> {a("produceLoad")}</span>}
+                {shipment.route_km > 0 && <span className="ap-chip"><Icon name="route" /> {a("km", { km: shipment.route_km })}</span>}
+                {shipment.receiver_phone && <span className="ap-chip"><Icon name="phone" /> {formatPhone(shipment.receiver_phone)}</span>}
                 <span className="ap-chip ap-chip-ink">{formatMoney(shipment.agreed_price ?? shipment.initial_offer, shipment.currency)}</span>
             </div>
 
@@ -829,7 +830,7 @@ function LoadCard({ shipment, bids, busy, onChoose, onCounter, onStatus }) {
 
             {shipment.mode === "INSTANT" && (
                 <Link href={`/go?trip=${shipment.id}`} className="ts-btn ts-btn-primary">
-                    ⚡ {isOpen ? (language === "fr" ? "Recherche du chauffeur… Voir" : "Finding your driver… Open") : (language === "fr" ? "Suivre dans Tayeb Go" : "Follow in Tayeb Go")}
+                    <Icon name="zap" /> {isOpen ? (language === "fr" ? "Recherche du chauffeur… Voir" : "Finding your driver… Open") : (language === "fr" ? "Suivre dans Tayeb Go" : "Follow in Tayeb Go")}
                 </Link>
             )}
 
@@ -839,7 +840,7 @@ function LoadCard({ shipment, bids, busy, onChoose, onCounter, onStatus }) {
                 <>
                     {shipment.price_hint && (
                         <div className="ap-note">
-                            <span aria-hidden="true">💡</span>
+                            <Icon name="info" />
                             <span>
                                 {a("usualPrice", {
                                     low: formatMoney(shipment.price_hint.low, shipment.currency),
@@ -879,10 +880,10 @@ function LoadCard({ shipment, bids, busy, onChoose, onCounter, onStatus }) {
 
                     <div className="ap-actions">
                         <button type="button" className="ts-btn ts-btn-whatsapp" onClick={() => shareLoadOnWhatsApp(shipment, language)}>
-                            💬 {a("s_share")}
+                            <Icon name="chat" /> {a("s_share")}
                         </button>
                         <button type="button" className="ts-btn ts-btn-light" disabled={busy === shipment.id} onClick={() => onStatus("CANCELLED")}>
-                            ✕ {a("s_cancel")}
+                            <Icon name="x" /> {a("s_cancel")}
                         </button>
                     </div>
                 </>
@@ -895,14 +896,14 @@ function LoadCard({ shipment, bids, busy, onChoose, onCounter, onStatus }) {
                     <Person
                         name={driver.full_name}
                         detail={[
-                            driver.rating_count ? `★ ${driver.rating} (${driver.rating_count})` : a("s_newDriver"),
+                            driver.rating_count ? `${driver.rating}/5 (${driver.rating_count})` : a("s_newDriver"),
                             driver.vehicle_type,
                             driver.plate_number,
                         ].filter(Boolean).join(" · ")}
                     />
                     {(driver.phone_number || shipment.driver_phone) && (
                         <a className="ts-btn ts-btn-light ts-btn-sm" href={telHref(driver.phone_number || shipment.driver_phone)}>
-                            📞 {formatPhone(driver.phone_number || shipment.driver_phone)}
+                            <Icon name="phone" /> {formatPhone(driver.phone_number || shipment.driver_phone)}
                         </a>
                     )}
                 </div>
@@ -910,7 +911,7 @@ function LoadCard({ shipment, bids, busy, onChoose, onCounter, onStatus }) {
 
             {shipment.delivery_code && LIVE.includes(shipment.status) && (
                 <div className="ap-code">
-                    <strong style={{ color: "white" }}>🔑 {a("s_codeTitle")}</strong>
+                    <strong style={{ color: "white" }}><Icon name="key" /> {a("s_codeTitle")}</strong>
                     <CodeDigits code={shipment.delivery_code} />
                     <span>{a("s_codeText")}</span>
                     <a
@@ -924,7 +925,7 @@ function LoadCard({ shipment, bids, busy, onChoose, onCounter, onStatus }) {
                             ].filter(Boolean).join("\n\n")
                         )}`}
                     >
-                        💬 {shipment.receiver_phone ? a("s_sendCode") : a("s_shareCode")}
+                        <Icon name="chat" /> {shipment.receiver_phone ? a("s_sendCode") : a("s_shareCode")}
                     </a>
                 </div>
             )}
@@ -933,13 +934,13 @@ function LoadCard({ shipment, bids, busy, onChoose, onCounter, onStatus }) {
 
             {shipment.status === "MATCHED" && (
                 <button type="button" className="ts-btn ts-btn-primary ts-btn-lg" disabled={busy === shipment.id} onClick={() => onStatus("DEPARTED")}>
-                    📦 {a("s_handedOver")}
+                    <Icon name="package" /> {a("s_handedOver")}
                 </button>
             )}
 
             {(shipment.status === "DEPARTED" || shipment.status === "ARRIVED") && (
                 <button type="button" className="ts-btn ts-btn-green ts-btn-lg" disabled={busy === shipment.id} onClick={() => onStatus("COMPLETED")}>
-                    ✓ {a("s_received")}
+                    <Icon name="check" /> {a("s_received")}
                 </button>
             )}
 
@@ -966,7 +967,7 @@ function BidRow({ bid, currency, busy, onChoose, onCounter }) {
             <Person
                 name={driver.full_name}
                 detail={[
-                    driver.rating_count ? `★ ${driver.rating} (${driver.rating_count})` : a("s_newDriver"),
+                    driver.rating_count ? `${driver.rating}/5 (${driver.rating_count})` : a("s_newDriver"),
                     driver.vehicle_type,
                     driver.total_completed_shipments ? a("s_trips", { count: driver.total_completed_shipments }) : null,
                 ].filter(Boolean).join(" · ")}
@@ -974,25 +975,25 @@ function BidRow({ bid, currency, busy, onChoose, onCounter }) {
 
             <div className="ap-row" style={{ alignItems: "center" }}>
                 <div className="ap-money is-orange" style={{ fontSize: 24 }}>{formatMoney(price, currency)}</div>
-                {bid.eta && <span className="ap-chip">⏱ {a("s_driverEta")} : {bid.eta}</span>}
+                {bid.eta && <span className="ap-chip"><Icon name="clock" /> {a("s_driverEta")} : {bid.eta}</span>}
             </div>
 
             {bid.note && (
                 <div className="ap-note">
-                    <span aria-hidden="true">💬</span>
+                    <Icon name="chat" />
                     <span>{bid.note}</span>
                 </div>
             )}
 
             {waiting ? (
                 <div className="ap-note">
-                    <span aria-hidden="true">⏳</span>
+                    <Icon name="clock" />
                     <span>{a("s_waitingDriver", { price: formatMoney(bid.counter_price, currency) })}</span>
                 </div>
             ) : (
                 <div className="ap-actions">
                     <button type="button" className="ts-btn ts-btn-primary ts-btn-sm" disabled={busy} onClick={onChoose}>
-                        ✓ {a("s_choose", { price: formatMoney(price, currency) })}
+                        <Icon name="check" /> {a("s_choose", { price: formatMoney(price, currency) })}
                     </button>
                     <button type="button" className="ts-btn ts-btn-light ts-btn-sm" onClick={onCounter}>
                         {a("s_counter")}
@@ -1038,7 +1039,7 @@ function LiveCard({ shipment }) {
                 <span>
                     {tracking ? (
                         <>
-                            <strong style={{ color: "var(--ts-ink)" }}>🚚 {tracking.minutes_ago > 0 ? a("s_updated", { n: tracking.minutes_ago }) : a("tk_live")}</strong>
+                            <strong style={{ color: "var(--ts-ink)" }}><Icon name="truck" /> {tracking.minutes_ago > 0 ? a("s_updated", { n: tracking.minutes_ago }) : a("tk_live")}</strong>
                             {target && tracking.km_left !== null && !toPickup && ` · ${a("s_kmLeft", { km: tracking.km_left, city: target.name })}`}
                             {tracking.speed_kmh > 3 && ` · ${tracking.speed_kmh} km/h`}
                         </>
@@ -1047,7 +1048,7 @@ function LiveCard({ shipment }) {
                     )}
                 </span>
                 <Link className="ts-btn ts-btn-ink ts-btn-sm" href={`/track/${shipment.id}`} locale={language}>
-                    🛰️ {a("tk_openMap")} →
+                    <Icon name="signal" /> {a("tk_openMap")} →
                 </Link>
             </div>
         </div>
@@ -1075,7 +1076,7 @@ function CounterSheet({ bid, shipment, busy, onClose, onSend }) {
         <Sheet title={a("s_counterSheet", { name: bid.driver?.full_name || "" })} onClose={onClose} busy={busy}>
             <form className="ap-form" onSubmit={submit}>
                 <div className="ap-note ap-note-orange">
-                    <span aria-hidden="true">🚚</span>
+                    <Icon name="truck" />
                     <span>
                         {bid.driver?.full_name} · <strong>{formatMoney(bid.counter_price ?? bid.proposed_price, currency)}</strong>
                     </span>

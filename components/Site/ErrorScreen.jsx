@@ -33,8 +33,8 @@ export default function ErrorScreen({ code, title, text }) {
                         {text[fr ? "fr" : "en"]}
                     </p>
                     <div className="ap-actions" style={{ justifyContent: "center" }}>
-                        <Link href="/" className="ts-btn ts-btn-primary">🏠 {fr ? "Accueil" : "Home"}</Link>
-                        <Link href="/market" className="ts-btn ts-btn-glass">🌾 Tayeb Marché</Link>
+                        <Link href="/" className="ts-btn ts-btn-primary">{fr ? "Accueil" : "Home"}</Link>
+                        <Link href="/market" className="ts-btn ts-btn-glass">Tayeb Marché</Link>
                     </div>
                 </div>
             </main>

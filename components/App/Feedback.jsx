@@ -1,5 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
+import Icon, { ICON_NAMES } from "../Site/Icon";
+
 import { useLanguage } from "../../lib/LanguageContext";
 
 /*
@@ -17,7 +19,7 @@ import { useLanguage } from "../../lib/LanguageContext";
 
 const FeedbackContext = createContext(null);
 
-const ICONS = { success: "✓", error: "⚠️", info: "ℹ️" };
+const ICONS = { success: "check", error: "alert", info: "info" };
 
 export function FeedbackProvider({ children }) {
     const { language } = useLanguage();
@@ -87,10 +89,10 @@ export function FeedbackProvider({ children }) {
             <div className="ap-toasts" role="status" aria-live="polite">
                 {toasts.map((item) => (
                     <div key={item.id} className={`ap-toast is-${item.tone}`}>
-                        <span aria-hidden="true">{ICONS[item.tone] || ICONS.info}</span>
+                        <span className="ap-toast-icon" aria-hidden="true"><Icon name={ICONS[item.tone] || ICONS.info} size={18} /></span>
                         <span>{item.message}</span>
                         <button type="button" onClick={() => dismiss(item.id)} aria-label={fr ? "Fermer" : "Close"}>
-                            ✕
+                            <Icon name="x" size={16} />
                         </button>
                     </div>
                 ))}
@@ -104,7 +106,7 @@ export function FeedbackProvider({ children }) {
                     <div className="mk-modal" role="alertdialog" aria-modal="true" aria-labelledby="ap-dialog-title" style={{ maxWidth: 460 }}>
                         <div className={`ap-dialog ${dialog.tone === "danger" ? "is-danger" : ""}`}>
                             <div className="ap-dialog-icon" aria-hidden="true">
-                                {dialog.icon || (dialog.tone === "danger" ? "⚠️" : "🤝")}
+                                <Icon name={ICON_NAMES.includes(dialog.icon) ? dialog.icon : dialog.tone === "danger" ? "alert" : "check"} size={24} />
                             </div>
                             <h2 id="ap-dialog-title">{dialog.title}</h2>
                             {dialog.text && <p>{dialog.text}</p>}

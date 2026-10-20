@@ -9,10 +9,11 @@ import PostCard from "../../components/Market/PostCard";
 import Seo from "../../components/Site/Seo";
 import SiteFooter from "../../components/Site/SiteFooter";
 import SiteHeader from "../../components/Site/SiteHeader";
+import Icon from "../../components/Site/Icon";
 import { languageName } from "../../lib/languages";
 import { useLanguage } from "../../lib/LanguageContext";
 import { formatMoney } from "../../lib/money";
-import { productEmoji, productName, unitName } from "../../lib/produce";
+import { productName, unitName } from "../../lib/produce";
 import { listingCardUrl, localizedUrl, siteCardUrl, siteOrigin } from "../../lib/seo";
 import { getProfile } from "../../lib/server/social";
 import { countLabel, useSocialText } from "../../lib/socialText";
@@ -179,37 +180,37 @@ export default function FarmPage({ profile, posts, origin }) {
                             <div className="sm-profile-name">
                                 <h1>
                                     {name}
-                                    {(profile.badges?.id || profile.badges?.visited) && <span className="sm-tick">✓</span>}
+                                    {(profile.badges?.id || profile.badges?.visited) && <span className="sm-tick"><Icon name="check" size={11} stroke={3} /></span>}
                                 </h1>
                                 <span>@{profile.handle}{profile.farm_name && profile.full_name ? ` · ${profile.full_name}` : ""}</span>
                             </div>
 
                             <div className="sm-badges">
-                                <span className="sm-badge">📱 {s("badgePhone")}</span>
-                                {profile.badges?.id && <span className="sm-badge is-green">🪪 {s("badgeId")}</span>}
-                                {profile.badges?.visited && <span className="sm-badge is-green">🏡 {s("badgeVisited")}</span>}
-                                {profile.badges?.top && <span className="sm-badge is-gold">🏆 {s("badgeTop")}</span>}
-                                {profile.rating_count > 0 && <span className="sm-badge is-gold">★ {profile.rating} ({profile.rating_count})</span>}
+                                <span className="sm-badge"><Icon name="phoneMoney" /> {s("badgePhone")}</span>
+                                {profile.badges?.id && <span className="sm-badge is-green"><Icon name="idCard" /> {s("badgeId")}</span>}
+                                {profile.badges?.visited && <span className="sm-badge is-green"><Icon name="home" /> {s("badgeVisited")}</span>}
+                                {profile.badges?.top && <span className="sm-badge is-gold"><Icon name="badge" /> {s("badgeTop")}</span>}
+                                {profile.rating_count > 0 && <span className="sm-badge is-gold"><Icon name="star" /> {profile.rating} ({profile.rating_count})</span>}
                             </div>
 
                             {profile.bio && <p className="sm-bio">{profile.bio}</p>}
 
                             <div className="sm-profile-meta">
-                                {profile.base_city && <span>📍 {profile.base_city}, Cameroun</span>}
+                                {profile.base_city && <span><Icon name="pin" /> {profile.base_city}, Cameroun</span>}
                                 {profile.languages?.length > 0 && (
-                                    <span>🗣️ {profile.languages.map((code) => languageName(code, language)).join(" · ")}</span>
+                                    <span><Icon name="language" /> {profile.languages.map((code) => languageName(code, language)).join(" · ")}</span>
                                 )}
-                                {since && <span>🌱 {s("memberSince", { date: since })}</span>}
+                                {since && <span><Icon name="sprout" /> {s("memberSince", { date: since })}</span>}
                             </div>
 
                             <div className="sm-profile-actions">
                                 {user?.id === profile.id ? (
-                                    <Link href="/farmer#profile" className="ts-btn ts-btn-light">✎ {s("editProfile")}</Link>
+                                    <Link href="/farmer#profile" className="ts-btn ts-btn-light"><Icon name="edit" /> {s("editProfile")}</Link>
                                 ) : (
                                     <FollowButton farmer={profile} user={user} size="lg" />
                                 )}
-                                <button type="button" className="ts-btn ts-btn-whatsapp" onClick={share}>💬 {s("share")}</button>
-                                <button type="button" className="ts-btn ts-btn-light sm-icon-btn" onClick={copy} aria-label={s("copied")}>🔗</button>
+                                <button type="button" className="ts-btn ts-btn-whatsapp" onClick={share}><Icon name="chat" /> {s("share")}</button>
+                                <button type="button" className="ts-btn ts-btn-light sm-icon-btn" onClick={copy} aria-label={s("copied")}><Icon name="link" /></button>
                             </div>
                         </section>
 
@@ -224,7 +225,7 @@ export default function FarmPage({ profile, posts, origin }) {
 
                         {posts.length === 0 ? (
                             <div className="mk-empty">
-                                <div className="mk-empty-icon">🌱</div>
+                                <div className="mk-empty-icon"><Icon name="sprout" size={28} /></div>
                                 <h3>{s("noPosts")}</h3>
                             </div>
                         ) : view === "grid" ? (
@@ -235,16 +236,16 @@ export default function FarmPage({ profile, posts, origin }) {
                                             // eslint-disable-next-line @next/next/no-img-element
                                             <img src={post.photos[0].url} alt={productName(post, language)} loading="lazy" decoding="async" />
                                         ) : (
-                                            <span className="sm-tile-emoji" aria-hidden="true">{productEmoji(post.product)}</span>
+                                            <span className="sm-tile-emoji" aria-hidden="true"><Icon name="image" size={28} stroke={1.4} /></span>
                                         )}
                                         <span className="sm-tile-info">
                                             <strong>{productName(post, language)}</strong>
                                             <small>{formatMoney(post.price_per_unit, post.currency)} / {unitName(post.unit, language)}</small>
                                         </span>
                                         {!post.visible && <span className="sm-tile-off">{s("soldOut")}</span>}
-                                        {post.photos?.length > 1 && <span className="sm-tile-many" aria-hidden="true">❐</span>}
-                                        {post.voice_url && <span className="sm-tile-voice" aria-hidden="true">🎙️</span>}
-                                        {post.likes_count > 0 && <span className="sm-tile-likes">♥ {post.likes_count}</span>}
+                                        {post.photos?.length > 1 && <span className="sm-tile-many" aria-hidden="true"><Icon name="copy" size={16} /></span>}
+                                        {post.voice_url && <span className="sm-tile-voice" aria-hidden="true"><Icon name="mic" size={16} /></span>}
+                                        {post.likes_count > 0 && <span className="sm-tile-likes"><Icon name="heart" size={12} fill /> {post.likes_count}</span>}
                                     </Link>
                                 ))}
                             </div>

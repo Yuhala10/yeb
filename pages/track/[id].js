@@ -6,9 +6,10 @@ import { useEffect, useMemo, useState } from "react";
 
 import { DeliverySteps, Person, timeAgo } from "../../components/App/Bits";
 import { useFeedback } from "../../components/App/Feedback";
+import Icon from "../../components/Site/Icon";
 import { apiGet, pollWhileVisible } from "../../lib/api";
 import { useAppText } from "../../lib/appText";
-import { cargoEmoji, cargoLabel } from "../../lib/cargo";
+import { cargoIcon, cargoLabel } from "../../lib/cargo";
 import { useLanguage } from "../../lib/LanguageContext";
 import { formatMoney } from "../../lib/money";
 import { formatPhone, telHref, whatsappHref } from "../../lib/phone";
@@ -154,10 +155,10 @@ export default function TrackPage() {
                     <meta name="robots" content="noindex" />
                 </Head>
                 <div style={{ display: "grid", justifyItems: "center", gap: 14, textAlign: "center", maxWidth: 440 }}>
-                    <span className="ap-eyebrow">🛰️ {a("tk_title")}</span>
+                    <span className="ap-eyebrow"><Icon name="signal" /> {a("tk_title")}</span>
                     <h1 style={{ margin: 0, color: "white", fontSize: 30, fontWeight: 900, letterSpacing: "-0.03em" }}>{a("tk_notFound")}</h1>
                     <p style={{ margin: 0, color: "rgba(255,255,255,0.7)" }}>{a("tk_notFoundText")}</p>
-                    <Link href="/" className="ts-btn ts-btn-primary">🏠 Tayeb</Link>
+                    <Link href="/" className="ts-btn ts-btn-primary"><Icon name="home" /> Tayeb</Link>
                 </div>
             </main>
         );
@@ -173,7 +174,7 @@ export default function TrackPage() {
                 <div className="ap-loading-mark">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src="/branding/tayeb-logo.jpeg" alt="Tayeb" width={72} height={72} />
-                    <span>🛰️ {a("tk_title")}…</span>
+                    <span><Icon name="signal" /> {a("tk_title")}…</span>
                 </div>
             </main>
         );
@@ -260,7 +261,7 @@ export default function TrackPage() {
                 <div className="tk-bar">
                     <Link href={back} className="tk-round" aria-label="Tayeb">←</Link>
                     <div className="tk-title">
-                        <strong>{cargoEmoji(shipment.item_type, shipment.is_produce)} {shipment.origin_city} → {shipment.destination_city}</strong>
+                        <strong><Icon name={cargoIcon(shipment.item_type, shipment.is_produce)} /> {shipment.origin_city} → {shipment.destination_city}</strong>
                         <span className={`tk-signal is-${signal}`}>{signalText}</span>
                     </div>
                     {truck && (
@@ -301,7 +302,7 @@ export default function TrackPage() {
                     <div className="tk-scroll">
 
                         <div>
-                            <span className="ap-label">🛰️ {a("tk_title")}</span>
+                            <span className="ap-label"><Icon name="signal" /> {a("tk_title")}</span>
                             <h1 className="ap-card-title" style={{ fontSize: 22, marginTop: 4 }}>{headline}</h1>
                             <div className="ap-card-sub">{cargo}</div>
                         </div>
@@ -336,21 +337,21 @@ export default function TrackPage() {
                         {/* Alerts */}
                         {trip.away && (
                             <div className="ap-note ap-note-orange">
-                                <span aria-hidden="true">🧭</span>
+                                <Icon name="navigation" />
                                 <span>{a("tk_away", { city: cityName })}</span>
                             </div>
                         )}
 
                         {moving && signal === "stale" && (
                             <div className="ap-note ap-note-red">
-                                <span aria-hidden="true">📡</span>
+                                <Icon name="signal" />
                                 <span>{a("tk_stale")}</span>
                             </div>
                         )}
 
                         {moving && !truck && (
                             <div className="ap-note ap-note-blue">
-                                <span aria-hidden="true">📡</span>
+                                <Icon name="signal" />
                                 <span>{a("tk_waitingPosition")}</span>
                             </div>
                         )}
@@ -393,11 +394,11 @@ export default function TrackPage() {
                                 <div className="ap-row">
                                     <Person
                                         name={driver.name}
-                                        detail={[a("tk_driver"), driver.vehicle_type, driver.plate_number, driver.rating_count ? `★ ${driver.rating}` : null].filter(Boolean).join(" · ")}
+                                        detail={[a("tk_driver"), driver.vehicle_type, driver.plate_number, driver.rating_count ? `${driver.rating}/5` : null].filter(Boolean).join(" · ")}
                                     />
                                     {driver.phone && viewer !== "driver" && (
                                         <a className="ts-btn ts-btn-light ts-btn-sm" href={telHref(driver.phone)}>
-                                            📞 {a("tk_call")}
+                                            <Icon name="phone" /> {a("tk_call")}
                                         </a>
                                     )}
                                 </div>
@@ -413,25 +414,25 @@ export default function TrackPage() {
                                     target="_blank"
                                     rel="noopener noreferrer"
                                 >
-                                    🧭 {a("tk_navigate")}
+                                    <Icon name="navigation" /> {a("tk_navigate")}
                                 </a>
                                 <div className={`ap-note ${sharing.state === "on" ? "ap-note-green" : "ap-note-orange"}`} style={{ display: "grid", gap: 8 }}>
                                     <span>
-                                        📡 {sharing.state === "on" ? a("tk_sharing") : sharing.state === "denied" ? a("d_trackingBlocked") : a("d_trackingOff")}
+                                        <Icon name="signal" /> {sharing.state === "on" ? a("tk_sharing") : sharing.state === "denied" ? a("d_trackingBlocked") : a("d_trackingOff")}
                                     </span>
                                     {sharing.state !== "on" && (
-                                        <button type="button" className="ts-btn ts-btn-light ts-btn-sm" onClick={sharing.retry}>📡 {a("d_shareLocation")}</button>
+                                        <button type="button" className="ts-btn ts-btn-light ts-btn-sm" onClick={sharing.retry}><Icon name="signal" /> {a("d_shareLocation")}</button>
                                     )}
-                                    {sharing.state === "on" && <span className="tk-wake">🔆 {a("tk_screenOn")}</span>}
+                                    {sharing.state === "on" && <span className="tk-wake"><Icon name="sun" size={15} /> {a("tk_screenOn")}</span>}
                                 </div>
                                 {shipment.shipper_phone && (
                                     <a className="ts-btn ts-btn-light ts-btn-sm" href={telHref(shipment.shipper_phone)}>
-                                        📞 {a("d_callShipper")} · {formatPhone(shipment.shipper_phone)}
+                                        <Icon name="phone" /> {a("d_callShipper")} · {formatPhone(shipment.shipper_phone)}
                                     </a>
                                 )}
                                 {shipment.receiver_phone && (
                                     <a className="ts-btn ts-btn-light ts-btn-sm" href={telHref(shipment.receiver_phone)}>
-                                        📞 {a("d_callReceiver")} · {formatPhone(shipment.receiver_phone)}
+                                        <Icon name="phone" /> {a("d_callReceiver")} · {formatPhone(shipment.receiver_phone)}
                                     </a>
                                 )}
                             </div>
@@ -441,7 +442,7 @@ export default function TrackPage() {
                         {link && data.live && (
                             <div className="ap-card is-tint-green" style={{ padding: 14 }}>
                                 <div>
-                                    <strong style={{ color: "var(--ts-ink)" }}>🔗 {a("tk_shareTitle")}</strong>
+                                    <strong style={{ color: "var(--ts-ink)" }}><Icon name="link" /> {a("tk_shareTitle")}</strong>
                                     <div className="ap-card-sub">{a("tk_shareText")}</div>
                                 </div>
                                 <div className="ap-actions">
@@ -451,15 +452,15 @@ export default function TrackPage() {
                                         target="_blank"
                                         rel="noopener noreferrer"
                                     >
-                                        💬 {a("tk_shareWhatsApp")}
+                                        <Icon name="chat" /> {a("tk_shareWhatsApp")}
                                     </a>
                                     <button type="button" className="ts-btn ts-btn-light ts-btn-sm" onClick={copy}>
-                                        🔗 {a("tk_copy")}
+                                        <Icon name="link" /> {a("tk_copy")}
                                     </button>
                                 </div>
                                 {shipment.delivery_code && (
                                     <div className="ap-row">
-                                        <span className="ap-card-sub">🔑 {a("s_codeTitle")}</span>
+                                        <span className="ap-card-sub"><Icon name="key" /> {a("s_codeTitle")}</span>
                                         <strong style={{ color: "var(--ts-ink)", letterSpacing: "0.3em", fontSize: 20 }}>{shipment.delivery_code}</strong>
                                     </div>
                                 )}

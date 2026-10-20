@@ -1,5 +1,7 @@
 import { useLanguage } from "../../lib/LanguageContext";
 
+import Icon from "./Icon";
+
 /*
  * Light or dark, for good. Until someone taps it, Tayeb
  * follows the phone's own setting (see styles/theme.css).
@@ -47,8 +49,8 @@ export default function ThemeToggle({ onDark = false }) {
             aria-label={label}
             title={label}
         >
-            <span className="when-light" aria-hidden="true">🌙</span>
-            <span className="when-dark" aria-hidden="true">☀️</span>
+            <span className="when-light" aria-hidden="true"><Icon name="moon" size={18} /></span>
+            <span className="when-dark" aria-hidden="true"><Icon name="sun" size={18} /></span>
         </button>
     );
 }

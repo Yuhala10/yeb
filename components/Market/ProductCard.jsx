@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import ProductMedia from "./ProductMedia";
+import Icon from "../Site/Icon";
 import { findCountry } from "../../lib/countries";
 import { useLanguage } from "../../lib/LanguageContext";
 import { formatDay, useMarketText } from "../../lib/marketText";
@@ -28,20 +29,20 @@ export default function ProductCard({ listing, showCountry = false, distanceKm =
             <ProductMedia listing={listing}>
                 <div className="mk-media-badges">
                     {listing.ready_now ? (
-                        <span className="mk-tag mk-tag-green">✓ {m("readyNow")}</span>
+                        <span className="mk-tag mk-tag-green"><Icon name="check" /> {m("readyNow")}</span>
                     ) : (
                         <span className="mk-tag">
-                            🗓️ {m("readyOn", { date: formatDay(listing.available_from, language) })}
+                            <Icon name="calendar" /> {m("readyOn", { date: formatDay(listing.available_from, language) })}
                         </span>
                     )}
 
                     {listing.perishable && (
-                        <span className="mk-tag mk-tag-amber">❄️ {m("fresh")}</span>
+                        <span className="mk-tag mk-tag-amber"><Icon name="snowflake" /> {m("fresh")}</span>
                     )}
                 </div>
 
                 {photoCount > 1 && (
-                    <span className="mk-photo-count">📷 {photoCount}</span>
+                    <span className="mk-photo-count"><Icon name="camera" /> {photoCount}</span>
                 )}
             </ProductMedia>
 
@@ -52,7 +53,7 @@ export default function ProductCard({ listing, showCountry = false, distanceKm =
                 </h3>
 
                 <div className="mk-card-meta">
-                    📍 {listing.area ? `${listing.area}, ` : ""}{listing.city}
+                    <Icon name="pin" /> {listing.area ? `${listing.area}, ` : ""}{listing.city}
                     {showCountry && findCountry(listing.country) ? ` ${findCountry(listing.country).flag}` : ""}
                     {distanceKm !== null ? ` · ~${distanceKm} km` : ""}
                 </div>
@@ -70,7 +71,7 @@ export default function ProductCard({ listing, showCountry = false, distanceKm =
                 </div>
 
                 <div className="mk-card-foot">
-                    <span>👨🏾‍🌾 {firstName}</span>
+                    <span><Icon name="farmer" /> {firstName}</span>
 
                     {farmer?.rating_count ? (
                         <span className="mk-rating">

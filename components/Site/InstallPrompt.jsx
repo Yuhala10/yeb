@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+import Icon from "./Icon";
+
 import { useSiteText } from "../../lib/siteText";
 
 const DISMISS_KEY = "tayebInstallDismissed";
@@ -62,7 +64,7 @@ export default function InstallPrompt() {
 
     return (
         <div className="ts-install" role="dialog" aria-label={s("installTitle")}>
-            <span style={{ fontSize: 28 }} aria-hidden="true">📲</span>
+            <span className="ts-install-icon" aria-hidden="true"><Icon name="phoneMoney" size={22} /></span>
             <div>
                 <strong>{s("installTitle")}</strong>
                 <span>{s("installText")}</span>

@@ -10,6 +10,7 @@ import Reveal from "../../components/Site/Reveal";
 import Seo from "../../components/Site/Seo";
 import SiteFooter from "../../components/Site/SiteFooter";
 import SiteHeader from "../../components/Site/SiteHeader";
+import Icon from "../../components/Site/Icon";
 import { apiGet, apiPost } from "../../lib/api";
 import { cityNames, distanceKm, findCity } from "../../lib/cities";
 import { LIVE_COUNTRIES, countryName, findCountry, sortedCountries } from "../../lib/countries";
@@ -261,7 +262,7 @@ export default function MarketPage({ ready, listings, total, facets, filters, wi
                 city: filters.city || null,
             });
 
-            setAlertState(language === "fr" ? "🔔 C'est noté : vous serez prévenu dès qu'une offre arrive." : "🔔 Done: you'll be told as soon as one is listed.");
+            setAlertState(language === "fr" ? "C'est noté : vous serez prévenu dès qu'une offre arrive." : "Done: you'll be told as soon as one is listed.");
         } catch (error) {
             setAlertState(marketError(language, error));
         }
@@ -279,8 +280,8 @@ export default function MarketPage({ ready, listings, total, facets, filters, wi
 
     const alertLabel = alertProduct
         ? language === "fr"
-            ? `🔔 Me prévenir pour ${findProduct(alertProduct).fr.toLowerCase()}${filters.city ? ` à ${filters.city}` : ""}`
-            : `🔔 Alert me for ${findProduct(alertProduct).en.toLowerCase()}${filters.city ? ` in ${filters.city}` : ""}`
+            ? `Me prévenir pour ${findProduct(alertProduct).fr.toLowerCase()}${filters.city ? ` à ${filters.city}` : ""}`
+            : `Alert me for ${findProduct(alertProduct).en.toLowerCase()}${filters.city ? ` in ${filters.city}` : ""}`
         : null;
 
     return (
@@ -309,7 +310,7 @@ export default function MarketPage({ ready, listings, total, facets, filters, wi
                         <span className="ts-badge">
                             <span className="ts-pulse" aria-hidden="true" />
                             {m("results", { count: total })}
-                            {country ? ` · ${country.flag} ${countryName(country.code, language)}` : " · 🌍"}
+                            {country ? ` · ${countryName(country.code, language)}` : ""}
                         </span>
                         <h1 style={{ fontSize: "clamp(36px, 6vw, 68px)" }}>
                             <span>{m("heroTitle")}</span>
@@ -318,10 +319,10 @@ export default function MarketPage({ ready, listings, total, facets, filters, wi
                         <p className="ts-hero-text">{m("heroText")}</p>
                         <div className="ts-hero-actions" style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 24 }}>
                             <button type="button" className="ts-btn ts-btn-primary ts-btn-lg" onClick={sell}>
-                                👨🏾‍🌾 {m("sellCta")}
+                                <Icon name="farmer" /> {m("sellCta")}
                             </button>
                             <a href="#produce" className="ts-btn ts-btn-glass ts-btn-lg">
-                                🛒 {m("browseCta")}
+                                <Icon name="cart" /> {m("browseCta")}
                             </a>
                         </div>
                     </div>
@@ -360,7 +361,7 @@ export default function MarketPage({ ready, listings, total, facets, filters, wi
                                     onChange={(event) => setFormCountry(event.target.value)}
                                     aria-label={language === "fr" ? "Pays" : "Country"}
                                 >
-                                    <option value="">🌍 {language === "fr" ? "Toute l'Afrique" : "All of Africa"}</option>
+                                    <option value="">{language === "fr" ? "Toute l'Afrique" : "All of Africa"}</option>
                                     {sortedCountries(language).map((item) => (
                                         <option key={item.code} value={item.code}>
                                             {item.flag} {language === "fr" ? item.fr : item.en}
@@ -384,7 +385,7 @@ export default function MarketPage({ ready, listings, total, facets, filters, wi
                             </select>
 
                             <button type="submit" className="ts-btn ts-btn-ink">
-                                🔍 {language === "fr" ? "Chercher" : "Search"}
+                                <Icon name="search" /> {language === "fr" ? "Chercher" : "Search"}
                             </button>
                         </form>
 
@@ -402,7 +403,6 @@ export default function MarketPage({ ready, listings, total, facets, filters, wi
                                     href={filterHref(filters, { category: category.key, product: "" })}
                                     className={`mk-chip ${filters.category === category.key && !filters.product ? "active" : ""}`}
                                 >
-                                    <span aria-hidden="true">{category.emoji}</span>
                                     {language === "fr" ? category.fr : category.en}
                                 </Link>
                             ))}
@@ -424,7 +424,6 @@ export default function MarketPage({ ready, listings, total, facets, filters, wi
                                         href={filterHref(filters, { product: key, category: "" })}
                                         className={`mk-chip ${filters.product === key ? "active" : ""}`}
                                     >
-                                        <span aria-hidden="true">{item.emoji}</span>
                                         {language === "fr" ? item.fr : item.en}
                                         <small style={{ opacity: 0.6 }}>{count}</small>
                                     </Link>
@@ -440,7 +439,7 @@ export default function MarketPage({ ready, listings, total, facets, filters, wi
 
                     {!ready ? (
                         <div className="mk-empty" style={{ marginTop: 26 }}>
-                            <div className="mk-empty-icon">🌱</div>
+                            <div className="mk-empty-icon"><Icon name="sprout" size={28} /></div>
                             <h3>{m("notReadyTitle")}</h3>
                             <p>{m("notReadyText")}</p>
                         </div>
@@ -455,7 +454,7 @@ export default function MarketPage({ ready, listings, total, facets, filters, wi
                                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                                     {hasFilters && (
                                         <Link href={filterHref({ country: filters.country }, {})} className="ts-btn ts-btn-light ts-btn-sm">
-                                            ✕ {m("clearFilters")}
+                                            <Icon name="x" /> {m("clearFilters")}
                                         </Link>
                                     )}
                                 </div>
@@ -463,7 +462,7 @@ export default function MarketPage({ ready, listings, total, facets, filters, wi
 
                             {widened && (
                                 <div className="mk-notice" style={{ marginBottom: 16 }}>
-                                    🌍 {language === "fr"
+                                    <Icon name="globe" /> {language === "fr"
                                         ? "Rien encore dans votre pays : voici les offres de toute l'Afrique."
                                         : "Nothing in your country yet: here are offers from across Africa."}
                                 </div>
@@ -471,7 +470,7 @@ export default function MarketPage({ ready, listings, total, facets, filters, wi
 
                             {listings.length === 0 ? (
                                 <div className="mk-empty">
-                                    <div className="mk-empty-icon">🧺</div>
+                                    <div className="mk-empty-icon"><Icon name="basket" size={28} /></div>
                                     <h3>{m("noResultsTitle")}</h3>
                                     <p>{m("noResultsText")}</p>
                                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
@@ -493,13 +492,13 @@ export default function MarketPage({ ready, listings, total, facets, filters, wi
                                     <div className="sm-feed-bar">
                                         <div className="sm-feed-tabs" role="tablist">
                                             {[
-                                                ["foryou", `✨ ${s("forYou")}`],
-                                                ["following", `👥 ${s("following")}`],
-                                                ["near", `📍 ${s("nearMe")}`],
-                                                ["saved", `🔖 ${s("saved")}`],
-                                            ].map(([key, label]) => (
+                                                ["foryou", s("forYou"), "sparkle"],
+                                                ["following", s("following"), "users"],
+                                                ["near", s("nearMe"), "pin"],
+                                                ["saved", s("saved"), "bookmark"],
+                                            ].map(([key, label, icon]) => (
                                                 <button key={key} type="button" role="tab" aria-selected={tab === key} className={tab === key ? "active" : ""} onClick={() => openTab(key)}>
-                                                    {key === "near" && locating ? "…" : label}
+                                                    <Icon name={icon} size={16} /> {key === "near" && locating ? "…" : label}
                                                 </button>
                                             ))}
                                         </div>
@@ -538,10 +537,10 @@ export default function MarketPage({ ready, listings, total, facets, filters, wi
                                         if (social && items.length === 0) {
                                             return (
                                                 <div className="mk-empty">
-                                                    <div className="mk-empty-icon">{tab === "saved" ? "🔖" : "👥"}</div>
+                                                    <div className="mk-empty-icon"><Icon name={tab === "saved" ? "bookmark" : "users"} size={28} /></div>
                                                     <h3>{s(tab === "saved" ? "savedEmptyTitle" : "followingEmptyTitle")}</h3>
                                                     <p>{s(tab === "saved" ? "savedEmpty" : "followingEmpty")}</p>
-                                                    <button type="button" className="ts-btn ts-btn-light" onClick={() => setTab("foryou")}>✨ {s("forYou")}</button>
+                                                    <button type="button" className="ts-btn ts-btn-light" onClick={() => setTab("foryou")}>{s("forYou")}</button>
                                                 </div>
                                             );
                                         }
@@ -610,7 +609,7 @@ export default function MarketPage({ ready, listings, total, facets, filters, wi
 
                         <Reveal className="mk-duo" style={{ marginTop: 18 }}>
                             <div className="mk-promo">
-                                <h3>👨🏾‍🌾 {m("forFarmersTitle")}</h3>
+                                <h3>{m("forFarmersTitle")}</h3>
                                 <p>{m("forFarmersText")}</p>
                                 <div>
                                     <button type="button" className="ts-btn ts-btn-primary" onClick={sell}>
@@ -619,7 +618,7 @@ export default function MarketPage({ ready, listings, total, facets, filters, wi
                                 </div>
                             </div>
                             <div className="mk-promo mk-promo-light">
-                                <h3>🍽️ {m("forBuyersTitle")}</h3>
+                                <h3>{m("forBuyersTitle")}</h3>
                                 <p>{m("forBuyersText")}</p>
                                 <div>
                                     <a href="#produce" className="ts-btn ts-btn-ink">

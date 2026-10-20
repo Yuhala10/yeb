@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { ProductThumb } from "./ProductMedia";
+import Icon from "../Site/Icon";
 import { useLanguage } from "../../lib/LanguageContext";
 import { formatDay, useMarketText } from "../../lib/marketText";
 import { formatMoney } from "../../lib/money";
@@ -49,7 +50,7 @@ export default function FarmerProductRow({ product, busy, onEdit, onStatus }) {
                 </div>
 
                 <div className="mk-card-meta">
-                    📍 {product.area ? `${product.area}, ` : ""}{product.city}
+                    <Icon name="pin" /> {product.area ? `${product.area}, ` : ""}{product.city}
                     {" · "}
                     {product.ready_now
                         ? m("readyNow")
@@ -70,7 +71,7 @@ export default function FarmerProductRow({ product, busy, onEdit, onStatus }) {
                         className="mk-btn mk-btn-whatsapp mk-btn-sm"
                         onClick={() => shareListingOnWhatsApp(product, language)}
                     >
-                        💬 {m("share")}
+                        <Icon name="chat" /> {m("share")}
                     </button>
                 )}
 
@@ -79,7 +80,7 @@ export default function FarmerProductRow({ product, busy, onEdit, onStatus }) {
                     className="mk-btn mk-btn-light mk-btn-sm"
                     onClick={() => onEdit(product)}
                 >
-                    ✏️ {m("edit")}
+                    <Icon name="edit" /> {m("edit")}
                 </button>
 
                 {product.status === "ACTIVE" && (
@@ -89,7 +90,7 @@ export default function FarmerProductRow({ product, busy, onEdit, onStatus }) {
                         disabled={busy}
                         onClick={() => onStatus(product, "PAUSED")}
                     >
-                        ⏸ {m("pause")}
+                        <Icon name="pause" /> {m("pause")}
                     </button>
                 )}
 
@@ -100,7 +101,7 @@ export default function FarmerProductRow({ product, busy, onEdit, onStatus }) {
                         disabled={busy}
                         onClick={() => onStatus(product, "ACTIVE")}
                     >
-                        ▶ {m("resume")}
+                        {m("resume")}
                     </button>
                 )}
 

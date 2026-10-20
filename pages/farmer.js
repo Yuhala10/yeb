@@ -10,6 +10,7 @@ import FarmerProductRow from "../components/Market/FarmerProductRow";
 import OrderCard from "../components/Market/OrderCard";
 import ProductForm from "../components/Market/ProductForm";
 import ProfileEditor from "../components/Market/ProfileEditor";
+import Icon from "../components/Site/Icon";
 import { apiGet, apiPost, pollWhileVisible } from "../lib/api";
 import { useAppText } from "../lib/appText";
 import { useLanguage } from "../lib/LanguageContext";
@@ -99,11 +100,11 @@ export default function FarmerPage() {
     /* ---------------- actions ---------------- */
 
     async function orderAction(action, order, extra = {}) {
-        if (action === "confirm" && !(await confirm({ title: m("confirmQuestion"), confirmLabel: m("confirm"), icon: "✅" }))) {
+        if (action === "confirm" && !(await confirm({ title: m("confirmQuestion"), confirmLabel: m("confirm"), icon: "check" }))) {
             return;
         }
 
-        if (action === "paid" && !(await confirm({ title: m("markPaidQuestion", { amount: formatAmount(order.total_price) }), confirmLabel: m("markPaid"), icon: "💵" }))) {
+        if (action === "paid" && !(await confirm({ title: m("markPaidQuestion", { amount: formatAmount(order.total_price) }), confirmLabel: m("markPaid"), icon: "cash" }))) {
             return;
         }
 
@@ -124,7 +125,7 @@ export default function FarmerPage() {
     }
 
     async function setProductStatus(product, status) {
-        if (status === "ARCHIVED" && !(await confirm({ title: m("confirmRemove"), tone: "danger", icon: "🗑️" }))) {
+        if (status === "ARCHIVED" && !(await confirm({ title: m("confirmRemove"), tone: "danger", icon: "trash" }))) {
             return;
         }
 
@@ -154,22 +155,22 @@ export default function FarmerPage() {
     }
 
     const tabs = [
-        { key: "orders", label: a("f_tabOrders"), icon: "🛒", count: newOrders.length },
-        { key: "products", label: a("f_tabProducts"), icon: "🧺", count: 0 },
-        { key: "profile", label: a("f_tabProfile"), icon: "👤" },
+        { key: "orders", label: a("f_tabOrders"), icon: "cart", count: newOrders.length },
+        { key: "products", label: a("f_tabProducts"), icon: "basket", count: 0 },
+        { key: "profile", label: a("f_tabProfile"), icon: "user" },
     ];
 
     return (
         <AppShell
             user={user}
             pageTitle={m("farmerSubtitle")}
-            eyebrow={`🌾 Tayeb Marché${user.base_city ? ` · 📍 ${user.base_city}` : ""}`}
+            eyebrow={`Tayeb Marché${user.base_city ? ` · ${user.base_city}` : ""}`}
             title={<>{a("helloWord")}, <em>{String(user.full_name || "").split(/\s+/)[0]}</em></>}
             subtitle={a("f_sub")}
             actions={
                 data.ready && (
                     <button type="button" className="ts-btn ts-btn-primary" onClick={() => setEditing({})}>
-                        ＋ {m("addProduct")}
+                        <Icon name="plus" /> {m("addProduct")}
                     </button>
                 )
             }
@@ -185,7 +186,7 @@ export default function FarmerPage() {
         >
 
             {!data.ready && (
-                <Empty icon="🌱" title={m("notReadyTitle")} text={m("notReadyText")} />
+                <Empty icon="sprout" title={m("notReadyTitle")} text={m("notReadyText")} />
             )}
 
             {/* =================================================
@@ -195,13 +196,13 @@ export default function FarmerPage() {
             {data.ready && tab === "orders" && (
                 <>
                     <section className="ap-section ap-fade">
-                        <SectionHead title={`🛒 ${m("newOrders")}`} count={newOrders.length} />
+                        <SectionHead title={`${m("newOrders")}`} count={newOrders.length} />
 
                         {newOrders.length === 0 ? (
-                            <Empty icon="🛒" title={m("noNewOrders")} text={products.length === 0 ? m("noProductsText") : null}>
+                            <Empty icon="cart" title={m("noNewOrders")} text={products.length === 0 ? m("noProductsText") : null}>
                                 {products.length === 0 && (
                                     <button type="button" className="ts-btn ts-btn-primary" onClick={() => setEditing({})}>
-                                        ＋ {m("addProduct")}
+                                        <Icon name="plus" /> {m("addProduct")}
                                     </button>
                                 )}
                             </Empty>
@@ -216,7 +217,7 @@ export default function FarmerPage() {
 
                     {activeOrders.length > 0 && (
                         <section className="ap-section">
-                            <SectionHead title={`🚚 ${m("inProgress")}`} count={activeOrders.length} />
+                            <SectionHead title={`${m("inProgress")}`} count={activeOrders.length} />
                             <div className="ap-stack">
                                 {activeOrders.map((order) => (
                                     <OrderCard key={order.id} order={order} role="farmer" busy={busyId === order.id} onAction={orderAction} />
@@ -227,7 +228,7 @@ export default function FarmerPage() {
 
                     {history.length > 0 && (
                         <section className="ap-section">
-                            <SectionHead title={`🗂️ ${m("history")}`} />
+                            <SectionHead title={`${m("history")}`} />
                             <div className="ap-stack">
                                 {history.map((order) => (
                                     <OrderCard key={order.id} order={order} role="farmer" busy={busyId === order.id} onAction={orderAction} />
@@ -245,19 +246,19 @@ export default function FarmerPage() {
 
             {data.ready && tab === "products" && (
                 <section className="ap-section ap-fade">
-                    <SectionHead title={`🧺 ${m("myProducts")}`}>
+                    <SectionHead title={`${m("myProducts")}`}>
                         <div className="ap-actions">
-                            <Link href="/market" className="ts-btn ts-btn-light ts-btn-sm">🌾 {a("menuMarket")}</Link>
+                            <Link href="/market" className="ts-btn ts-btn-light ts-btn-sm"><Icon name="sprout" /> {a("menuMarket")}</Link>
                             <button type="button" className="ts-btn ts-btn-primary ts-btn-sm" onClick={() => setEditing({})}>
-                                ＋ {m("addProduct")}
+                                <Icon name="plus" /> {m("addProduct")}
                             </button>
                         </div>
                     </SectionHead>
 
                     {products.length === 0 ? (
-                        <Empty icon="🌱" title={m("noProducts")} text={m("noProductsText")}>
+                        <Empty icon="sprout" title={m("noProducts")} text={m("noProductsText")}>
                             <button type="button" className="ts-btn ts-btn-primary" onClick={() => setEditing({})}>
-                                ＋ {m("addProduct")}
+                                <Icon name="plus" /> {m("addProduct")}
                             </button>
                         </Empty>
                     ) : (
@@ -297,7 +298,7 @@ export default function FarmerPage() {
                                     )}
                                     {user.rating_count > 0 && (
                                         <div>
-                                            <small>★</small>
+                                            <small>{language === "fr" ? "Note" : "Rating"}</small>
                                             <strong>{user.rating}/5 ({user.rating_count})</strong>
                                         </div>
                                     )}

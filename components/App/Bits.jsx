@@ -1,5 +1,7 @@
 import { useEffect } from "react";
 
+import Icon from "../Site/Icon";
+
 import { useAppText } from "../../lib/appText";
 
 /*
@@ -88,10 +90,11 @@ export function CodeDigits({ code }) {
     );
 }
 
+// icon: a name from Site/Icon.
 export function Empty({ icon, title, text, children }) {
     return (
         <div className="ap-empty">
-            <div className="ap-empty-icon" aria-hidden="true">{icon}</div>
+            <div className="ap-empty-icon" aria-hidden="true"><Icon name={icon} size={26} /></div>
             <h3>{title}</h3>
             {text && <p>{text}</p>}
             {children}
@@ -154,7 +157,7 @@ export function Sheet({ title, onClose, children, busy = false }) {
                 <div className="mk-modal-head">
                     <h2>{title}</h2>
                     <button type="button" className="mk-close" onClick={onClose} disabled={busy} aria-label={a("close")}>
-                        ✕
+                        <Icon name="x" />
                     </button>
                 </div>
                 {children}
@@ -168,7 +171,7 @@ export function Stars({ onRate, disabled }) {
         <div className="ap-stars">
             {[1, 2, 3, 4, 5].map((stars) => (
                 <button key={stars} type="button" disabled={disabled} onClick={() => onRate(stars)} aria-label={`${stars} / 5`}>
-                    ★
+                    <Icon name="star" size={24} fill />
                 </button>
             ))}
         </div>

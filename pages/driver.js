@@ -6,9 +6,10 @@ import AccountPanel from "../components/App/AccountPanel";
 import AppShell from "../components/App/AppShell";
 import { AppLoading, DeliverySteps, digits, Empty, Person, Route, SectionHead, Sheet, splitPlace, timeAgo } from "../components/App/Bits";
 import { useFeedback } from "../components/App/Feedback";
+import Icon from "../components/Site/Icon";
 import { apiGet, apiPost, pollWhileVisible } from "../lib/api";
 import { appError, useAppText } from "../lib/appText";
-import { cargoEmoji, cargoLabel } from "../lib/cargo";
+import { cargoIcon, cargoLabel } from "../lib/cargo";
 import { cityNames, findCity } from "../lib/cities";
 import { countryOrDefault } from "../lib/countries";
 import { useLanguage } from "../lib/LanguageContext";
@@ -202,7 +203,7 @@ export default function DriverPage() {
     async function acceptCounter(bid, shipment) {
         const price = formatMoney(bid.counter_price, shipment?.currency);
 
-        if (!(await confirm({ title: a("d_acceptTitle", { price }), text: a("d_acceptText"), confirmLabel: a("d_accept", { price }), icon: "🤝" }))) {
+        if (!(await confirm({ title: a("d_acceptTitle", { price }), text: a("d_acceptText"), confirmLabel: a("d_accept", { price }), icon: "check" }))) {
             return;
         }
 
@@ -233,7 +234,7 @@ export default function DriverPage() {
     }
 
     async function setStatus(job, status, deliveryCode) {
-        if (status === "DEPARTED" && !(await confirm({ title: a("d_startTitle"), text: a("d_startText"), confirmLabel: a("d_start"), icon: "🚚" }))) {
+        if (status === "DEPARTED" && !(await confirm({ title: a("d_startTitle"), text: a("d_startText"), confirmLabel: a("d_start"), icon: "truck" }))) {
             return false;
         }
 
@@ -263,22 +264,22 @@ export default function DriverPage() {
     const available = user.is_available ?? true;
 
     const tabs = [
-        { key: "loads", label: a("d_tabLoads"), icon: "📦", count: openLoads.length },
-        { key: "offers", label: a("d_tabOffers"), icon: "💬", count: counters.length },
-        { key: "trips", label: a("d_tabTrips"), icon: "🚚", count: activeJobs.length },
-        { key: "profile", label: a("d_tabProfile"), icon: "👤" },
+        { key: "loads", label: a("d_tabLoads"), icon: "package", count: openLoads.length },
+        { key: "offers", label: a("d_tabOffers"), icon: "chat", count: counters.length },
+        { key: "trips", label: a("d_tabTrips"), icon: "truck", count: activeJobs.length },
+        { key: "profile", label: a("d_tabProfile"), icon: "user" },
     ];
 
     return (
         <AppShell
             user={user}
-            eyebrow={`${a("role_DRIVER")}${user.base_city ? ` · 📍 ${user.base_city}` : ""}`}
+            eyebrow={`${a("role_DRIVER")}${user.base_city ? ` · ${user.base_city}` : ""}`}
             title={<>{a("helloWord")}, <em>{firstName(user.full_name)}</em></>}
             subtitle={a("d_sub")}
             actions={
                 <>
                 <Link href="/drive" className="ts-btn ts-btn-primary">
-                    ⚡ {language === "fr" ? "Tayeb Pro : passer en ligne" : "Tayeb Pro: go online"}
+                    <Icon name="zap" /> {language === "fr" ? "Tayeb Pro : passer en ligne" : "Tayeb Pro: go online"}
                 </Link>
                 <button
                     type="button"
@@ -313,9 +314,9 @@ export default function DriverPage() {
                     <SectionHead title={a("d_loadsTitle")} sub={a("d_loadsSub")} />
 
                     {openLoads.length === 0 ? (
-                        <Empty icon="🛣️" title={a("d_noLoads")} text={a("d_noLoadsText")}>
+                        <Empty icon="route" title={a("d_noLoads")} text={a("d_noLoadsText")}>
                             <button type="button" className="ts-btn ts-btn-whatsapp" onClick={() => inviteShippersOnWhatsApp(language)}>
-                                💬 {a("d_invite")}
+                                <Icon name="chat" /> {a("d_invite")}
                             </button>
                         </Empty>
                     ) : (
@@ -346,9 +347,9 @@ export default function DriverPage() {
                     <SectionHead title={a("d_offersTitle")} count={counters.length} />
 
                     {bids.length === 0 ? (
-                        <Empty icon="💬" title={a("d_noOffers")} text={a("d_noOffersText")}>
+                        <Empty icon="chat" title={a("d_noOffers")} text={a("d_noOffersText")}>
                             <button type="button" className="ts-btn ts-btn-primary" onClick={() => setTab("loads")}>
-                                📦 {a("d_loadsTitle")}
+                                <Icon name="package" /> {a("d_loadsTitle")}
                             </button>
                         </Empty>
                     ) : (
@@ -382,7 +383,7 @@ export default function DriverPage() {
                         <SectionHead title={a("d_tripsTitle")} count={activeJobs.length} />
 
                         {activeJobs.length === 0 ? (
-                            <Empty icon="🚚" title={a("d_noTrips")} text={a("d_noTripsText")} />
+                            <Empty icon="truck" title={a("d_noTrips")} text={a("d_noTripsText")} />
                         ) : (
                             <div className="ap-stack">
                                 {activeJobs.map((job) => (
@@ -408,15 +409,15 @@ export default function DriverPage() {
                                         <div className="ap-card-head">
                                             <div>
                                                 <h3 className="ap-card-title" style={{ fontSize: 16 }}>
-                                                    {cargoEmoji(job.item_type, job.is_produce)} {job.quantity} × {cargoLabel(job.item_type, language)}
+                                                    <Icon name={cargoIcon(job.item_type, job.is_produce)} /> {job.quantity} × {cargoLabel(job.item_type, language)}
                                                 </h3>
                                                 <div className="ap-card-sub">{job.origin_city} → {job.destination_city} · {timeAgo(job.completed_at || job.created_at, language, a)}</div>
                                             </div>
-                                            <span className="ap-chip ap-chip-green">✓ {a("load_COMPLETED")}</span>
+                                            <span className="ap-chip ap-chip-green"><Icon name="check" /> {a("load_COMPLETED")}</span>
                                         </div>
                                         <div className="ap-row">
                                             <span className="ap-money" style={{ fontSize: 20 }}>{formatMoney(job.agreed_price, job.currency)}</span>
-                                            {job.driver_rating > 0 && <span className="ap-chip ap-chip-amber">{"★".repeat(job.driver_rating)}</span>}
+                                            {job.driver_rating > 0 && <span className="ap-chip ap-chip-amber"><Icon name="star" fill /> {job.driver_rating}/5</span>}
                                         </div>
                                     </article>
                                 ))}
@@ -458,7 +459,7 @@ export default function DriverPage() {
 
                             <div className="ap-card">
                                 <div className="ap-field">
-                                    <label htmlFor="driver-city">📍 {a("d_myCity")}</label>
+                                    <label htmlFor="driver-city">{a("d_myCity")}</label>
                                     <select
                                         id="driver-city"
                                         className="mk-select"
@@ -476,7 +477,7 @@ export default function DriverPage() {
                             </div>
 
                             <div className="ap-card is-tint-green">
-                                <h3 className="ap-card-title">💬 {a("d_invite")}</h3>
+                                <h3 className="ap-card-title">{a("d_invite")}</h3>
                                 <div className="ap-card-sub">{a("d_noLoadsText")}</div>
                                 <div>
                                     <button type="button" className="ts-btn ts-btn-whatsapp" onClick={() => inviteShippersOnWhatsApp(language)}>
@@ -494,7 +495,7 @@ export default function DriverPage() {
                                     <strong>{user.vehicle_type || "—"}{user.plate_number ? ` · ${user.plate_number}` : ""}</strong>
                                 </div>
                                 <div>
-                                    <small>★</small>
+                                    <small>{language === "fr" ? "Note" : "Rating"}</small>
                                     <strong>{user.rating_count ? `${user.rating}/5 (${user.rating_count})` : a("s_newDriver")}</strong>
                                 </div>
                                 {earnedText && (
@@ -566,20 +567,20 @@ function LoadCard({ load, bid, busy, onOffer, onAccept, onCounter }) {
             <div className="ap-card-head">
                 <div style={{ minWidth: 0 }}>
                     <h3 className="ap-card-title">
-                        {cargoEmoji(load.item_type, load.is_produce)} {load.quantity} × {cargoLabel(load.item_type, language)}
+                        <Icon name={cargoIcon(load.item_type, load.is_produce)} /> {load.quantity} × {cargoLabel(load.item_type, language)}
                     </h3>
                     <div className="ap-card-sub">{timeAgo(load.created_at, language, a)}</div>
                 </div>
                 {load.match && (
                     <span className={`ap-chip ${load.match.type === "RETURN" ? "ap-chip-green" : "ap-chip-blue"}`}>
-                        {load.match.type === "RETURN" ? "🔁" : "📍"} {load.match.city}
+                        <Icon name={load.match.type === "RETURN" ? "repeat" : "pin"} /> {load.match.city}
                     </span>
                 )}
             </div>
 
             {load.match && (
                 <div className={`ap-note ${load.match.type === "RETURN" ? "ap-note-green" : "ap-note-blue"}`}>
-                    <span aria-hidden="true">{load.match.type === "RETURN" ? "🔁" : "📍"}</span>
+                    <Icon name={load.match.type === "RETURN" ? "repeat" : "pin"} />
                     <span>{a(load.match.type === "RETURN" ? "d_returnLoad" : "d_nearYou", { city: load.match.city })}</span>
                 </div>
             )}
@@ -587,11 +588,11 @@ function LoadCard({ load, bid, busy, onOffer, onAccept, onCounter }) {
             <Route from={from.city} fromArea={from.area} to={to.city} toArea={to.area} />
 
             <div className="ap-chips">
-                {load.route_km > 0 && <span className="ap-chip">🛣️ {a("km", { km: load.route_km })}</span>}
-                {load.from_km > 0 && !load.match && <span className="ap-chip">📍 {a("kmAway", { km: load.from_km })}</span>}
-                {load.is_produce && <span className="ap-chip ap-chip-green">🌾 {a("produceLoad")}</span>}
-                {load.weight_kg > 0 && <span className="ap-chip">⚖️ ~{Math.round(load.weight_kg)} kg</span>}
-                {load.perishable && <span className="ap-chip ap-chip-amber">❄️ {a("fresh")}</span>}
+                {load.route_km > 0 && <span className="ap-chip"><Icon name="route" /> {a("km", { km: load.route_km })}</span>}
+                {load.from_km > 0 && !load.match && <span className="ap-chip"><Icon name="pin" /> {a("kmAway", { km: load.from_km })}</span>}
+                {load.is_produce && <span className="ap-chip ap-chip-green"><Icon name="sprout" /> {a("produceLoad")}</span>}
+                {load.weight_kg > 0 && <span className="ap-chip"><Icon name="scale" /> ~{Math.round(load.weight_kg)} kg</span>}
+                {load.perishable && <span className="ap-chip ap-chip-amber"><Icon name="snowflake" /> {a("fresh")}</span>}
             </div>
 
             <div className="ap-row" style={{ alignItems: "flex-end" }}>
@@ -609,7 +610,7 @@ function LoadCard({ load, bid, busy, onOffer, onAccept, onCounter }) {
 
             {load.price_hint && (
                 <div className="ap-note">
-                    <span aria-hidden="true">💡</span>
+                    <Icon name="info" />
                     <span>
                         {a("usualPrice", {
                             low: formatMoney(load.price_hint.low, load.currency),
@@ -622,14 +623,14 @@ function LoadCard({ load, bid, busy, onOffer, onAccept, onCounter }) {
 
             {counter && (
                 <div className="ap-note ap-note-orange">
-                    <span aria-hidden="true">💬</span>
+                    <Icon name="chat" />
                     <strong>{a("d_shipperOffers", { price: formatMoney(bid.counter_price, load.currency) })}</strong>
                 </div>
             )}
 
             {waiting && (
                 <div className="ap-note">
-                    <span aria-hidden="true">⏳</span>
+                    <Icon name="clock" />
                     <span>{a("d_waitingShipper")}{bid.eta ? ` · ${bid.eta}` : ""}</span>
                 </div>
             )}
@@ -638,7 +639,7 @@ function LoadCard({ load, bid, busy, onOffer, onAccept, onCounter }) {
                 {counter ? (
                     <>
                         <button type="button" className="ts-btn ts-btn-primary" disabled={busy === bid.id} onClick={() => onAccept(bid)}>
-                            ✓ {a("d_accept", { price: formatMoney(bid.counter_price, load.currency) })}
+                            <Icon name="check" /> {a("d_accept", { price: formatMoney(bid.counter_price, load.currency) })}
                         </button>
                         <button type="button" className="ts-btn ts-btn-light" onClick={() => onCounter(bid)}>
                             {a("d_counter")}
@@ -646,7 +647,7 @@ function LoadCard({ load, bid, busy, onOffer, onAccept, onCounter }) {
                     </>
                 ) : bid ? (
                     <button type="button" className="ts-btn ts-btn-light" onClick={onOffer}>
-                        ✎ {a("d_changePrice")}
+                        <Icon name="edit" /> {a("d_changePrice")}
                     </button>
                 ) : (
                     <button type="button" className="ts-btn ts-btn-primary" onClick={onOffer}>
@@ -680,9 +681,7 @@ function OfferCard({ bid, shipment, busy, onAccept, onCounter, onChange }) {
             <div className="ap-card-head">
                 <div style={{ minWidth: 0 }}>
                     <h3 className="ap-card-title" style={{ fontSize: 16 }}>
-                        {shipment
-                            ? `${cargoEmoji(shipment.item_type, shipment.is_produce)} ${shipment.origin_city} → ${shipment.destination_city}`
-                            : "📦 —"}
+                        {shipment ? `${shipment.origin_city} → ${shipment.destination_city}` : "—"}
                     </h3>
                     <div className="ap-card-sub">
                         {shipment ? `${shipment.quantity} × ${cargoLabel(shipment.item_type, language)} · ` : ""}
@@ -714,7 +713,7 @@ function OfferCard({ bid, shipment, busy, onAccept, onCounter, onChange }) {
             {counter ? (
                 <div className="ap-actions">
                     <button type="button" className="ts-btn ts-btn-primary" disabled={busy === bid.id} onClick={onAccept}>
-                        ✓ {a("d_accept", { price: formatMoney(bid.counter_price, shipment?.currency) })}
+                        <Icon name="check" /> {a("d_accept", { price: formatMoney(bid.counter_price, shipment?.currency) })}
                     </button>
                     <button type="button" className="ts-btn ts-btn-light" onClick={onCounter}>
                         {a("d_counter")}
@@ -723,7 +722,7 @@ function OfferCard({ bid, shipment, busy, onAccept, onCounter, onChange }) {
             ) : status === "PENDING" && shipment?.status === "OPEN" ? (
                 <div className="ap-actions">
                     <button type="button" className="ts-btn ts-btn-light ts-btn-sm" onClick={onChange}>
-                        ✎ {a("d_changePrice")}
+                        <Icon name="edit" /> {a("d_changePrice")}
                     </button>
                 </div>
             ) : null}
@@ -766,7 +765,7 @@ function TripCard({ job, busy, tracking, onRetryTracking, onStatus }) {
                 <div style={{ minWidth: 0 }}>
                     <span className="ap-label">{a(`load_${job.status}`)}</span>
                     <h3 className="ap-card-title" style={{ marginTop: 3 }}>
-                        {cargoEmoji(job.item_type, job.is_produce)} {job.quantity} × {cargoLabel(job.item_type, language)}
+                        <Icon name={cargoIcon(job.item_type, job.is_produce)} /> {job.quantity} × {cargoLabel(job.item_type, language)}
                     </h3>
                 </div>
                 <div style={{ textAlign: "right" }}>
@@ -779,18 +778,18 @@ function TripCard({ job, busy, tracking, onRetryTracking, onStatus }) {
             <Route from={from.city} fromArea={from.area} to={to.city} toArea={to.area} />
 
             <div className="ap-chips">
-                {job.route_km > 0 && <span className="ap-chip">🛣️ {a("km", { km: job.route_km })}</span>}
-                {job.weight_kg > 0 && <span className="ap-chip">⚖️ ~{Math.round(job.weight_kg)} kg</span>}
-                {job.perishable && <span className="ap-chip ap-chip-amber">❄️ {a("fresh")}</span>}
+                {job.route_km > 0 && <span className="ap-chip"><Icon name="route" /> {a("km", { km: job.route_km })}</span>}
+                {job.weight_kg > 0 && <span className="ap-chip"><Icon name="scale" /> ~{Math.round(job.weight_kg)} kg</span>}
+                {job.perishable && <span className="ap-chip ap-chip-amber"><Icon name="snowflake" /> {a("fresh")}</span>}
             </div>
 
             {/* Farm pickup (Tayeb Marché orders) */}
             {job.pickup_phone && (
                 <div className="ap-note ap-note-green" style={{ display: "grid", gap: 10 }}>
-                    <strong>🌾 {a("d_pickupFarm")}{job.pickup_name ? ` · ${job.pickup_name}` : ""}</strong>
+                    <strong><Icon name="sprout" /> {a("d_pickupFarm")}{job.pickup_name ? ` · ${job.pickup_name}` : ""}</strong>
                     {job.details && <span>{job.details}</span>}
                     <a className="ts-btn ts-btn-green ts-btn-sm" href={telHref(job.pickup_phone)}>
-                        📞 {a("d_callFarmer")} · {formatPhone(job.pickup_phone)}
+                        <Icon name="phone" /> {a("d_callFarmer")} · {formatPhone(job.pickup_phone)}
                     </a>
                 </div>
             )}
@@ -801,7 +800,7 @@ function TripCard({ job, busy, tracking, onRetryTracking, onStatus }) {
                     <Person name={job.shipper.full_name} detail={a("d_shipper")} />
                     {job.shipper.phone_number && (
                         <a className="ts-btn ts-btn-light ts-btn-sm" href={telHref(job.shipper.phone_number)}>
-                            📞 {formatPhone(job.shipper.phone_number)}
+                            <Icon name="phone" /> {formatPhone(job.shipper.phone_number)}
                         </a>
                     )}
                 </div>
@@ -809,7 +808,7 @@ function TripCard({ job, busy, tracking, onRetryTracking, onStatus }) {
 
             {job.receiver_phone && (
                 <a className="ts-btn ts-btn-light" href={telHref(job.receiver_phone)}>
-                    📞 {a("d_callReceiver")} · {formatPhone(job.receiver_phone)}
+                    <Icon name="phone" /> {a("d_callReceiver")} · {formatPhone(job.receiver_phone)}
                 </a>
             )}
 
@@ -817,11 +816,11 @@ function TripCard({ job, busy, tracking, onRetryTracking, onStatus }) {
             <div className="ap-actions">
                 {job.mode === "INSTANT" && (
                     <Link href="/drive" className="ts-btn ts-btn-primary ts-btn-sm">
-                        ⚡ Tayeb Pro
+                        <Icon name="zap" /> Tayeb Pro
                     </Link>
                 )}
                 <Link href={`/track/${job.id}`} className="ts-btn ts-btn-ink ts-btn-sm">
-                    🛰️ {a("tk_openMap")}
+                    <Icon name="signal" /> {a("tk_openMap")}
                 </Link>
                 {target && (
                     <a
@@ -830,7 +829,7 @@ function TripCard({ job, busy, tracking, onRetryTracking, onStatus }) {
                         target="_blank"
                         rel="noopener noreferrer"
                     >
-                        🧭 {a("tk_navigate")}
+                        <Icon name="navigation" /> {a("tk_navigate")}
                     </a>
                 )}
             </div>
@@ -838,10 +837,10 @@ function TripCard({ job, busy, tracking, onRetryTracking, onStatus }) {
             {/* Live location on the way to the pickup and on the road */}
             {(job.status === "DEPARTED" || job.status === "MATCHED") && (
                 <div className={`ap-note ${tracking === "on" ? "ap-note-green" : "ap-note-orange"}`} style={{ display: "grid", gap: 10 }}>
-                    <span>📡 {tracking === "on" ? a("d_trackingOn") : tracking === "denied" ? a("d_trackingBlocked") : a("d_trackingOff")}</span>
+                    <span><Icon name="signal" /> {tracking === "on" ? a("d_trackingOn") : tracking === "denied" ? a("d_trackingBlocked") : a("d_trackingOff")}</span>
                     {tracking !== "on" && (
                         <button type="button" className="ts-btn ts-btn-light ts-btn-sm" onClick={onRetryTracking}>
-                            📡 {a("d_shareLocation")}
+                            <Icon name="signal" /> {a("d_shareLocation")}
                         </button>
                     )}
                 </div>
@@ -850,19 +849,19 @@ function TripCard({ job, busy, tracking, onRetryTracking, onStatus }) {
             {/* Next step */}
             {job.status === "MATCHED" && (
                 <button type="button" className="ts-btn ts-btn-primary ts-btn-lg" disabled={busy} onClick={() => onStatus("DEPARTED")}>
-                    🚚 {a("d_start")}
+                    <Icon name="truck" /> {a("d_start")}
                 </button>
             )}
 
             {job.status === "DEPARTED" && (
                 <button type="button" className="ts-btn ts-btn-primary ts-btn-lg" disabled={busy} onClick={() => onStatus("ARRIVED")}>
-                    📍 {a("d_arrived")}
+                    <Icon name="pin" /> {a("d_arrived")}
                 </button>
             )}
 
             {job.status === "ARRIVED" && job.code_locked && (
                 <div className="ap-note ap-note-red">
-                    <span aria-hidden="true">🔒</span>
+                    <Icon name="lock" />
                     <span>{a("d_codeLocked")}</span>
                 </div>
             )}
@@ -871,7 +870,7 @@ function TripCard({ job, busy, tracking, onRetryTracking, onStatus }) {
                 <form className="ap-form" onSubmit={finish}>
                     {job.needs_code && (
                         <div className="ap-field">
-                            <label htmlFor={`code-${job.id}`}>🔑 {a("d_codeLabel")}</label>
+                            <label htmlFor={`code-${job.id}`}>{a("d_codeLabel")}</label>
                             <input
                                 id={`code-${job.id}`}
                                 className="mk-input ap-pin"
@@ -890,7 +889,7 @@ function TripCard({ job, busy, tracking, onRetryTracking, onStatus }) {
                         className="ts-btn ts-btn-green ts-btn-lg"
                         disabled={busy || (job.needs_code && code.length !== 4)}
                     >
-                        ✓ {a("d_finish")}
+                        <Icon name="check" /> {a("d_finish")}
                     </button>
                 </form>
             )}
@@ -941,7 +940,7 @@ function OfferSheet({ shipment, bid, busy, onClose, onSend }) {
                     <Route from={from.city} fromArea={from.area} to={to.city} toArea={to.area} />
                     <div className="ap-chips">
                         <span className="ap-chip">{shipment.quantity} × {cargoLabel(shipment.item_type, language)}</span>
-                        {shipment.route_km > 0 && <span className="ap-chip">🛣️ {a("km", { km: shipment.route_km })}</span>}
+                        {shipment.route_km > 0 && <span className="ap-chip"><Icon name="route" /> {a("km", { km: shipment.route_km })}</span>}
                     </div>
                 </div>
 
@@ -1030,7 +1029,7 @@ function CounterSheet({ shipment, bid, busy, onClose, onSend }) {
             <form className="ap-form" onSubmit={submit}>
 
                 <div className="ap-note ap-note-orange">
-                    <span aria-hidden="true">💬</span>
+                    <Icon name="chat" />
                     <strong>{a("d_shipperOffers", { price: formatMoney(bid.counter_price, currency) })}</strong>
                 </div>
 

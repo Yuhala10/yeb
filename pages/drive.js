@@ -6,9 +6,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { digits, Sheet } from "../components/App/Bits";
 import { useFeedback } from "../components/App/Feedback";
+import Icon from "../components/Site/Icon";
 import { apiGet, apiPost, pollWhileVisible } from "../lib/api";
 import { appError } from "../lib/appText";
-import { cargoEmoji, cargoLabel } from "../lib/cargo";
+import { cargoIcon, cargoLabel } from "../lib/cargo";
 import { distanceKm, findCity } from "../lib/cities";
 import { VEHICLE_CLASSES, vehicleClass } from "../lib/fleet";
 import { goDuration, goError, useGoText } from "../lib/goText";
@@ -424,7 +425,7 @@ export default function DrivePage() {
             return;
         }
 
-        if (kind === "DEPARTED" && !(await confirm({ title: g("drv_startTitle"), text: g("drv_startText"), confirmLabel: g("drv_loaded"), icon: "🚚" }))) {
+        if (kind === "DEPARTED" && !(await confirm({ title: g("drv_startTitle"), text: g("drv_startText"), confirmLabel: g("drv_loaded"), icon: "truck" }))) {
             return;
         }
 
@@ -458,7 +459,7 @@ export default function DrivePage() {
             return;
         }
 
-        const yes = await confirm({ title: g("drv_dropTitle"), text: g("drv_dropText"), confirmLabel: g("drv_dropYes"), tone: "danger", icon: "↩️" });
+        const yes = await confirm({ title: g("drv_dropTitle"), text: g("drv_dropText"), confirmLabel: g("drv_dropYes"), tone: "danger", icon: "refresh" });
 
         if (!yes) {
             return;
@@ -530,7 +531,7 @@ export default function DrivePage() {
         return (
             <main className="go-page go-page-plain">
                 <div className="go-message">
-                    <div className="go-big-icon">⚡</div>
+                    <div className="go-big-icon"><Icon name="zap" size={30} /></div>
                     <h1 className="go-h1">{g("notReady")}</h1>
                     <p className="go-muted">{language === "fr" ? "En attendant, trouvez des chargements sur la bourse de fret." : "Meanwhile, find loads on the loads board."}</p>
                     <Link href="/driver" className="ts-btn ts-btn-primary ts-btn-lg">{g("drv_board")} →</Link>
@@ -564,9 +565,9 @@ export default function DrivePage() {
                 />
 
                 <header className="go-top">
-                    <Link href="/driver" className="tk-round" aria-label={g("drv_dashboard")} title={g("drv_dashboard")}>☰</Link>
+                    <Link href="/driver" className="tk-round" aria-label={g("drv_dashboard")} title={g("drv_dashboard")}><Icon name="menu" size={20} /></Link>
                     <div className="go-top-title">
-                        <strong>{online ? "🟢" : "⚪"} {g("drv_title")}</strong>
+                        <strong><span className={`go-status-dot ${online ? "is-on" : ""}`} aria-hidden="true" /> {g("drv_title")}</strong>
                         <span>
                             {today ? `${g("drv_today")} · ${formatMoney(today.earned, today.currency)} · ${today.trips} ${g("drv_trips").toLowerCase()}` : g("drv_today")}
                         </span>
@@ -585,7 +586,7 @@ export default function DrivePage() {
 
                         {done && !job && (
                             <div className="go-stack go-center">
-                                <div className="go-big-icon">🎉</div>
+                                <div className="go-big-icon is-good"><Icon name="check" size={30} /></div>
                                 <h1 className="go-h1">{g("drv_doneTitle")}</h1>
                                 <p className="go-earned">+{formatMoney(done.price, done.currency)}</p>
                                 <p className="go-muted">{g("drv_doneText", { price: formatMoney(done.price, done.currency), pay: done.payment === "MOMO" ? g("momo") : g("drv_cash") })}</p>
@@ -603,7 +604,7 @@ export default function DrivePage() {
                             <>
                                 {geo === "denied" && (
                                     <div className="ap-note ap-note-red" style={{ display: "grid", gap: 6 }}>
-                                        <strong>📍 {g("drv_needLocation")}</strong>
+                                        <strong><Icon name="pin" /> {g("drv_needLocation")}</strong>
                                         <span>{g("drv_needLocationText")}</span>
                                     </div>
                                 )}
@@ -629,11 +630,11 @@ export default function DrivePage() {
                                     <div><small>{g("drv_earned")}</small><strong>{today ? formatMoney(today.earned, today.currency) : "—"}</strong></div>
                                     <div><small>{g("drv_trips")}</small><strong>{today ? today.trips : "—"}</strong></div>
                                     <div><small>{g("drv_acceptance")}</small><strong>{today?.acceptance !== null && today?.acceptance !== undefined ? `${today.acceptance}%` : "—"}</strong></div>
-                                    <div><small>{g("drv_rating")}</small><strong>{state.rating_count ? `★ ${state.rating}` : "—"}</strong></div>
+                                    <div><small>{g("drv_rating")}</small><strong>{state.rating_count ? state.rating : "—"}</strong></div>
                                 </div>
 
                                 <div className="go-vehicle-row">
-                                    <span className="go-vehicle-emoji" aria-hidden="true">{vehicleClass(myClass)?.emoji}</span>
+                                    <span className="go-vehicle-emoji" aria-hidden="true"><Icon name={vehicleClass(myClass)?.icon} size={28} stroke={1.5} /></span>
                                     <div>
                                         <small>{g("drv_vehicle")}</small>
                                         <strong>{g(`cls_${myClass}`)}</strong>
@@ -643,13 +644,13 @@ export default function DrivePage() {
 
                                 {online && (
                                     <button type="button" className="ts-btn ts-btn-light" onClick={goOffline} disabled={busy === "online"}>
-                                        ⏸ {g("drv_goOffline")}
+                                        <Icon name="pause" /> {g("drv_goOffline")}
                                     </button>
                                 )}
 
-                                {online && <p className="go-small" style={{ textAlign: "center" }}>🔆 {g("drv_keepOpen")}</p>}
+                                {online && <p className="go-small" style={{ textAlign: "center" }}>{g("drv_keepOpen")}</p>}
 
-                                <Link href="/driver" className="go-link">📋 {g("drv_board")} →</Link>
+                                <Link href="/driver" className="go-link"><Icon name="dashboard" /> {g("drv_board")} →</Link>
                             </>
                         )}
                     </div>
@@ -670,12 +671,12 @@ export default function DrivePage() {
                                     onClick={() => chooseClass(item.key)}
                                     disabled={busy === "class"}
                                 >
-                                    <span className="go-vehicle-emoji" aria-hidden="true">{item.emoji}</span>
+                                    <span className="go-vehicle-emoji" aria-hidden="true"><Icon name={item.icon} size={26} stroke={1.5} /></span>
                                     <span>
                                         <strong>{g(`cls_${item.key}`)}</strong>
                                         <small>{g(`clsSub_${item.key}`)}</small>
                                     </span>
-                                    {myClass === item.key && <span aria-hidden="true">✓</span>}
+                                    {myClass === item.key && <Icon name="check" />}
                                 </button>
                             ))}
                         </div>
@@ -704,10 +705,10 @@ function OfferCard({ offer, left, busy, onAccept, onSkip }) {
             <div className="go-offer">
                 <div className="go-offer-head">
                     <div>
-                        <span className="go-kicker">⚡ {g("drv_newRequest")}</span>
+                        <span className="go-kicker"><Icon name="zap" /> {g("drv_newRequest")}</span>
                         <div className="go-offer-price">{formatMoney(trip.price, trip.currency)}</div>
                         <span className="go-chip-inline">{trip.payment_method === "MOMO" ? g("payMomo") : g("payCash")}</span>
-                        <span className="go-chip-inline">{vehicleClass(trip.vehicle_class)?.emoji} {g(`cls_${trip.vehicle_class}`)}</span>
+                        <span className="go-chip-inline"><Icon name={vehicleClass(trip.vehicle_class)?.icon} size={15} /> {g(`cls_${trip.vehicle_class}`)}</span>
                     </div>
                     <div className="go-ring" style={{ "--share": share }} aria-label={`${left} s`}>
                         <span>{left}</span>
@@ -732,7 +733,7 @@ function OfferCard({ offer, left, busy, onAccept, onSkip }) {
                 </div>
 
                 <p className="go-offer-cargo">
-                    {cargoEmoji(trip.item_type)} {trip.quantity > 1 ? `${trip.quantity} × ` : ""}{cargoLabel(trip.item_type, language)}
+                    <Icon name={cargoIcon(trip.item_type)} /> {trip.quantity > 1 ? `${trip.quantity} × ` : ""}{cargoLabel(trip.item_type, language)}
                     {trip.note ? ` · ${trip.note}` : ""}
                 </p>
 
@@ -742,7 +743,7 @@ function OfferCard({ offer, left, busy, onAccept, onSkip }) {
                     </button>
                     <button type="button" className="go-accept" onClick={onAccept} disabled={Boolean(busy)}>
                         <i style={{ transform: `scaleX(${share})` }} aria-hidden="true" />
-                        <span>{busy === "accept" ? "…" : `✓ ${g("drv_accept")}`}</span>
+                        <span>{busy === "accept" ? "…" : g("drv_accept")}</span>
                     </button>
                 </div>
             </div>
@@ -790,7 +791,7 @@ function JobPanel({ job, me, busy, code, setCode, onStep, onDrop }) {
 
             {(stage === "pickup" || stage === "deliver") && target && (
                 <div className="go-row">
-                    <a className="ts-btn ts-btn-ink go-grow" href={navigateHref(target, "google")} target="_blank" rel="noopener noreferrer">🧭 {g("drv_navigate")}</a>
+                    <a className="ts-btn ts-btn-ink go-grow" href={navigateHref(target, "google")} target="_blank" rel="noopener noreferrer"><Icon name="navigation" /> {g("drv_navigate")}</a>
                     <a className="ts-btn ts-btn-light" href={navigateHref(target, "waze")} target="_blank" rel="noopener noreferrer">{g("drv_waze")}</a>
                 </div>
             )}
@@ -798,50 +799,50 @@ function JobPanel({ job, me, busy, code, setCode, onStep, onDrop }) {
             <div className="go-contacts">
                 {job.customer?.phone && (
                     <a className="go-contact" href={telHref(job.customer.phone)}>
-                        <span>📞</span>
+                        <span><Icon name="phone" /></span>
                         <span><small>{g("drv_customer")}</small><strong>{job.customer.name}</strong></span>
                     </a>
                 )}
                 {job.pickup_phone && toPickup && (
                     <a className="go-contact" href={telHref(job.pickup_phone)}>
-                        <span>🌾</span>
+                        <span><Icon name="sprout" /></span>
                         <span><small>{g("drv_callFarm")}</small><strong>{job.pickup_name || formatPhone(job.pickup_phone)}</strong></span>
                     </a>
                 )}
                 {job.receiver_phone && !toPickup && (
                     <a className="go-contact" href={telHref(job.receiver_phone)}>
-                        <span>📞</span>
+                        <span><Icon name="phone" /></span>
                         <span><small>{g("drv_receiver")}</small><strong>{formatPhone(job.receiver_phone)}</strong></span>
                     </a>
                 )}
             </div>
 
             <p className="go-offer-cargo">
-                {cargoEmoji(job.item_type)} {job.quantity > 1 ? `${job.quantity} × ` : ""}{cargoLabel(job.item_type, language)}
-                {job.note ? ` · 📝 ${job.note}` : ""}
+                <Icon name={cargoIcon(job.item_type)} /> {job.quantity > 1 ? `${job.quantity} × ` : ""}{cargoLabel(job.item_type, language)}
+                {job.note ? ` · ${job.note}` : ""}
                 {` · ${job.payment_method === "MOMO" ? g("momo") : g("drv_cash")}`}
             </p>
 
             {stage === "pickup" && (
                 <button type="button" className="ts-btn ts-btn-primary ts-btn-lg" disabled={Boolean(busy)} onClick={() => onStep("AT_PICKUP")}>
-                    📍 {g("drv_atPickup")}
+                    <Icon name="pin" /> {g("drv_atPickup")}
                 </button>
             )}
 
             {stage === "load" && (
                 <button type="button" className="ts-btn ts-btn-primary ts-btn-lg" disabled={Boolean(busy)} onClick={() => onStep("DEPARTED")}>
-                    🚚 {g("drv_loaded")}
+                    <Icon name="truck" /> {g("drv_loaded")}
                 </button>
             )}
 
             {stage === "deliver" && (
                 <button type="button" className="ts-btn ts-btn-primary ts-btn-lg" disabled={Boolean(busy)} onClick={() => onStep("ARRIVED")}>
-                    🏁 {g("drv_arrived")}
+                    <Icon name="flag" /> {g("drv_arrived")}
                 </button>
             )}
 
             {stage === "code" && job.code_locked && (
-                <div className="ap-note ap-note-red"><span aria-hidden="true">🔒</span><span>{g("drv_codeLocked")}</span></div>
+                <div className="ap-note ap-note-red"><Icon name="lock" /><span>{g("drv_codeLocked")}</span></div>
             )}
 
             {stage === "code" && !job.code_locked && (
@@ -868,7 +869,7 @@ function JobPanel({ job, me, busy, code, setCode, onStep, onDrop }) {
                         </>
                     )}
                     <button type="submit" className="ts-btn ts-btn-green ts-btn-lg" disabled={Boolean(busy) || (job.needs_code && code.length !== 4)}>
-                        ✓ {g("drv_finish")}
+                        <Icon name="check" /> {g("drv_finish")}
                     </button>
                 </form>
             )}

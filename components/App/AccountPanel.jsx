@@ -32,7 +32,7 @@ export default function AccountPanel({ user, children }) {
             text: a("deleteText"),
             confirmLabel: a("deleteConfirm"),
             tone: "danger",
-            icon: "🗑️",
+            icon: "trash",
         });
 
         if (!yes) {

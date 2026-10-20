@@ -50,7 +50,7 @@ export default function FollowButton({ farmer, user, size = "sm", className = ""
             onClick={tap}
             aria-pressed={following}
         >
-            {following ? `✓ ${s("followingButton")}` : `＋ ${s("follow")}`}
+            {following ? s("followingButton") : s("follow")}
         </button>
     );
 }

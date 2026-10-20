@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
+import Icon from "./Icon";
+
 import { useSiteText } from "../../lib/siteText";
 
 /*
@@ -79,25 +81,25 @@ export default function ShareSheet({ url, title, text, className = "ts-btn ts-bt
         <div className="ts-share" ref={box}>
 
             <button type="button" className={className} onClick={share} aria-expanded={open} aria-haspopup="menu">
-                ↗ {label || s("share")}
+                <Icon name="share" size={17} /> {label || s("share")}
             </button>
 
             {open && (
                 <div className="ts-share-menu" role="menu">
                     <a role="menuitem" href={`https://wa.me/?text=${encodeURIComponent(message)}`} target="_blank" rel="noopener noreferrer">
-                        💬 {s("shareWhatsApp")}
+                        <Icon name="chat" /> {s("shareWhatsApp")}
                     </a>
                     <a role="menuitem" href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`} target="_blank" rel="noopener noreferrer">
-                        📘 {s("shareFacebook")}
+                        <Icon name="globe" /> {s("shareFacebook")}
                     </a>
                     <a role="menuitem" href={`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text || title || "")}`} target="_blank" rel="noopener noreferrer">
-                        ✈️ {s("shareTelegram")}
+                        <Icon name="send" /> {s("shareTelegram")}
                     </a>
                     <a role="menuitem" href={`sms:?&body=${encodeURIComponent(message)}`}>
-                        ✉️ {s("shareSms")}
+                        <Icon name="message" /> {s("shareSms")}
                     </a>
                     <button type="button" role="menuitem" onClick={copy}>
-                        🔗 {copied ? s("shareCopied") : s("shareCopy")}
+                        <Icon name={copied ? "check" : "link"} /> {copied ? s("shareCopied") : s("shareCopy")}
                     </button>
                 </div>
             )}

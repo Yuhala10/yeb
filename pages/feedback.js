@@ -3,6 +3,7 @@ import { useState } from "react";
 import Seo from "../components/Site/Seo";
 import SiteFooter from "../components/Site/SiteFooter";
 import SiteHeader from "../components/Site/SiteHeader";
+import Icon from "../components/Site/Icon";
 import { apiPost } from "../lib/api";
 import { appError } from "../lib/appText";
 import { FOUNDER } from "../lib/founder";
@@ -21,9 +22,9 @@ export function getServerSideProps({ req }) {
 }
 
 const TYPES = [
-    ["SUGGESTION", "💡"],
-    ["PROBLEM", "🛠️"],
-    ["DISPUTE", "⚖️"],
+    ["SUGGESTION", "sparkle"],
+    ["PROBLEM", "alert"],
+    ["DISPUTE", "users"],
 ];
 
 const TEXT = {
@@ -124,7 +125,7 @@ export default function FeedbackPage({ origin }) {
 
                 <section className="ts-hero" style={{ paddingBottom: 80 }}>
                     <div className="ts-wrap" style={{ maxWidth: 760 }}>
-                        <span className="ts-badge">💬 Tayeb</span>
+                        <span className="ts-badge"><Icon name="chat" /> Tayeb</span>
                         <h1 style={{ fontSize: "clamp(34px, 6vw, 58px)" }}>{t.title}</h1>
                         <p className="ts-hero-text">{t.sub}</p>
                     </div>
@@ -134,12 +135,12 @@ export default function FeedbackPage({ origin }) {
 
                     {sent ? (
                         <div className="ap-card" style={{ textAlign: "center", justifyItems: "center", padding: 34 }}>
-                            <div className="ap-empty-icon" aria-hidden="true">✅</div>
+                            <div className="ap-empty-icon" aria-hidden="true"><Icon name="check" size={26} /></div>
                             <h2 className="ap-card-title" style={{ fontSize: 24 }}>{t.sentTitle}</h2>
                             <p style={{ margin: 0, color: "var(--ts-muted)" }}>{t.sentText}</p>
                             <div className="ap-actions" style={{ justifyContent: "center" }}>
                                 <button type="button" className="ts-btn ts-btn-light" onClick={() => setSent(false)}>{t.another}</button>
-                                <a className="ts-btn ts-btn-whatsapp" href={whatsapp} target="_blank" rel="noopener noreferrer">💬 {t.urgent}</a>
+                                <a className="ts-btn ts-btn-whatsapp" href={whatsapp} target="_blank" rel="noopener noreferrer"><Icon name="chat" /> {t.urgent}</a>
                             </div>
                         </div>
                     ) : (
@@ -155,7 +156,7 @@ export default function FeedbackPage({ origin }) {
                                         className={`ap-choice ${type === key ? "active" : ""}`}
                                         onClick={() => setType(key)}
                                     >
-                                        <span aria-hidden="true">{icon}</span>
+                                        <Icon name={icon} size={20} />
                                         <span>{t[key]}</span>
                                     </button>
                                 ))}
@@ -191,7 +192,7 @@ export default function FeedbackPage({ origin }) {
 
                             {error && (
                                 <div className="ap-note ap-note-red" role="alert">
-                                    <span aria-hidden="true">⚠️</span>
+                                    <Icon name="alert" />
                                     <span>{error}</span>
                                 </div>
                             )}
@@ -201,7 +202,7 @@ export default function FeedbackPage({ origin }) {
                                     {sending ? t.sending : `${t.send} →`}
                                 </button>
                                 <a className="ts-btn ts-btn-light ts-btn-lg" href={whatsapp} target="_blank" rel="noopener noreferrer">
-                                    💬 {t.urgent}
+                                    <Icon name="chat" /> {t.urgent}
                                 </a>
                             </div>
 

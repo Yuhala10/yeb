@@ -5,6 +5,7 @@ import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 
 import Notifications from "../Notifications";
+import Icon from "../Site/Icon";
 import ThemeToggle, { setTheme } from "../Site/ThemeToggle";
 import { useAppText } from "../../lib/appText";
 import { FOUNDER } from "../../lib/founder";
@@ -21,7 +22,7 @@ import { logout } from "../../lib/useSession";
  * notifications, account menu), a hero with the numbers that
  * matter, tabs (a bottom bar on phones), then the content.
  *
- * tabs: [{ key, label, icon, count }]
+ * tabs: [{ key, label, icon, count }]   icon: a name from Site/Icon
  * stats: [{ value, label, small, hot }]
  */
 export default function AppShell({
@@ -150,18 +151,18 @@ export default function AppShell({
                                         </div>
                                         {hasProfile && (
                                             <button type="button" role="menuitem" onClick={() => { setMenu(false); pick("profile"); }}>
-                                                👤 {a("menuAccount")}
+                                                <Icon name="user" /> {a("menuAccount")}
                                             </button>
                                         )}
-                                        <Link href="/market" role="menuitem">🌾 {a("menuMarket")}</Link>
-                                        <Link href="/" role="menuitem">🏠 {a("menuHome")}</Link>
-                                        <Link href="/feedback" role="menuitem">💬 {a("menuHelp")}</Link>
-                                        <a href={support} target="_blank" rel="noopener noreferrer" role="menuitem">🟢 {a("menuSupport")}</a>
+                                        <Link href="/market" role="menuitem"><Icon name="store" /> {a("menuMarket")}</Link>
+                                        <Link href="/" role="menuitem"><Icon name="home" /> {a("menuHome")}</Link>
+                                        <Link href="/feedback" role="menuitem"><Icon name="help" /> {a("menuHelp")}</Link>
+                                        <a href={support} target="_blank" rel="noopener noreferrer" role="menuitem"><Icon name="chat" /> {a("menuSupport")}</a>
                                         <button type="button" role="menuitem" onClick={() => { setTheme(null); setMenu(false); }}>
-                                            🌗 {a("menuThemeAuto")}
+                                            <Icon name="moon" /> {a("menuThemeAuto")}
                                         </button>
                                         <button type="button" role="menuitem" className="is-danger" onClick={() => logout(router)}>
-                                            ↪ {a("menuLogout")}
+                                            <Icon name="logout" /> {a("menuLogout")}
                                         </button>
                                     </div>
                                 )}
@@ -224,7 +225,7 @@ export default function AppShell({
                                             onClick={() => pick(item.key)}
                                             aria-current={tab === item.key ? "page" : undefined}
                                         >
-                                            <span aria-hidden="true">{item.icon}</span>
+                                            <Icon name={item.icon} size={18} />
                                             {item.label}
                                             {item.count > 0 && <span className="ap-tab-count">{item.count}</span>}
                                         </button>
@@ -242,7 +243,7 @@ export default function AppShell({
                                     onClick={() => pick(item.key)}
                                     aria-current={tab === item.key ? "page" : undefined}
                                 >
-                                    <span aria-hidden="true">{item.icon}</span>
+                                    <Icon name={item.icon} size={22} stroke={tab === item.key ? 2 : 1.7} />
                                     <span>{item.label}</span>
                                     {item.count > 0 && <span className="ap-tab-count">{item.count}</span>}
                                 </button>

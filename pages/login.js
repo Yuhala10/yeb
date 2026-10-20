@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 
 import PhoneInput from "../components/Site/PhoneInput";
 import ThemeToggle from "../components/Site/ThemeToggle";
+import Icon from "../components/Site/Icon";
 import { apiGet, apiPost } from "../lib/api";
 import { appError, useAppText } from "../lib/appText";
 import { cityNames } from "../lib/cities";
@@ -28,9 +29,9 @@ import { DASHBOARDS } from "../lib/useSession";
  */
 
 const ROLES = [
-    ["SHIPPER", "📦"],
-    ["DRIVER", "🚚"],
-    ["FARMER", "🌾"],
+    ["SHIPPER", "package"],
+    ["DRIVER", "truck"],
+    ["FARMER", "sprout"],
 ];
 
 const ROLE_KEYS = ROLES.map(([key]) => key);
@@ -286,7 +287,7 @@ export default function LoginPage() {
                         <p>{a("l_sub")}</p>
                         <ul className="lg-perks">
                             {["l_perk1", "l_perk2", "l_perk3"].map((key) => (
-                                <li key={key}><span aria-hidden="true">✓</span>{a(key)}</li>
+                                <li key={key}><Icon name="check" />{a(key)}</li>
                             ))}
                         </ul>
                     </div>
@@ -315,7 +316,7 @@ export default function LoginPage() {
                             {step === "phone"
                                 ? a("l_iWant")
                                 : account?.exists
-                                    ? a("l_welcomeBack").split("!")[0] + " 👋"
+                                    ? a("l_welcomeBack").split("!")[0]
                                     : a("l_create")}
                         </h2>
 
@@ -335,12 +336,12 @@ export default function LoginPage() {
                                             setSwitching(false);
                                         }}
                                     >
-                                        <span aria-hidden="true">{icon}</span>
+                                        <span aria-hidden="true"><Icon name={icon} size={22} stroke={1.6} /></span>
                                         <span>
                                             <strong>{a(`l_${key}`)}</strong>
                                             <small>{a(`l_${key}_sub`)}</small>
                                         </span>
-                                        <i aria-hidden="true">{role === key ? "✓" : ""}</i>
+                                        <i aria-hidden="true">{role === key ? <Icon name="check" size={14} stroke={2.4} /> : null}</i>
                                     </button>
                                 ))}
                             </div>
@@ -385,7 +386,7 @@ export default function LoginPage() {
                                 )}
 
                                 <div className={`ap-note ${account?.exists ? "ap-note-green" : "ap-note-orange"}`}>
-                                    <span aria-hidden="true">{account?.exists ? (account.hasPin ? "👋" : "🔐") : "✨"}</span>
+                                    <Icon name={account?.exists ? (account.hasPin ? "user" : "lock") : "sparkle"} />
                                     <span>{account?.exists ? (account.hasPin ? a("l_welcomeBack") : a("l_setPin")) : a("l_new")}</span>
                                 </div>
                             </>
@@ -414,7 +415,7 @@ export default function LoginPage() {
                         {askVehicle && (
                             <div className="ap-card is-muted" style={{ padding: 16 }}>
                                 <div>
-                                    <strong style={{ color: "var(--ts-ink)" }}>🚚 {a("l_vehicle")}</strong>
+                                    <strong style={{ color: "var(--ts-ink)" }}><Icon name="truck" /> {a("l_vehicle")}</strong>
                                     <div className="ap-card-sub">{a("l_vehicleSub")}</div>
                                 </div>
                                 <div className="ap-field">
@@ -474,7 +475,7 @@ export default function LoginPage() {
                         {askFarm && (
                             <div className="ap-card is-muted" style={{ padding: 16 }}>
                                 <div>
-                                    <strong style={{ color: "var(--ts-ink)" }}>🌾 {a("l_farm")}</strong>
+                                    <strong style={{ color: "var(--ts-ink)" }}><Icon name="sprout" /> {a("l_farm")}</strong>
                                     <div className="ap-card-sub">{a("l_farmSub")}</div>
                                 </div>
                                 <div className="ap-field">
@@ -513,7 +514,7 @@ export default function LoginPage() {
                                             aria-label={showPin ? a("l_hidePin") : a("l_showPin")}
                                             tabIndex={-1}
                                         >
-                                            {showPin ? "🙈" : "👁️"}
+                                            <Icon name={showPin ? "eyeOff" : "eye"} />
                                         </button>
                                     </div>
                                 </div>
@@ -544,7 +545,7 @@ export default function LoginPage() {
 
                         {error && (
                             <div className="ap-note ap-note-red" role="alert">
-                                <span aria-hidden="true">⚠️</span>
+                                <Icon name="alert" />
                                 <span>{error}</span>
                             </div>
                         )}
@@ -554,7 +555,7 @@ export default function LoginPage() {
                         </button>
 
                         <div className="lg-secure">
-                            <span aria-hidden="true">🔒</span>
+                            <Icon name="lock" />
                             <span>{a("l_secure")}</span>
                         </div>
 

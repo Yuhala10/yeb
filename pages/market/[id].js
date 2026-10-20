@@ -10,11 +10,12 @@ import Seo from "../../components/Site/Seo";
 import ShareSheet from "../../components/Site/ShareSheet";
 import SiteFooter from "../../components/Site/SiteFooter";
 import SiteHeader from "../../components/Site/SiteHeader";
+import Icon from "../../components/Site/Icon";
 import { countryName, findCountry } from "../../lib/countries";
 import { useLanguage } from "../../lib/LanguageContext";
 import { formatDay, marketText, useMarketText } from "../../lib/marketText";
 import { formatMoney } from "../../lib/money";
-import { findCategory, findProduct, formatAmount, productEmoji, productName, unitName } from "../../lib/produce";
+import { findCategory, findProduct, formatAmount, productName, unitName } from "../../lib/produce";
 import { listingCardUrl, localizedUrl, siteOrigin } from "../../lib/seo";
 import { listingShareText } from "../../lib/shareLoad";
 import { getListing } from "../../lib/server/market";
@@ -200,17 +201,17 @@ export default function ListingPage({ listing, origin }) {
 
                         <article>
 
-                            <PhotoCarousel photos={listing.photos || []} alt={name} emoji={productEmoji(listing.product)}>
+                            <PhotoCarousel photos={listing.photos || []} alt={name}>
                                 <div className="mk-media-badges" style={{ zIndex: 3 }}>
                                     {listing.ready_now ? (
-                                        <span className="mk-tag mk-tag-green">✓ {m("readyNow")}</span>
+                                        <span className="mk-tag mk-tag-green"><Icon name="check" /> {m("readyNow")}</span>
                                     ) : (
                                         <span className="mk-tag">
-                                            🗓️ {m("readyOn", { date: formatDay(listing.available_from, language) })}
+                                            <Icon name="calendar" /> {m("readyOn", { date: formatDay(listing.available_from, language) })}
                                         </span>
                                     )}
                                     {listing.perishable && (
-                                        <span className="mk-tag mk-tag-amber">❄️ {m("fresh")}</span>
+                                        <span className="mk-tag mk-tag-amber"><Icon name="snowflake" /> {m("fresh")}</span>
                                     )}
                                 </div>
                             </PhotoCarousel>
@@ -218,7 +219,7 @@ export default function ListingPage({ listing, origin }) {
                             <h1>{name}</h1>
 
                             <div className="mk-card-meta" style={{ marginTop: 8, fontSize: 15 }}>
-                                📍 {place} {country?.flag}
+                                <Icon name="pin" /> {place} {country?.flag}
                             </div>
 
                             <div className="mk-facts">
@@ -271,7 +272,7 @@ export default function ListingPage({ listing, origin }) {
 
                             {priceStats && (
                                 <div className="mk-notice mk-notice-green" style={{ marginTop: 14 }}>
-                                    📊 {m("marketPrice", {
+                                    <Icon name="chart" /> {m("marketPrice", {
                                         low: formatMoney(priceStats.low, listing.currency),
                                         high: formatMoney(priceStats.high, listing.currency),
                                         unit: unitOne,
@@ -368,7 +369,7 @@ export default function ListingPage({ listing, origin }) {
                             {price} <small>/ {unitOne}</small>
                         </div>
                         <a href="#order" className="ts-btn ts-btn-primary ts-btn-sm">
-                            🛒 {m("orderTitle")}
+                            <Icon name="cart" /> {m("orderTitle")}
                         </a>
                     </div>
                 )}

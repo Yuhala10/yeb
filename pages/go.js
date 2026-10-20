@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CodeDigits, Stars } from "../components/App/Bits";
 import { useFeedback } from "../components/App/Feedback";
 import PhoneInput from "../components/Site/PhoneInput";
+import Icon from "../components/Site/Icon";
 import { apiGet, apiPost, pollWhileVisible } from "../lib/api";
 import { CARGO_TYPES, cargoLabel } from "../lib/cargo";
 import { cityNames, findCity, nearestCity } from "../lib/cities";
@@ -180,7 +181,7 @@ export default function GoPage() {
     if (user.role !== "SHIPPER") {
         return (
             <GoMessage
-                icon="🚚"
+                icon="truck"
                 title={g("brand")}
                 text={language === "fr" ? "Tayeb Go sert à envoyer des marchandises. Connectez-vous avec un compte expéditeur." : "Tayeb Go is for sending goods. Log in with a sender account."}
                 href={user.role === "DRIVER" ? "/drive" : "/"}
@@ -190,7 +191,7 @@ export default function GoPage() {
     }
 
     if (!tripId && !mine?.ready) {
-        return <GoMessage icon="⚡" title={g("notReady")} text={g("notReadyText")} href="/shipper" label={g("postLoad")} />;
+        return <GoMessage icon="zap" title={g("notReady")} text={g("notReadyText")} href="/shipper" label={g("postLoad")} />;
     }
 
     return (
@@ -251,7 +252,7 @@ function TopBar({ onLocate, children }) {
         <header className="go-top">
             <Link href="/shipper" className="tk-round" aria-label={g("back")}>←</Link>
             <div className="go-top-title">
-                <strong>⚡ {g("brand")}</strong>
+                <strong><Icon name="zap" /> {g("brand")}</strong>
                 <span>{children || g("brandSub")}</span>
             </div>
             {onLocate && (
@@ -625,7 +626,7 @@ function PlanScreen({ user, sheet, padding, focus, focusOn, fitKey, refit, cars,
                                 <strong className={pinMoving ? "is-moving" : ""}>{pinMoving ? "…" : pinLabel || nearLabel(pinPoint, language)}</strong>
                             </div>
                         </div>
-                        <p className="go-hint">✋ {g("moveMap")}</p>
+                        <p className="go-hint"><Icon name="map" size={16} /> {g("moveMap")}</p>
                         <div className="go-row">
                             <button type="button" className="ts-btn ts-btn-light" onClick={() => setView("search")}>
                                 ← {g("back")}
@@ -645,7 +646,7 @@ function PlanScreen({ user, sheet, padding, focus, focusOn, fitKey, refit, cars,
 
                         {quote ? (
                             <p className="go-route-sum">
-                                🛣️ {g("routeSummary", { km: quote.km, time: goDuration(quote.minutes, language) })}
+                                <Icon name="route" /> {g("routeSummary", { km: quote.km, time: goDuration(quote.minutes, language) })}
                             </p>
                         ) : (
                             <p className="go-route-sum">{quoteError ? g("quoteFailed") : g("loading")}</p>
@@ -658,7 +659,7 @@ function PlanScreen({ user, sheet, padding, focus, focusOn, fitKey, refit, cars,
                                     <ClassCard key={item.key} item={item} active={choice === item.key} onChoose={() => item.fits && setChoice(item.key)} />
                                 ))}
                             </div>
-                            {selected && <p className="go-class-sub">{vehicleClass(selected.key)?.emoji} {g(`clsSub_${selected.key}`)}</p>}
+                            {selected && <p className="go-class-sub">{g(`clsSub_${selected.key}`)}</p>}
                         </div>
 
                         <div>
@@ -672,7 +673,7 @@ function PlanScreen({ user, sheet, padding, focus, focusOn, fitKey, refit, cars,
                                         onClick={() => setCargo(type.value)}
                                         aria-pressed={cargo === type.value}
                                     >
-                                        {type.emoji} {cargoLabel(type.value, language)}
+                                        <Icon name={type.icon} size={16} /> {cargoLabel(type.value, language)}
                                     </button>
                                 ))}
                             </div>
@@ -778,7 +779,7 @@ function RecentChips({ onChoose }) {
 
     return (
         <div>
-            <span className="go-label">🕘 {g("recent")}</span>
+            <span className="go-label"><Icon name="clock" /> {g("recent")}</span>
             <div className="go-chips">
                 {recent.map((place) => (
                     <button key={place.label} type="button" className="go-chip" onClick={() => onChoose(place)}>
@@ -866,22 +867,22 @@ function SearchPanel({ field, near, locating, onBack, onMyLocation, onMap, onRes
                 {field === "pickup" && (
                     <li>
                         <button type="button" onClick={onMyLocation} disabled={locating}>
-                            <span className="go-list-icon">📍</span>
-                            <span><strong>{locating ? g("locating") : g("myLocation").replace("📍 ", "")}</strong></span>
+                            <span className="go-list-icon"><Icon name="locate" /></span>
+                            <span><strong>{locating ? g("locating") : g("myLocation")}</strong></span>
                         </button>
                     </li>
                 )}
                 <li>
                     <button type="button" onClick={onMap}>
-                        <span className="go-list-icon">🗺️</span>
-                        <span><strong>{g("chooseOnMap").replace("🗺️ ", "")}</strong></span>
+                        <span className="go-list-icon"><Icon name="map" /></span>
+                        <span><strong>{g("chooseOnMap")}</strong></span>
                     </button>
                 </li>
 
                 {query.trim().length >= 2 && results === null && (
                     <li>
                         <button type="button" onClick={search} disabled={searching}>
-                            <span className="go-list-icon">🔎</span>
+                            <span className="go-list-icon"><Icon name="search" /></span>
                             <span><strong>{searching ? g("searching") : g("searchMap", { q: query.trim() })}</strong></span>
                         </button>
                     </li>
@@ -890,7 +891,7 @@ function SearchPanel({ field, near, locating, onBack, onMyLocation, onMap, onRes
                 {results?.map((place, index) => (
                     <li key={`${place.lat},${place.lng},${index}`}>
                         <button type="button" onClick={() => onResult(place)}>
-                            <span className="go-list-icon">📌</span>
+                            <span className="go-list-icon"><Icon name="pin" /></span>
                             <span>
                                 <strong>{place.main || place.label}</strong>
                                 {place.sub && <small>{place.sub}</small>}
@@ -906,7 +907,7 @@ function SearchPanel({ field, near, locating, onBack, onMyLocation, onMap, onRes
                 {towns.map((town) => (
                     <li key={town.name}>
                         <button type="button" onClick={() => onTown(town)}>
-                            <span className="go-list-icon">🏙️</span>
+                            <span className="go-list-icon"><Icon name="home" /></span>
                             <span><strong>{town.name}</strong></span>
                         </button>
                     </li>
@@ -918,7 +919,7 @@ function SearchPanel({ field, near, locating, onBack, onMyLocation, onMap, onRes
                     recent.map((place) => (
                         <li key={place.label}>
                             <button type="button" onClick={() => onResult(place)}>
-                                <span className="go-list-icon">🕘</span>
+                                <span className="go-list-icon"><Icon name="clock" /></span>
                                 <span>
                                     <strong>{place.label.split(",")[0]}</strong>
                                     <small>{place.label.split(",").slice(1).join(",").trim()}</small>
@@ -949,11 +950,11 @@ function ClassCard({ item, active, onChoose }) {
             onClick={onChoose}
             disabled={!item.fits}
         >
-            <span className="go-class-emoji" aria-hidden="true">{info?.emoji}</span>
+            <span className="go-class-emoji" aria-hidden="true"><Icon name={info?.icon} size={30} stroke={1.5} /></span>
             <strong>{g(`cls_${item.key}`)}</strong>
             <span className="go-class-price">{item.price ? formatMoney(item.price, "XAF") : "—"}</span>
             <span className={`go-class-eta ${item.eta_min !== null ? "is-near" : ""}`}>
-                {!item.fits ? g("clsTown") : item.eta_min !== null ? `⏱ ${goDuration(item.eta_min, language)}` : "—"}
+                {!item.fits ? g("clsTown") : item.eta_min !== null ? goDuration(item.eta_min, language) : "—"}
             </span>
         </button>
     );
@@ -1081,7 +1082,7 @@ function TripScreen({ tripId, sheet, padding, fitKey, refit, cars, setCars, onTr
     }
 
     async function cancelTrip() {
-        const yes = await confirm({ title: g("cancelTitle"), text: g("cancelText"), confirmLabel: g("cancelYes"), tone: "danger", icon: "✕" });
+        const yes = await confirm({ title: g("cancelTitle"), text: g("cancelText"), confirmLabel: g("cancelYes"), tone: "danger", icon: "x" });
 
         if (yes) {
             await act("cancel", { action: "cancel" }, g("cancelled"));
@@ -1159,9 +1160,9 @@ function TripScreen({ tripId, sheet, padding, fitKey, refit, cars, setCars, onTr
                 <section ref={sheet} className="go-sheet">
                     <span className="go-grab" aria-hidden="true" />
                     <div className="go-body go-center">
-                        <div className="go-big-icon">🔎</div>
+                        <div className="go-big-icon"><Icon name="search" size={30} /></div>
                         <h1 className="go-h1">{language === "fr" ? "Livraison introuvable" : "Delivery not found"}</h1>
-                        <button type="button" className="ts-btn ts-btn-primary ts-btn-lg" onClick={() => onTrip(null)}>⚡ {g("newDelivery")}</button>
+                        <button type="button" className="ts-btn ts-btn-primary ts-btn-lg" onClick={() => onTrip(null)}>{g("newDelivery")}</button>
                     </div>
                 </section>
             </>
@@ -1191,7 +1192,7 @@ function TripScreen({ tripId, sheet, padding, fitKey, refit, cars, setCars, onTr
         <>
             {map}
 
-            <TopBar onLocate={refit}>{vehicleClass(trip.vehicle_class)?.emoji} {g(`cls_${trip.vehicle_class}`)} · {price}</TopBar>
+            <TopBar onLocate={refit}>{g(`cls_${trip.vehicle_class}`)} · {price}</TopBar>
 
             <section ref={sheet} className={`go-sheet is-trip is-${String(status).toLowerCase()}`} aria-live="polite">
                 <span className="go-grab" aria-hidden="true" />
@@ -1227,11 +1228,11 @@ function TripScreen({ tripId, sheet, padding, fitKey, refit, cars, setCars, onTr
 
                     {status === "OPEN" && dispatch === "NO_DRIVER" && (
                         <div className="go-stack">
-                            <div className="go-big-icon">😕</div>
+                            <div className="go-big-icon"><Icon name="clock" size={30} /></div>
                             <h1 className="go-h1">{g("noDriverTitle")}</h1>
                             <p className="go-muted">{g("noDriverText")}</p>
                             <button type="button" className="ts-btn ts-btn-primary ts-btn-lg" disabled={Boolean(busy)} onClick={() => act("retry", { action: "retry" })}>
-                                🔄 {g("searchAgain")}
+                                <Icon name="refresh" /> {g("searchAgain")}
                             </button>
                             {nextClass(trip) && (
                                 <button
@@ -1240,11 +1241,11 @@ function TripScreen({ tripId, sheet, padding, fitKey, refit, cars, setCars, onTr
                                     disabled={Boolean(busy)}
                                     onClick={() => act("retry", { action: "retry", vehicleClass: nextClass(trip) })}
                                 >
-                                    {vehicleClass(nextClass(trip))?.emoji} {g("biggerVehicle", { cls: g(`cls_${nextClass(trip)}`), price: formatMoney(fareFor(nextClass(trip), trip.km), "XAF") })}
+                                    <Icon name={vehicleClass(nextClass(trip))?.icon} /> {g("biggerVehicle", { cls: g(`cls_${nextClass(trip)}`), price: formatMoney(fareFor(nextClass(trip), trip.km), "XAF") })}
                                 </button>
                             )}
                             <button type="button" className="ts-btn ts-btn-light" disabled={Boolean(busy)} onClick={toBoard}>
-                                💬 {g("toBoard")}
+                                <Icon name="chat" /> {g("toBoard")}
                             </button>
                         </div>
                     )}
@@ -1255,7 +1256,7 @@ function TripScreen({ tripId, sheet, padding, fitKey, refit, cars, setCars, onTr
                         <div className="go-eta-card">
                             {trip.at_pickup_at ? (
                                 <>
-                                    <small>📍 {g("driverHere")}</small>
+                                    <small><Icon name="pin" /> {g("driverHere")}</small>
                                     <strong>{g("driverHereText")}</strong>
                                 </>
                             ) : (
@@ -1270,7 +1271,7 @@ function TripScreen({ tripId, sheet, padding, fitKey, refit, cars, setCars, onTr
 
                     {status === "DEPARTED" && (
                         <div className="go-eta-card">
-                            <small>🚚 {g("onTheWay")}</small>
+                            <small><Icon name="truck" /> {g("onTheWay")}</small>
                             <strong>{driver?.eta_min !== null && driver?.eta_min !== undefined ? g("arrivesAt", { time: goDuration(driver.eta_min, language) }) : "…"}</strong>
                             {driver?.km_away !== null && driver?.km_away !== undefined && <span>{g("km", { km: driver.km_away })} · {trip.dropoff.address}</span>}
                         </div>
@@ -1278,7 +1279,7 @@ function TripScreen({ tripId, sheet, padding, fitKey, refit, cars, setCars, onTr
 
                     {status === "ARRIVED" && (
                         <div className="go-eta-card is-green">
-                            <small>🏁 {g("atDropoff")}</small>
+                            <small><Icon name="flag" /> {g("atDropoff")}</small>
                             <strong>{g("atDropoffText")}</strong>
                         </div>
                     )}
@@ -1287,7 +1288,7 @@ function TripScreen({ tripId, sheet, padding, fitKey, refit, cars, setCars, onTr
 
                     {trip.delivery_code && ["MATCHED", "DEPARTED", "ARRIVED"].includes(status) && (
                         <div className="ap-code">
-                            <strong style={{ color: "white" }}>🔑 {g("codeTitle")}</strong>
+                            <strong style={{ color: "white" }}><Icon name="key" /> {g("codeTitle")}</strong>
                             <CodeDigits code={trip.delivery_code} />
                             <span>{g("codeText")}</span>
                             <a
@@ -1298,7 +1299,7 @@ function TripScreen({ tripId, sheet, padding, fitKey, refit, cars, setCars, onTr
                                     [g("codeMessage", { item, code: trip.delivery_code }), link ? g("followLink", { link }) : ""].filter(Boolean).join("\n\n")
                                 )}`}
                             >
-                                💬 {g("sendCode")}
+                                <Icon name="chat" /> {g("sendCode")}
                             </a>
                         </div>
                     )}
@@ -1307,7 +1308,7 @@ function TripScreen({ tripId, sheet, padding, fitKey, refit, cars, setCars, onTr
 
                     {status === "COMPLETED" && (
                         <div className="go-stack go-center">
-                            <div className="go-big-icon">✅</div>
+                            <div className="go-big-icon is-good"><Icon name="check" size={30} /></div>
                             <h1 className="go-h1">{g("delivered")}</h1>
                             <p className="go-muted">{g("deliveredText")}</p>
                             {!trip.driver_rating && !rated && driver ? (
@@ -1316,20 +1317,20 @@ function TripScreen({ tripId, sheet, padding, fitKey, refit, cars, setCars, onTr
                                     <Stars disabled={busy === "rate"} onRate={rate} />
                                 </div>
                             ) : (
-                                <span className="ap-chip ap-chip-amber">{"★".repeat(trip.driver_rating || 5)} · {g("rated")}</span>
+                                <span className="ap-chip ap-chip-amber"><Icon name="star" size={14} fill /> {trip.driver_rating || 5}/5 · {g("rated")}</span>
                             )}
                             <button type="button" className="ts-btn ts-btn-primary ts-btn-lg" onClick={() => onTrip(null)}>
-                                ⚡ {g("newDelivery")}
+                                <Icon name="zap" /> {g("newDelivery")}
                             </button>
                         </div>
                     )}
 
                     {status === "CANCELLED" && (
                         <div className="go-stack go-center">
-                            <div className="go-big-icon">✕</div>
+                            <div className="go-big-icon"><Icon name="x" size={30} /></div>
                             <h1 className="go-h1">{g("tripCancelled")}</h1>
                             <button type="button" className="ts-btn ts-btn-primary ts-btn-lg" onClick={() => onTrip(null)}>
-                                ⚡ {g("newDelivery")}
+                                <Icon name="zap" /> {g("newDelivery")}
                             </button>
                         </div>
                     )}
@@ -1341,10 +1342,10 @@ function TripScreen({ tripId, sheet, padding, fitKey, refit, cars, setCars, onTr
                         <div className="go-kv">
                             <div><small>{g("price")}</small><strong>{price}</strong></div>
                             <div><small>{g("payment")}</small><strong>{trip.payment_method === "MOMO" ? g("momo") : g("cash")}</strong></div>
-                            {trip.km !== null && <div><small>🛣️</small><strong>{g("km", { km: trip.km })}</strong></div>}
+                            {trip.km !== null && <div><small>Distance</small><strong>{g("km", { km: trip.km })}</strong></div>}
                             <div><small>{g("details")}</small><strong>{item}</strong></div>
                         </div>
-                        {trip.note && <p className="go-note">📝 {trip.note}</p>}
+                        {trip.note && <p className="go-note"><Icon name="message" /> {trip.note}</p>}
                     </div>
 
                     {link && ["MATCHED", "DEPARTED", "ARRIVED"].includes(status) && (
@@ -1357,14 +1358,14 @@ function TripScreen({ tripId, sheet, padding, fitKey, refit, cars, setCars, onTr
                                         await navigator.share({ title: g("brand"), url: link });
                                     } else {
                                         await navigator.clipboard.writeText(link);
-                                        toast("✓", "success");
+                                        toast(language === "fr" ? "Lien copié." : "Link copied.", "success");
                                     }
                                 } catch {
                                     // Share sheet closed.
                                 }
                             }}
                         >
-                            🛰️ {g("shareTrip")}
+                            <Icon name="signal" /> {g("shareTrip")}
                         </button>
                     )}
 
@@ -1404,21 +1405,21 @@ function DriverCard({ driver }) {
                 <div className="go-driver-who">
                     <strong>{driver.name}</strong>
                     <span>
-                        {driver.rating_count ? `★ ${driver.rating} (${driver.rating_count})` : g("newDriver")}
+                        {driver.rating_count ? <><Icon name="star" size={13} fill /> {driver.rating} ({driver.rating_count})</> : g("newDriver")}
                         {driver.trips ? ` · ${g("trips", { n: driver.trips })}` : ""}
                     </span>
-                    <span>{vehicleClass(driver.vehicle_class)?.emoji} {driver.vehicle_type || g(`cls_${driver.vehicle_class}`)}</span>
+                    <span>{driver.vehicle_type || g(`cls_${driver.vehicle_class}`)}</span>
                 </div>
                 {driver.plate && <span className="go-plate" aria-label={g("plate")}>{driver.plate}</span>}
             </div>
 
-            {driver.minutes_ago > 3 && <p className="go-small">📡 {g("signalOld", { n: driver.minutes_ago })}</p>}
+            {driver.minutes_ago > 3 && <p className="go-small"><Icon name="signal" /> {g("signalOld", { n: driver.minutes_ago })}</p>}
 
             {driver.phone && (
                 <div className="go-row">
-                    <a className="ts-btn ts-btn-primary go-grow" href={telHref(driver.phone)}>📞 {g("call")}</a>
+                    <a className="ts-btn ts-btn-primary go-grow" href={telHref(driver.phone)}><Icon name="phone" /> {g("call")}</a>
                     <a className="ts-btn ts-btn-whatsapp go-grow" href={whatsappHref(driver.phone)} target="_blank" rel="noopener noreferrer">
-                        💬 {g("whatsapp")}
+                        <Icon name="chat" /> {g("whatsapp")}
                     </a>
                 </div>
             )}
@@ -1444,7 +1445,7 @@ function GoMessage({ icon, title, text, href, label }) {
     return (
         <main className="go-page go-page-plain">
             <div className="go-message">
-                <div className="go-big-icon">{icon}</div>
+                <div className="go-big-icon"><Icon name={icon} size={30} /></div>
                 <h1 className="go-h1">{title}</h1>
                 <p className="go-muted">{text}</p>
                 <Link href={href} className="ts-btn ts-btn-primary ts-btn-lg">{label} →</Link>

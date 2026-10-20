@@ -5,7 +5,8 @@ import Seo from "../../components/Site/Seo";
 import ShareSheet from "../../components/Site/ShareSheet";
 import SiteFooter from "../../components/Site/SiteFooter";
 import SiteHeader from "../../components/Site/SiteHeader";
-import { cargoEmoji, cargoLabel } from "../../lib/cargo";
+import Icon from "../../components/Site/Icon";
+import { cargoIcon, cargoLabel } from "../../lib/cargo";
 import { cityRoadKm, resolveCity } from "../../lib/cities";
 import { useLanguage } from "../../lib/LanguageContext";
 import { formatMoney } from "../../lib/money";
@@ -102,7 +103,7 @@ export default function LoadPage({ shipment, bidCount, minutesAgo, origin }) {
 
     const path = `/load/${shipment.id}`;
 
-    const title = `📦 ${route} · ${price} | Tayeb`;
+    const title = `${route} · ${price} | Tayeb`;
 
     const description = fr
         ? `${shipment.quantity} × ${cargoLabel(shipment.item_type, "fr")}. Offre : ${price}. Chauffeurs, proposez votre prix sur Tayeb.`
@@ -179,10 +180,10 @@ export default function LoadPage({ shipment, bidCount, minutesAgo, origin }) {
                         </h1>
 
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 22 }}>
-                            <span className="ts-badge">{cargoEmoji(shipment.item_type)} {shipment.quantity} × {cargoLabel(shipment.item_type, language)}</span>
-                            {shipment.route_km > 0 && <span className="ts-badge">🛣️ ~{shipment.route_km} km</span>}
-                            {shipment.weight_kg > 0 && <span className="ts-badge">⚖️ ~{shipment.weight_kg} kg</span>}
-                            {shipment.perishable && <span className="ts-badge">❄️ {fr ? "Produit frais" : "Fresh produce"}</span>}
+                            <span className="ts-badge"><Icon name={cargoIcon(shipment.item_type)} /> {shipment.quantity} × {cargoLabel(shipment.item_type, language)}</span>
+                            {shipment.route_km > 0 && <span className="ts-badge"><Icon name="route" /> ~{shipment.route_km} km</span>}
+                            {shipment.weight_kg > 0 && <span className="ts-badge"><Icon name="scale" /> ~{shipment.weight_kg} kg</span>}
+                            {shipment.perishable && <span className="ts-badge"><Icon name="snowflake" /> {fr ? "Produit frais" : "Fresh produce"}</span>}
                         </div>
                     </div>
                 </section>
@@ -198,7 +199,7 @@ export default function LoadPage({ shipment, bidCount, minutesAgo, origin }) {
                             </div>
                             {bidCount > 0 && (
                                 <span className="mk-pill mk-pill-orange">
-                                    🔥 {fr ? `${bidCount} prix déjà proposés` : `${bidCount} prices sent`}
+                                    <Icon name="zap" /> {fr ? `${bidCount} prix déjà proposés` : `${bidCount} prices sent`}
                                 </span>
                             )}
                         </div>
@@ -209,7 +210,7 @@ export default function LoadPage({ shipment, bidCount, minutesAgo, origin }) {
                                     {fr ? "Vous pouvez proposer votre propre prix." : "You can propose your own price."}
                                 </p>
                                 <button type="button" className="ts-btn ts-btn-primary ts-btn-lg" onClick={() => go("DRIVER", shipment.id)}>
-                                    🚚 {fr ? "Envoyer mon prix" : "Send my price"} →
+                                    <Icon name="truck" /> {fr ? "Envoyer mon prix" : "Send my price"} →
                                 </button>
                                 <small style={{ textAlign: "center", color: "var(--ts-muted)" }}>
                                     {fr ? "Gratuit · Inscription avec votre numéro en 1 minute" : "Free · Sign up with your phone number in 1 minute"}
@@ -219,7 +220,7 @@ export default function LoadPage({ shipment, bidCount, minutesAgo, origin }) {
                             <>
                                 <div className="mk-notice">{fr ? "Ce chargement n'est plus disponible." : "This load is no longer available."}</div>
                                 <button type="button" className="ts-btn ts-btn-ink ts-btn-lg" onClick={() => go("DRIVER")}>
-                                    🚚 {fr ? "Voir d'autres chargements" : "See other loads"} →
+                                    <Icon name="truck" /> {fr ? "Voir d'autres chargements" : "See other loads"} →
                                 </button>
                             </>
                         )}
@@ -245,12 +246,12 @@ export default function LoadPage({ shipment, bidCount, minutesAgo, origin }) {
                     <div className="mk-alert-cta" style={{ marginTop: 20 }}>
                         <span>{fr ? "Vous avez des marchandises à envoyer ? Publiez gratuitement." : "Have goods to send? Post for free."}</span>
                         <button type="button" className="ts-btn ts-btn-primary ts-btn-sm" onClick={() => go("SHIPPER")}>
-                            📦 {fr ? "Publier" : "Post a load"}
+                            <Icon name="package" /> {fr ? "Publier" : "Post a load"}
                         </button>
                     </div>
 
                     <p style={{ marginTop: 24, textAlign: "center" }}>
-                        <Link href="/market" className="ts-link">🌾 Tayeb Marché →</Link>
+                        <Link href="/market" className="ts-link"><Icon name="sprout" /> Tayeb Marché →</Link>
                     </p>
 
                 </div>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { ProductThumb } from "./ProductMedia";
+import Icon from "../Site/Icon";
 import { formatAmount, productName, unitName } from "../../lib/produce";
 import { useLanguage } from "../../lib/LanguageContext";
 import { formatDay, useMarketText } from "../../lib/marketText";
@@ -211,7 +212,7 @@ export default function OrderCard({ order, role, onAction, busy }) {
 
             {order.note && (
                 <div className="mk-notice">
-                    💬 {order.note}
+                    <Icon name="chat" /> {order.note}
                 </div>
             )}
 
@@ -220,7 +221,7 @@ export default function OrderCard({ order, role, onAction, busy }) {
 
             {isFarmer && order.status === "PENDING" && order.hours_left !== null && (
                 <div className="mk-notice">
-                    ⏳ {m("expiresIn", { hours: order.hours_left })}
+                    <Icon name="clock" /> {m("expiresIn", { hours: order.hours_left })}
                 </div>
             )}
 
@@ -233,7 +234,7 @@ export default function OrderCard({ order, role, onAction, busy }) {
 
             {deliveryText() && order.status !== "CANCELLED" && (
                 <div className="mk-notice mk-notice-blue">
-                    🚚 {deliveryText()}
+                    <Icon name="truck" /> {deliveryText()}
                     {delivery?.driver_phone && (
                         <>
                             {" · "}
@@ -245,7 +246,7 @@ export default function OrderCard({ order, role, onAction, busy }) {
 
             {!isFarmer && live && !order.paid_at && other?.phone_number && (
                 <div className="mk-notice mk-notice-green">
-                    💵 {m("payFarmer", {
+                    <Icon name="cash" /> {m("payFarmer", {
                         farmer: other.full_name,
                         amount: formatMoney(order.total_price, order.currency),
                         phone: formatPhone(other.phone_number),
@@ -318,7 +319,7 @@ export default function OrderCard({ order, role, onAction, busy }) {
                             disabled={busy}
                             onClick={() => onAction("confirm", order)}
                         >
-                            ✓ {m("confirm")}
+                            <Icon name="check" /> {m("confirm")}
                         </button>
                         <button
                             type="button"
@@ -338,7 +339,7 @@ export default function OrderCard({ order, role, onAction, busy }) {
                         disabled={busy}
                         onClick={() => onAction("paid", order)}
                     >
-                        💵 {m("markPaid")}
+                        <Icon name="cash" /> {m("markPaid")}
                     </button>
                 )}
 
@@ -349,19 +350,19 @@ export default function OrderCard({ order, role, onAction, busy }) {
                         disabled={busy}
                         onClick={() => onAction("received", order)}
                     >
-                        ✓ {m("received")}
+                        <Icon name="check" /> {m("received")}
                     </button>
                 )}
 
                 {other?.phone_number && live && (
                     <a className="mk-btn mk-btn-light" href={phoneLink(other.phone_number)}>
-                        📞 {isFarmer ? m("callBuyer") : m("callFarmer")}
+                        <Icon name="phone" /> {isFarmer ? m("callBuyer") : m("callFarmer")}
                     </a>
                 )}
 
                 {delivery?.driver_phone && live && (
                     <a className="mk-btn mk-btn-light" href={phoneLink(delivery.driver_phone)}>
-                        🚚 {m("callDriver")}
+                        <Icon name="truck" /> {m("callDriver")}
                     </a>
                 )}
 
@@ -384,7 +385,7 @@ export default function OrderCard({ order, role, onAction, busy }) {
             {!isFarmer && order.status === "COMPLETED" && (
                 order.farmer_rating ? (
                     <div className="mk-rating">
-                        {"★".repeat(order.farmer_rating)}{"☆".repeat(5 - order.farmer_rating)} {m("yourRating")}
+                        <Icon name="star" size={14} fill /> {order.farmer_rating}/5 · {m("yourRating")}
                     </div>
                 ) : (
                     <div className="mk-stars">
@@ -397,7 +398,7 @@ export default function OrderCard({ order, role, onAction, busy }) {
                                 aria-label={`${stars} / 5`}
                                 onClick={() => onAction("rate", order, { rating: stars })}
                             >
-                                {stars} ★
+                                {stars} <Icon name="star" size={14} fill />
                             </button>
                         ))}
                     </div>

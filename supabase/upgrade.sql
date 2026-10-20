@@ -15,6 +15,16 @@
 -- market pages say "opening soon".
 
 
+-- Wrong project? A project without Tayeb's tables needs
+-- supabase/schema.sql (the complete setup) instead.
+do $$
+begin
+    if to_regclass('public.users') is null then
+        raise exception 'This Supabase project has no Tayeb tables. Open the project Tayeb uses (Settings → API → Project URL), or run supabase/schema.sql here for a new setup.';
+    end if;
+end $$;
+
+
 -- ============================================================
 -- FARMERS ARE A THIRD KIND OF ACCOUNT
 -- ============================================================

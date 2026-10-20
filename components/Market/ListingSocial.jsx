@@ -4,6 +4,7 @@ import { BookmarkIcon, HeartIcon, ShareIcon } from "./Icons";
 import { shareListing } from "./PostCard";
 import VoiceNote from "./VoiceNote";
 import { useFeedback } from "../App/Feedback";
+import Icon from "../Site/Icon";
 import { languageName } from "../../lib/languages";
 import { useLanguage } from "../../lib/LanguageContext";
 import { countLabel, socialError, useSocialText } from "../../lib/socialText";
@@ -72,7 +73,7 @@ export default function ListingSocial({ listing, user }) {
             )}
 
             {listing.caption_lang && listing.caption_lang !== "fra" && listing.caption_lang !== "eng" && (
-                <span className="sm-lang">🗣️ {s("inLanguage", { lang: languageName(listing.caption_lang, language) })}</span>
+                <span className="sm-lang"><Icon name="language" /> {s("inLanguage", { lang: languageName(listing.caption_lang, language) })}</span>
             )}
         </div>
     );

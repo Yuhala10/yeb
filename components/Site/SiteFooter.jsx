@@ -42,7 +42,7 @@ export default function SiteFooter() {
                             {CATEGORIES.slice(0, 6).map((category) => (
                                 <li key={category.key}>
                                     <Link href={`/market?category=${category.key}`}>
-                                        {category.emoji} {language === "fr" ? category.fr : category.en}
+                                        {language === "fr" ? category.fr : category.en}
                                     </Link>
                                 </li>
                             ))}
@@ -69,7 +69,7 @@ export default function SiteFooter() {
                             {cityNames("CM").slice(0, 8).map((city) => (
                                 <li key={city}>
                                     <Link href={`/market?country=CM&city=${encodeURIComponent(city)}`}>
-                                        📍 {city}
+                                        {city}
                                     </Link>
                                 </li>
                             ))}

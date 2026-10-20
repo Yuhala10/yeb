@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import Icon from "./Site/Icon";
 
 import { apiGet, apiPost, pollWhileVisible } from "../lib/api";
 import { useAppText } from "../lib/appText";
@@ -26,6 +27,11 @@ function safeLink(link) {
     const value = String(link || "");
 
     return value.startsWith("/") && !value.startsWith("//") && !value.includes("\\") ? value : null;
+}
+
+// Older notifications were written with emojis; shown without.
+function plain(text) {
+    return String(text || "").replace(/\s*[\p{Extended_Pictographic}\u{FE0F}\u{200D}]+/gu, "").trim();
 }
 
 export default function Notifications({ userId }) {
@@ -164,7 +170,7 @@ export default function Notifications({ userId }) {
                 aria-expanded={open}
                 aria-label={`${a("notifications")}${unread ? ` (${unread})` : ""}`}
             >
-                <span aria-hidden="true">🔔</span>
+                <Icon name="bell" size={20} />
                 {unread > 0 && <span className="ap-dot">{unread > 9 ? "9+" : unread}</span>}
             </button>
 
@@ -183,7 +189,7 @@ export default function Notifications({ userId }) {
                     <div className="ap-notifs-list">
                         {items.length === 0 ? (
                             <div className="ap-empty" style={{ border: 0, background: "transparent" }}>
-                                <div className="ap-empty-icon" aria-hidden="true">🔔</div>
+                                <div className="ap-empty-icon" aria-hidden="true"><Icon name="bell" size={26} /></div>
                                 <p>{a("noNotifications")}</p>
                             </div>
                         ) : (
@@ -201,8 +207,8 @@ export default function Notifications({ userId }) {
                                     >
                                         <i aria-hidden="true" />
                                         <div>
-                                            <strong>{item.title}</strong>
-                                            {item.message && <p>{item.message}</p>}
+                                            <strong>{plain(item.title)}</strong>
+                                            {item.message && <p>{plain(item.message)}</p>}
                                             <small>
                                                 {timeAgo(item.created_at, language, a)}
                                                 {link && (

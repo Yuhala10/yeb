@@ -1,11 +1,13 @@
 import { useRef, useState } from "react";
 
+import Icon from "./Icon";
+
 /*
  * Swipeable photos (like a social post): swipe on phones,
  * arrows on computers, dots and thumbnails to jump. No
  * library: CSS scroll-snap does the motion.
  */
-export default function PhotoCarousel({ photos = [], alt = "", emoji = "🧺", children, thumbs = true, eager = true }) {
+export default function PhotoCarousel({ photos = [], alt = "", children, thumbs = true, eager = true }) {
     const track = useRef(null);
 
     const [index, setIndex] = useState(0);
@@ -64,7 +66,10 @@ export default function PhotoCarousel({ photos = [], alt = "", emoji = "🧺", c
                 >
                     {count === 0 ? (
                         <div className="ts-carousel-slide">
-                            <div className="ts-carousel-empty" aria-hidden="true">{emoji}</div>
+                            <div className="ts-carousel-empty" aria-hidden="true">
+                                <Icon name="image" size={40} stroke={1.4} />
+                                <span>{alt}</span>
+                            </div>
                         </div>
                     ) : (
                         photos.map((photo, position) => (

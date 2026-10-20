@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 
+import Icon from "../Site/Icon";
 import { compressImage } from "../../lib/image";
 import { useLanguage } from "../../lib/LanguageContext";
 
@@ -105,7 +106,7 @@ export default function PhotoPicker({ items, onChange, disabled }) {
                                 disabled={disabled}
                                 aria-label={fr ? "Retirer" : "Remove"}
                             >
-                                ✕
+                                <Icon name="x" />
                             </button>
                             <button
                                 type="button"

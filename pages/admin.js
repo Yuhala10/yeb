@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import AppShell from "../components/App/AppShell";
 import { AppLoading, Empty, SectionHead, timeAgo } from "../components/App/Bits";
+import Icon from "../components/Site/Icon";
 import { apiGet, pollWhileVisible } from "../lib/api";
 import { useAppText } from "../lib/appText";
 import { cargoLabel } from "../lib/cargo";
@@ -11,7 +12,7 @@ import { countryName, findCountry } from "../lib/countries";
 import { useLanguage } from "../lib/LanguageContext";
 import { formatMoney } from "../lib/money";
 import { formatPhone, telHref } from "../lib/phone";
-import { formatAmount, orderReference, productEmoji, productName, unitName } from "../lib/produce";
+import { formatAmount, orderReference, productName, unitName } from "../lib/produce";
 import { leaveDashboard, useRoleUser } from "../lib/useSession";
 
 /*
@@ -164,7 +165,7 @@ const T = {
     },
 };
 
-const ROLE_ICONS = { SHIPPER: "📦", DRIVER: "🚚", FARMER: "🌾" };
+const ROLE_ICONS = { SHIPPER: "package", DRIVER: "truck", FARMER: "sprout" };
 
 const LOAD_TONES = { OPEN: "ap-chip-orange", MATCHED: "ap-chip-blue", DEPARTED: "ap-chip-blue", ARRIVED: "ap-chip-blue", COMPLETED: "ap-chip-green", CANCELLED: "ap-chip-red" };
 
@@ -323,11 +324,11 @@ export default function AdminPage() {
     }
 
     const tabs = [
-        { key: "overview", label: t("overviewShort"), icon: "📊" },
-        { key: "users", label: t("users"), icon: "👥", count: 0 },
-        { key: "loads", label: t("loads"), icon: "🚚", count: stats.open },
-        { key: "market", label: t("market"), icon: "🌾" },
-        { key: "activity", label: t("activity"), icon: "⚡" },
+        { key: "overview", label: t("overviewShort"), icon: "chart" },
+        { key: "users", label: t("users"), icon: "users", count: 0 },
+        { key: "loads", label: t("loads"), icon: "truck", count: stats.open },
+        { key: "market", label: t("market"), icon: "sprout" },
+        { key: "activity", label: t("activity"), icon: "zap" },
     ];
 
     const max = (list) => Math.max(1, ...list);
@@ -336,12 +337,12 @@ export default function AdminPage() {
         <AppShell
             user={user}
             pageTitle={t("title")}
-            eyebrow={`🛡️ ${a("role_ADMIN")}`}
+            eyebrow={a("role_ADMIN")}
             title={<em>{t("title")}</em>}
             subtitle={`${t("sub")} ${updatedAt ? `· ${t("updated", { when: timeAgo(updatedAt, language, a) })}` : ""}`}
             actions={
                 <button type="button" className="ts-btn ts-btn-glass" onClick={load}>
-                    ↻ {t("refresh")}
+                    <Icon name="refresh" /> {t("refresh")}
                 </button>
             }
             stats={[
@@ -390,7 +391,7 @@ export default function AdminPage() {
                             <div className="ap-bars">
                                 {stats.byRole.map(([role, value]) => (
                                     <div key={role} className="ap-bar">
-                                        <span>{ROLE_ICONS[role]} {a(`role_${role}`)}</span>
+                                        <span><Icon name={ROLE_ICONS[role]} size={16} /> {a(`role_${role}`)}</span>
                                         <div><i style={{ width: `${(value / max(stats.byRole.map((item) => item[1]))) * 100}%` }} /></div>
                                         <b>{value}</b>
                                     </div>
@@ -434,7 +435,7 @@ export default function AdminPage() {
                             <SectionHead title={t("recentPeople")} />
                             {users.length === 0 ? <p className="ap-card-sub">{t("nothing")}</p> : users.slice(0, 6).map((item) => (
                                 <div key={item.id} className="ap-row">
-                                    <span><strong style={{ color: "var(--ts-ink)" }}>{ROLE_ICONS[item.role] || "👤"} {item.full_name}</strong> <span className="ap-card-sub">· {item.base_city || countryName(item.country, language)}</span></span>
+                                    <span><strong style={{ color: "var(--ts-ink)" }}>{item.full_name}</strong> <span className="ap-card-sub">· {item.base_city || countryName(item.country, language)}</span></span>
                                     <span className="ap-card-sub">{timeAgo(item.created_at, language, a)}</span>
                                 </div>
                             ))}
@@ -469,12 +470,12 @@ export default function AdminPage() {
                             .filter((item) => matches(query, item.full_name, item.phone_number, item.base_city, item.plate_number, item.vehicle_type))
                             .map((item) => [
                                 item.id,
-                                <><strong>{item.full_name}</strong>{item.base_city && <div className="ap-card-sub">📍 {item.base_city}</div>}</>,
-                                <span key="c467" className="ap-chip">{ROLE_ICONS[item.role]} {a(`role_${item.role}`)}</span>,
+                                <><strong>{item.full_name}</strong>{item.base_city && <div className="ap-card-sub"><Icon name="pin" /> {item.base_city}</div>}</>,
+                                <span key="c467" className="ap-chip"><Icon name={ROLE_ICONS[item.role]} /> {a(`role_${item.role}`)}</span>,
                                 <a key="c468" href={telHref(item.phone_number)} className="ts-link">{formatPhone(item.phone_number)}</a>,
                                 `${findCountry(item.country)?.flag || ""} ${item.country || "CM"}`,
-                                item.role === "DRIVER" ? <>{item.vehicle_type || "—"}<div className="ap-card-sub">{item.plate_number}{item.is_available ? ` · ✅ ${t("available")}` : ""}</div></> : "—",
-                                item.rating_count ? `★ ${item.rating} (${item.rating_count})` : "—",
+                                item.role === "DRIVER" ? <>{item.vehicle_type || "—"}<div className="ap-card-sub">{item.plate_number}{item.is_available ? ` · ${t("available")}` : ""}</div></> : "—",
+                                item.rating_count ? `${item.rating}/5 (${item.rating_count})` : "—",
                                 item.total_completed_shipments || 0,
                                 timeAgo(item.created_at, language, a),
                                 item.last_seen ? timeAgo(item.last_seen, language, a) : "—",
@@ -502,9 +503,9 @@ export default function AdminPage() {
                                 item.id,
                                 <>
                                     <strong>{item.origin_city || item.origin} → {item.destination_city || item.destination}</strong>
-                                    {item.order_id && <div className="ap-card-sub">🌾 Marché</div>}
+                                    {item.order_id && <div className="ap-card-sub"><Icon name="sprout" /> Marché</div>}
                                     {["MATCHED", "DEPARTED", "ARRIVED", "COMPLETED"].includes(item.status) && (
-                                        <div><Link href={`/track/${item.id}`} className="ts-link">🛰️ {a("tk_openMap")}</Link></div>
+                                        <div><Link href={`/track/${item.id}`} className="ts-link"><Icon name="signal" /> {a("tk_openMap")}</Link></div>
                                     )}
                                 </>,
                                 `${item.quantity} × ${cargoLabel(item.item_type, language)}`,
@@ -527,13 +528,13 @@ export default function AdminPage() {
             {tab === "market" && (
                 <>
                     <section className="ap-section ap-fade">
-                        <SectionHead title={`🧺 ${t("products")}`} count={products.length} />
+                        <SectionHead title={`${t("products")}`} count={products.length} />
                         <Table
                             empty={t("nothing")}
                             head={[t("product"), t("farmer"), t("city"), t("price"), t("stock"), t("photos"), t("status")]}
                             rows={products.map((item) => [
                                 item.id,
-                                <strong key="c524">{productEmoji(item.product)} {productName(item, language)}</strong>,
+                                <strong key="c524">{productName(item, language)}</strong>,
                                 byId.get(item.farmer_id)?.full_name || "—",
                                 `${findCountry(item.country)?.flag || ""} ${item.city}`,
                                 <span key="c527" className="num">{formatMoney(item.price_per_unit, item.currency)} / {unitName(item.unit, language)}</span>,
@@ -545,7 +546,7 @@ export default function AdminPage() {
                     </section>
 
                     <section className="ap-section">
-                        <SectionHead title={`🛒 ${t("orders")}`} count={orders.length} />
+                        <SectionHead title={`${t("orders")}`} count={orders.length} />
                         <Table
                             empty={t("nothing")}
                             head={["#", t("product"), t("total"), t("status"), t("buyer"), t("farmer"), t("delivery"), t("posted_at")]}
@@ -557,7 +558,7 @@ export default function AdminPage() {
                                 <span key="c545" className={`ap-chip ${ORDER_TONES[item.status] || ""}`}>{item.status}</span>,
                                 item.buyer_name || byId.get(item.buyer_id)?.full_name || "—",
                                 item.farmer_name || byId.get(item.farmer_id)?.full_name || "—",
-                                item.delivery_method === "PICKUP" ? t("pickup") : `🚚 ${item.delivery_city || ""}`,
+                                item.delivery_method === "PICKUP" ? t("pickup") : item.delivery_city || "",
                                 timeAgo(item.created_at, language, a),
                             ])}
                         />
@@ -573,7 +574,7 @@ export default function AdminPage() {
             {tab === "activity" && (
                 <div className="ap-two ap-fade">
                     <section>
-                        <SectionHead title={`💬 ${t("bids")}`} count={bids.length} />
+                        <SectionHead title={`${t("bids")}`} count={bids.length} />
                         <Table
                             empty={t("nothing")}
                             head={[t("driver"), t("price"), t("status"), t("posted_at")]}
@@ -590,9 +591,9 @@ export default function AdminPage() {
                         />
                     </section>
                     <section>
-                        <SectionHead title={`🔔 ${t("notifications")}`} count={notifications.length} />
+                        <SectionHead title={`${t("notifications")}`} count={notifications.length} />
                         <div className="ap-card" style={{ gap: 0, padding: 8 }}>
-                            {notifications.length === 0 ? <Empty icon="🔔" title={t("nothing")} /> : notifications.slice(0, 60).map((item) => (
+                            {notifications.length === 0 ? <Empty icon="bell" title={t("nothing")} /> : notifications.slice(0, 60).map((item) => (
                                 <div key={item.id} className="ap-notif" style={{ cursor: "default" }}>
                                     <i aria-hidden="true" style={{ background: item.read ? "transparent" : "var(--ts-orange)" }} />
                                     <div>
@@ -647,7 +648,7 @@ function Toolbar({ query, setQuery, placeholder, filter, setFilter, options }) {
 
 function Table({ head, rows, empty }) {
     if (rows.length === 0) {
-        return <Empty icon="🔍" title={empty} />;
+        return <Empty icon="search" title={empty} />;
     }
 
     return (

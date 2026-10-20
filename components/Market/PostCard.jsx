@@ -8,12 +8,13 @@ import { BookmarkIcon, HeartIcon, ShareIcon } from "./Icons";
 import VoiceNote from "./VoiceNote";
 import { useFeedback } from "../App/Feedback";
 import PhotoCarousel from "../Site/PhotoCarousel";
+import Icon from "../Site/Icon";
 import { appText } from "../../lib/appText";
 import { languageName } from "../../lib/languages";
 import { useLanguage } from "../../lib/LanguageContext";
 import { formatDay, useMarketText } from "../../lib/marketText";
 import { formatMoney } from "../../lib/money";
-import { formatAmount, productEmoji, productName, unitName } from "../../lib/produce";
+import { formatAmount, productName, unitName } from "../../lib/produce";
 import { countLabel, socialError, socialText, useSocialText } from "../../lib/socialText";
 import { likeCount, setLiked, setSaved, useSocial } from "../../lib/useSocial";
 import { loginThenReturn } from "../../lib/useSession";
@@ -156,11 +157,11 @@ export default function PostCard({ listing, user, distanceKm = null, eager = fal
                     <span className="sm-who-text">
                         <strong>
                             {name}
-                            {(farmer.verified || farmer.visited) && <span className="sm-tick" title={s(farmer.visited ? "badgeVisited" : "badgeId")}>✓</span>}
+                            {(farmer.verified || farmer.visited) && <span className="sm-tick" title={s(farmer.visited ? "badgeVisited" : "badgeId")}><Icon name="check" size={10} stroke={3} /></span>}
                         </strong>
                         {/* "5 min ago" is worked out again in the browser: it may differ by a minute. */}
                         <small suppressHydrationWarning>
-                            📍 {listing.area ? `${listing.area}, ` : ""}{listing.city}
+                            <Icon name="pin" /> {listing.area ? `${listing.area}, ` : ""}{listing.city}
                             {distanceKm !== null ? ` · ~${distanceKm} km` : ""} · {ago(listing.created_at, language)}
                         </small>
                     </span>
@@ -171,18 +172,18 @@ export default function PostCard({ listing, user, distanceKm = null, eager = fal
             {/* ---------------- photos ---------------- */}
 
             <div className="sm-media" onDoubleClick={doubleTap}>
-                <PhotoCarousel photos={listing.photos || []} alt={productName(listing, language)} emoji={productEmoji(listing.product)} thumbs={false} eager={eager}>
+                <PhotoCarousel photos={listing.photos || []} alt={productName(listing, language)} thumbs={false} eager={eager}>
                     <span className="sm-price-tag">
                         {formatMoney(listing.price_per_unit, listing.currency)} <small>/ {unitName(listing.unit, language)}</small>
                     </span>
                     {listing.visible === false ? (
                         <span className="sm-state is-off">{s("soldOut")}</span>
                     ) : listing.ready_now ? (
-                        <span className="sm-state">✓ {m("readyNow")}</span>
+                        <span className="sm-state"><Icon name="check" /> {m("readyNow")}</span>
                     ) : (
-                        <span className="sm-state is-later">🗓️ {m("readyOn", { date: formatDay(listing.available_from, language) })}</span>
+                        <span className="sm-state is-later"><Icon name="calendar" /> {m("readyOn", { date: formatDay(listing.available_from, language) })}</span>
                     )}
-                    {burst > 0 && <span key={burst} className="sm-burst" aria-hidden="true">♥</span>}
+                    {burst > 0 && <span key={burst} className="sm-burst" aria-hidden="true"><Icon name="heart" size={96} fill stroke={0} /></span>}
                 </PhotoCarousel>
             </div>
 
@@ -207,7 +208,7 @@ export default function PostCard({ listing, user, distanceKm = null, eager = fal
 
             <div className="sm-body">
                 <Link href={`/market/${listing.id}`} className="sm-title">
-                    {productEmoji(listing.product)} {productName(listing, language)}
+                    {productName(listing, language)}
                 </Link>
 
                 {likes > 1 && <span className="sm-likes">{countLabel(language, "likes", likes)}</span>}
@@ -224,7 +225,7 @@ export default function PostCard({ listing, user, distanceKm = null, eager = fal
                 )}
 
                 {listing.caption_lang && listing.caption_lang !== "fra" && listing.caption_lang !== "eng" && (
-                    <span className="sm-lang">🗣️ {s("inLanguage", { lang: languageName(listing.caption_lang, language) })}</span>
+                    <span className="sm-lang"><Icon name="language" /> {s("inLanguage", { lang: languageName(listing.caption_lang, language) })}</span>
                 )}
 
                 <div className="sm-buy">
@@ -235,11 +236,11 @@ export default function PostCard({ listing, user, distanceKm = null, eager = fal
                                 quantity: formatAmount(listing.quantity_available),
                                 unit: unitName(listing.unit, language, listing.quantity_available),
                             })}
-                        {farmer.rating_count ? ` · ★ ${farmer.rating}` : ""}
+                        {farmer.rating_count ? ` · ${farmer.rating}/5` : ""}
                     </span>
                     {listing.visible !== false && (
                         <Link href={`/market/${listing.id}`} className="ts-btn ts-btn-primary ts-btn-sm">
-                            🛒 {s("order")}
+                            <Icon name="cart" /> {s("order")}
                         </Link>
                     )}
                 </div>

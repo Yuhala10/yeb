@@ -5,7 +5,7 @@
 export default function Avatar({ person, size = 40, ring = false, className = "" }) {
     const name = person?.farm_name || person?.full_name || "";
 
-    const letter = name.trim().charAt(0).toUpperCase() || "🌱";
+    const letter = name.trim().charAt(0).toUpperCase() || "T";
 
     const style = { width: size, height: size, fontSize: Math.round(size * 0.42) };
 

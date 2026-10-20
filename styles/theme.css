@@ -29,6 +29,7 @@
   --ts-glass: rgba(255, 250, 245, 0.9);
   --ts-solid: #0b1220;
   --ts-on-solid: #ffffff;
+  --ts-accent-text: #b8430f;
 
   --tint-green-bg: #ecfdf3;
   --tint-green-fg: #15803d;
@@ -81,6 +82,7 @@
     --ts-glass: rgba(13, 20, 36, 0.9);
     --ts-solid: #f8fafc;
     --ts-on-solid: #0b1220;
+    --ts-accent-text: #fdba74;
     --ts-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 30px rgba(0, 0, 0, 0.35);
     --ts-shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.35), 0 24px 60px rgba(0, 0, 0, 0.5);
     --mk-shadow: var(--ts-shadow);
@@ -119,6 +121,7 @@
   --ts-glass: rgba(13, 20, 36, 0.9);
   --ts-solid: #f8fafc;
   --ts-on-solid: #0b1220;
+  --ts-accent-text: #fdba74;
   --ts-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 30px rgba(0, 0, 0, 0.35);
   --ts-shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.35), 0 24px 60px rgba(0, 0, 0, 0.5);
   --mk-shadow: var(--ts-shadow);
@@ -171,7 +174,7 @@ body,
   :root:not([data-theme="light"]) .ts-carousel,
   :root:not([data-theme="light"]) .mk-media,
   :root:not([data-theme="light"]) .mk-thumb,
-  :root:not([data-theme="light"]) .ts-card-main .ts-card-media { background: linear-gradient(135deg, #2a1d14, #1d2942 55%, #14281f); }
+  :root:not([data-theme="light"]) .ts-card-main .ts-card-media { background: var(--ts-surface-3); }
   :root:not([data-theme="light"]) .mk-progress span { background: var(--ts-surface-3); }
   :root:not([data-theme="light"]) .mk-mobile-cta,
   :root:not([data-theme="light"]) .mk-filters { background: var(--ts-glass); }
@@ -179,7 +182,7 @@ body,
   :root:not([data-theme="light"]) .ap-switch { background: #334155; }
   :root:not([data-theme="light"]) .ap-skeleton { background: linear-gradient(90deg, #172238 25%, #1d2942 50%, #172238 75%); background-size: 200% 100%; }
   :root:not([data-theme="light"]) .tk-handle::before { background: rgba(255, 255, 255, 0.22); }
-  :root:not([data-theme="light"]) .ap-tab.active { background: var(--ts-orange); }
+  :root:not([data-theme="light"]) .ap-tab.active { background: var(--ts-accent); }
   :root:not([data-theme="light"]) .ap-chip-ink,
   :root:not([data-theme="light"]) .ts-btn-ink { background: #f8fafc; color: #0b1220; }
   :root:not([data-theme="light"]) .ap-person-avatar { background: linear-gradient(135deg, #3b2412, #4a3510); color: #fdba74; }
@@ -196,7 +199,7 @@ body,
 :root[data-theme="dark"] .ts-carousel,
 :root[data-theme="dark"] .mk-media,
 :root[data-theme="dark"] .mk-thumb,
-:root[data-theme="dark"] .ts-card-main .ts-card-media { background: linear-gradient(135deg, #2a1d14, #1d2942 55%, #14281f); }
+:root[data-theme="dark"] .ts-card-main .ts-card-media { background: var(--ts-surface-3); }
 :root[data-theme="dark"] .mk-progress span { background: var(--ts-surface-3); }
 :root[data-theme="dark"] .mk-mobile-cta,
 :root[data-theme="dark"] .mk-filters { background: var(--ts-glass); }
@@ -204,7 +207,7 @@ body,
 :root[data-theme="dark"] .ap-switch { background: #334155; }
 :root[data-theme="dark"] .ap-skeleton { background: linear-gradient(90deg, #172238 25%, #1d2942 50%, #172238 75%); background-size: 200% 100%; }
 :root[data-theme="dark"] .tk-handle::before { background: rgba(255, 255, 255, 0.22); }
-:root[data-theme="dark"] .ap-tab.active { background: var(--ts-orange); }
+:root[data-theme="dark"] .ap-tab.active { background: var(--ts-accent); }
 :root[data-theme="dark"] .ap-chip-ink,
 :root[data-theme="dark"] .ts-btn-ink { background: #f8fafc; color: #0b1220; }
 :root[data-theme="dark"] .ap-person-avatar { background: linear-gradient(135deg, #3b2412, #4a3510); color: #fdba74; }
@@ -268,4 +271,184 @@ body,
   .ts-header-actions {
     gap: 6px;
   }
+}
+
+
+/* ---------------------------------------------------------
+   LINE ICONS (components/Site/Icon)
+   Calm, consistent icons instead of emojis: they take the
+   text colour, so they follow light and dark mode.
+--------------------------------------------------------- */
+
+.ic {
+  display: inline-block;
+  flex: none;
+  vertical-align: -0.2em;
+}
+
+.ap-chip .ic,
+.mk-tag .ic,
+.mk-chip .ic,
+.mk-pill .ic,
+.go-chip-inline .ic,
+.sm-badge .ic,
+.sm-lang .ic,
+.ts-badge .ic,
+.ts-eyebrow .ic,
+.ap-card-sub .ic,
+.mk-card-meta .ic {
+  width: 1.15em;
+  height: 1.15em;
+}
+
+.ap-note > .ic {
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  opacity: 0.85;
+}
+
+.ap-menu .ic {
+  color: var(--ts-muted);
+}
+
+.ap-menu .is-danger .ic {
+  color: inherit;
+}
+
+.ap-icon-btn .ic,
+.ts-theme .ic {
+  vertical-align: middle;
+}
+
+/* Feature, step and empty-state badges: ink on a soft tile. */
+.ts-feature-icon {
+  background: var(--ts-orange-soft);
+  color: var(--ts-accent-text);
+}
+
+.ts-step-num {
+  background: var(--ts-surface);
+  border: 1px solid var(--ts-line-strong);
+  color: var(--ts-heading);
+  box-shadow: none;
+}
+
+.ap-empty-icon,
+.ap-dialog-icon {
+  background: var(--ts-surface-3);
+  color: var(--ts-heading);
+}
+
+.ap-dialog.is-danger .ap-dialog-icon {
+  background: var(--tint-red-bg);
+  color: var(--tint-red-fg);
+}
+
+.mk-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto;
+  border-radius: 50%;
+  background: var(--ts-surface-3);
+  color: var(--ts-heading);
+}
+
+.ap-choice > .ic,
+.ap-choice > span:first-child .ic {
+  color: var(--ts-heading);
+}
+
+.ap-choice.active > .ic {
+  color: var(--ts-accent-text);
+}
+
+.lg-role > span:first-child {
+  color: var(--ts-heading);
+}
+
+.lg-role.active > span:first-child {
+  color: var(--ts-accent-text);
+}
+
+.lg-role i .ic {
+  color: white;
+}
+
+.ts-cat {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.ts-cat .ic {
+  color: var(--ts-muted);
+  transition: transform 0.2s var(--ts-ease), color 0.2s var(--ts-ease);
+}
+
+.ts-cat:hover .ic {
+  color: var(--ts-accent-text);
+  transform: translateX(3px);
+}
+
+.ts-card-placeholder {
+  color: var(--ts-muted);
+}
+
+.ts-install-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.ap-toast-icon {
+  display: grid;
+  place-items: center;
+}
+
+.mk-option strong {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sm-tick .ic {
+  vertical-align: 0;
+}
+
+.sm-feed-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.ts-ticker-track .ic {
+  color: var(--ts-accent-on-dark, #fdba74);
+  vertical-align: -0.15em;
+}
+
+.sm-burst .ic {
+  display: block;
+  filter: drop-shadow(0 8px 24px rgba(11, 18, 32, 0.35));
+}
+
+.sm-tile-many,
+.sm-tile-voice {
+  color: white;
+  filter: drop-shadow(0 1px 3px rgba(11, 18, 32, 0.6));
+}
+
+.sm-tile-likes {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sm-tile-emoji {
+  color: var(--ts-muted);
 }

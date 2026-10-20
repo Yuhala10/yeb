@@ -8,12 +8,13 @@ import Reveal from "../components/Site/Reveal";
 import Seo from "../components/Site/Seo";
 import SiteFooter from "../components/Site/SiteFooter";
 import SiteHeader from "../components/Site/SiteHeader";
+import Icon from "../components/Site/Icon";
 import { cityNames } from "../lib/cities";
 import { LIVE_COUNTRIES, countryName } from "../lib/countries";
 import { FOUNDER, QUOTES, TAYEB_PROFILES } from "../lib/founder";
 import { useLanguage } from "../lib/LanguageContext";
 import { formatMoney } from "../lib/money";
-import { CATEGORIES, productEmoji, productName } from "../lib/produce";
+import { CATEGORIES, productName } from "../lib/produce";
 import { localizedUrl, siteCardUrl, siteOrigin } from "../lib/seo";
 import { featuredListings, marketReady } from "../lib/server/market";
 import { siteText, useSiteText } from "../lib/siteText";
@@ -59,14 +60,14 @@ export async function getServerSideProps({ req, res }) {
 const ROLE_TABS = ["buyers", "farmers", "shippers", "drivers"];
 
 const FEATURES = [
-    ["🔑", "why1"],
-    ["📡", "why2"],
-    ["📊", "why3"],
-    ["🔁", "why4"],
-    ["💳", "why5"],
-    ["🛡️", "why6"],
-    ["⚡", "why7"],
-    ["🌍", "why8"],
+    ["key", "why1"],
+    ["signal", "why2"],
+    ["chart", "why3"],
+    ["repeat", "why4"],
+    ["phoneMoney", "why5"],
+    ["shield", "why6"],
+    ["zap", "why7"],
+    ["globe", "why8"],
 ];
 
 export default function Home({ featured, ready, origin }) {
@@ -150,11 +151,11 @@ export default function Home({ featured, ready, origin }) {
         ? featured.map((item) => ({
             key: item.id,
             href: `/market/${item.id}`,
-            emoji: productEmoji(item.product),
+            icon: "sprout",
             text: `${productName(item, language)} · ${item.city}`,
             price: formatMoney(item.price_per_unit, item.currency),
         }))
-        : FEATURES.map(([emoji, key]) => ({ key, emoji, text: s(`${key}Title`), price: "✓" }));
+        : FEATURES.map(([icon, key]) => ({ key, icon, text: s(`${key}Title`), price: "" }));
 
     return (
         <>
@@ -196,7 +197,7 @@ export default function Home({ featured, ready, origin }) {
                                 <p className="ts-hero-text">{s("heroText")}</p>
 
                                 <form className="ts-search" role="search" onSubmit={search} action="/market" method="get">
-                                    <span className="ts-search-icon" aria-hidden="true">🔍</span>
+                                    <span className="ts-search-icon" aria-hidden="true"><Icon name="search" size={20} /></span>
                                     <label className="ts-sr" htmlFor="home-search">{s("searchPlaceholder")}</label>
                                     <input
                                         id="home-search"
@@ -215,22 +216,22 @@ export default function Home({ featured, ready, origin }) {
 
                                 <div className="ts-actions">
                                     <Link href="/market" className="ts-tile">
-                                        <span className="ts-tile-icon" aria-hidden="true">🛒</span>
+                                        <span className="ts-tile-icon" aria-hidden="true"><Icon name="cart" size={20} /></span>
                                         <strong>{s("actionBuy")}</strong>
                                         <span>{s("actionBuyText")}</span>
                                     </Link>
                                     <Link href={roleHref("FARMER")} className="ts-tile">
-                                        <span className="ts-tile-icon" aria-hidden="true">👨🏾‍🌾</span>
+                                        <span className="ts-tile-icon" aria-hidden="true"><Icon name="sprout" size={20} /></span>
                                         <strong>{s("actionSell")}</strong>
                                         <span>{s("actionSellText")}</span>
                                     </Link>
                                     <Link href="/go" className="ts-tile">
-                                        <span className="ts-tile-icon" aria-hidden="true">⚡</span>
+                                        <span className="ts-tile-icon" aria-hidden="true"><Icon name="zap" size={20} /></span>
                                         <strong>{s("actionSend")}</strong>
                                         <span>{s("actionSendText")}</span>
                                     </Link>
                                     <Link href={user?.role === "DRIVER" ? "/drive" : roleHref("DRIVER")} className="ts-tile">
-                                        <span className="ts-tile-icon" aria-hidden="true">🚚</span>
+                                        <span className="ts-tile-icon" aria-hidden="true"><Icon name="truck" size={20} /></span>
                                         <strong>{s("actionDrive")}</strong>
                                         <span>{s("actionDriveText")}</span>
                                     </Link>
@@ -248,13 +249,13 @@ export default function Home({ featured, ready, origin }) {
                                             // eslint-disable-next-line @next/next/no-img-element
                                             <img src={hero.photos[0].url} alt="" />
                                         ) : (
-                                            <span>{hero ? productEmoji(hero.product) : "🍅"}</span>
+                                            <span className="ts-card-placeholder"><Icon name="image" size={40} stroke={1.3} /></span>
                                         )}
                                     </div>
                                     <div className="ts-card-body">
                                         <span className="ts-mini-label">{s("liveNow")}</span>
                                         <strong>{hero ? productName(hero, language) : s("actionSell")}</strong>
-                                        <small>📍 {hero ? hero.city : countryName("CM", language)}</small>
+                                        <small><Icon name="pin" /> {hero ? hero.city : countryName("CM", language)}</small>
                                         {hero && (
                                             <div className="ts-card-price">
                                                 {formatMoney(hero.price_per_unit, hero.currency)}
@@ -264,7 +265,7 @@ export default function Home({ featured, ready, origin }) {
                                 </div>
 
                                 <div className="ts-glass-card ts-card-code">
-                                    <div className="ts-code">🔑</div>
+                                    <div className="ts-code"><Icon name="key" size={22} /></div>
                                     <div>
                                         <span className="ts-mini-label">{s("why1Title")}</span>
                                         <span className="ts-mini-value">• • • •</span>
@@ -272,7 +273,7 @@ export default function Home({ featured, ready, origin }) {
                                 </div>
 
                                 <div className="ts-glass-card ts-card-route">
-                                    <span className="ts-mini-label">📡 {s("why2Title")}</span>
+                                    <span className="ts-mini-label"><Icon name="signal" /> {s("why2Title")}</span>
                                     <div className="ts-route-line">
                                         <span>{hero?.city || "Bafoussam"}</span>
                                         <i />
@@ -291,11 +292,11 @@ export default function Home({ featured, ready, origin }) {
                                     tickerItems.map((item) =>
                                         item.href ? (
                                             <Link key={`${copy}-${item.key}`} href={item.href} tabIndex={copy ? -1 : 0} aria-hidden={copy ? "true" : undefined}>
-                                                <span aria-hidden="true">{item.emoji}</span> {item.text} <b>{item.price}</b>
+                                                <Icon name={item.icon} size={15} /> {item.text} <b>{item.price}</b>
                                             </Link>
                                         ) : (
                                             <span key={`${copy}-${item.key}`} aria-hidden={copy ? "true" : undefined}>
-                                                <span aria-hidden="true">{item.emoji}</span> {item.text} <b>{item.price}</b>
+                                                <Icon name={item.icon} size={15} /> {item.text} {item.price && <b>{item.price}</b>}
                                             </span>
                                         )
                                     )
@@ -316,7 +317,7 @@ export default function Home({ featured, ready, origin }) {
 
                         <Reveal className="ts-head">
                             <div>
-                                <span className="ts-eyebrow">🌾 Tayeb Marché</span>
+                                <span className="ts-eyebrow"><Icon name="sprout" /> Tayeb Marché</span>
                                 <h2 className="ts-title">{s("featuredTitle")}</h2>
                                 <p className="ts-lead">{s("featuredText")}</p>
                             </div>
@@ -333,10 +334,10 @@ export default function Home({ featured, ready, origin }) {
                             </Reveal>
                         ) : (
                             <Reveal className="mk-empty">
-                                <div className="mk-empty-icon">🌱</div>
+                                <div className="mk-empty-icon"><Icon name="sprout" size={28} /></div>
                                 <p>{s("emptyFeatured")}</p>
                                 <Link href={roleHref("FARMER")} className="ts-btn ts-btn-primary">
-                                    👨🏾‍🌾 {s("actionSell")}
+                                    <Icon name="farmer" /> {s("actionSell")}
                                 </Link>
                             </Reveal>
                         )}
@@ -346,8 +347,8 @@ export default function Home({ featured, ready, origin }) {
                             <div className="ts-cats" style={{ marginTop: 18 }}>
                                 {CATEGORIES.map((category) => (
                                     <Link key={category.key} href={`/market?category=${category.key}`} className="ts-cat">
-                                        <span className="ts-cat-emoji" aria-hidden="true">{category.emoji}</span>
                                         <strong>{language === "fr" ? category.fr : category.en}</strong>
+                                        <Icon name="arrowRight" size={16} />
                                     </Link>
                                 ))}
                             </div>
@@ -416,7 +417,7 @@ export default function Home({ featured, ready, origin }) {
                         <Reveal className="ts-features">
                             {FEATURES.map(([icon, key]) => (
                                 <div key={key} className="ts-feature">
-                                    <span className="ts-feature-icon" aria-hidden="true">{icon}</span>
+                                    <span className="ts-feature-icon" aria-hidden="true"><Icon name={icon} size={22} /></span>
                                     <h3>{s(`${key}Title`)}</h3>
                                     <p>{s(`${key}Text`)}</p>
                                 </div>
@@ -445,7 +446,7 @@ export default function Home({ featured, ready, origin }) {
                         <Reveal className="ts-countries">
                             {cityNames("CM").map((city) => (
                                 <Link key={city} href={`/market?country=CM&city=${encodeURIComponent(city)}`} className="ts-country">
-                                    <span aria-hidden="true">📍</span>
+                                    <Icon name="pin" />
                                     {city}
                                 </Link>
                             ))}

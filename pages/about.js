@@ -4,6 +4,7 @@ import Reveal from "../components/Site/Reveal";
 import Seo from "../components/Site/Seo";
 import SiteFooter from "../components/Site/SiteFooter";
 import SiteHeader from "../components/Site/SiteHeader";
+import Icon from "../components/Site/Icon";
 import { LIVE_COUNTRIES } from "../lib/countries";
 import { FOUNDER, QUOTES } from "../lib/founder";
 import { useLanguage } from "../lib/LanguageContext";
@@ -102,7 +103,7 @@ export default function AboutPage({ origin }) {
 
                 <section className="ts-hero">
                     <div className="ts-wrap" style={{ maxWidth: 980 }}>
-                        <span className="ts-badge">🌍 {s("aboutEyebrow")}</span>
+                        <span className="ts-badge"><Icon name="globe" /> {s("aboutEyebrow")}</span>
                         <h1 style={{ fontSize: "clamp(38px, 6.4vw, 76px)" }}>
                             <span className="ts-gradient-text">{s("aboutTitle")}</span>
                         </h1>
@@ -124,7 +125,7 @@ export default function AboutPage({ origin }) {
                         <Reveal className="ts-steps" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
                             {[1, 2, 3, 4].map((n) => (
                                 <div key={n} className="ts-step">
-                                    <span className="ts-step-num">{["🌾", "🥀", "🚚", "🤝"][n - 1]}</span>
+                                    <span className="ts-step-num"><Icon name={["sprout", "clock", "truck", "users"][n - 1]} size={20} /></span>
                                     <p>{s(`problem${n}`)}</p>
                                 </div>
                             ))}
@@ -177,10 +178,10 @@ export default function AboutPage({ origin }) {
 
                             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 30 }}>
                                 <a href={whatsapp} target="_blank" rel="noopener noreferrer" className="ts-btn ts-btn-primary">
-                                    💬 {s("contactFounder")}
+                                    <Icon name="chat" /> {s("contactFounder")}
                                 </a>
                                 <Link href="/market" className="ts-btn ts-btn-glass">
-                                    🌾 {s("navMarket")}
+                                    <Icon name="sprout" /> {s("navMarket")}
                                 </Link>
                             </div>
                         </Reveal>
@@ -205,7 +206,7 @@ export default function AboutPage({ origin }) {
                         <Reveal className="ts-steps" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
                             {[1, 2, 3, 4].map((n) => (
                                 <div key={n} className="ts-step">
-                                    <span className="ts-step-num">{["⚖️", "🔍", "✨", "🛡️"][n - 1]}</span>
+                                    <span className="ts-step-num"><Icon name={["scale", "search", "sparkle", "shield"][n - 1]} size={20} /></span>
                                     <p>{s(`value${n}`)}</p>
                                 </div>
                             ))}
@@ -252,7 +253,7 @@ export default function AboutPage({ origin }) {
                                 {LIVE_COUNTRIES.map((country) => country.flag).join(" ")}
                             </p>
                             <a href={whatsapp} target="_blank" rel="noopener noreferrer" className="ts-btn ts-btn-ink ts-btn-lg">
-                                💬 {s("contactFounder")}
+                                <Icon name="chat" /> {s("contactFounder")}
                             </a>
                         </Reveal>
                     </div>

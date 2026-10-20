@@ -2,6 +2,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useState } from "react";
 
+import Icon from "../Site/Icon";
 import { apiGet, apiPost } from "../../lib/api";
 import { cityNames } from "../../lib/cities";
 import { countryOrDefault, sortedCountries, todayIn } from "../../lib/countries";
@@ -184,7 +185,7 @@ export default function OrderPanel({ listing, user, loading }) {
     if (sent) {
         return (
             <aside className="mk-panel tayeb-fade-in" id="order">
-                <div style={{ fontSize: 44 }}>✅</div>
+                <div className="go-big-icon is-good" style={{ margin: "0 auto" }}><Icon name="check" size={30} /></div>
                 <h2 style={{ margin: 0, color: "var(--mk-ink)", fontSize: 22, fontWeight: 900 }}>
                     {m("orderSent")}
                 </h2>
@@ -205,7 +206,7 @@ export default function OrderPanel({ listing, user, loading }) {
     if (isOwner) {
         return (
             <aside className="mk-panel" id="order">
-                <div className="mk-notice mk-notice-green">👨🏾‍🌾 {m("yourProduct")}</div>
+                <div className="mk-notice mk-notice-green"><Icon name="farmer" /> {m("yourProduct")}</div>
                 <Link href="/farmer" className="mk-btn mk-btn-dark mk-btn-full">
                     {m("manage")}
                 </Link>
@@ -299,8 +300,8 @@ export default function OrderPanel({ listing, user, loading }) {
 
                         <div className="mk-options">
                             {[
-                                ["TAYEB", "🚚", "deliveryTayeb", "deliveryTayebText"],
-                                ["PICKUP", "🧺", "deliveryPickup", "deliveryPickupText"],
+                                ["TAYEB", "truck", "deliveryTayeb", "deliveryTayebText"],
+                                ["PICKUP", "basket", "deliveryPickup", "deliveryPickupText"],
                             ].map(([value, icon, title, text]) => (
                                 <label key={value} className={`mk-option ${method === value ? "selected" : ""}`}>
                                     <input
@@ -310,7 +311,7 @@ export default function OrderPanel({ listing, user, loading }) {
                                         onChange={() => chooseMethod(value)}
                                     />
                                     <div>
-                                        <strong>{icon} {m(title)}</strong>
+                                        <strong><Icon name={icon} size={17} /> {m(title)}</strong>
                                         <span>{m(text)}</span>
                                     </div>
                                 </label>
@@ -456,7 +457,7 @@ export default function OrderPanel({ listing, user, loading }) {
                     </div>
 
                     {listing.perishable && method === "TAYEB" && (
-                        <div className="mk-notice">❄️ {m("freshWarning")}</div>
+                        <div className="mk-notice"><Icon name="snowflake" /> {m("freshWarning")}</div>
                     )}
                 </>
             )}
@@ -471,7 +472,7 @@ export default function OrderPanel({ listing, user, loading }) {
                 {sending ? (
                     <span className="tayeb-spinner" />
                 ) : isBuyer ? (
-                    <>🛒 {m("placeOrder")} · {formatMoney(total, currency)}</>
+                    <>{m("placeOrder")} · {formatMoney(total, currency)}</>
                 ) : (
                     <>{m("loginToOrder")} →</>
                 )}

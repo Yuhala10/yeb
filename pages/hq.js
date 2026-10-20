@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import PhoneInput from "../components/Site/PhoneInput";
 import ThemeToggle from "../components/Site/ThemeToggle";
+import Icon from "../components/Site/Icon";
 import { apiPost } from "../lib/api";
 import { useLanguage } from "../lib/LanguageContext";
 
@@ -165,14 +166,14 @@ export default function TeamSpace() {
                                     disabled={busy}
                                 />
                                 <button type="button" onClick={() => setShow((current) => !current)} aria-label={show ? t.hide : t.show} tabIndex={-1}>
-                                    {show ? "🙈" : "👁️"}
+                                    <Icon name={show ? "eyeOff" : "eye"} />
                                 </button>
                             </div>
                         </div>
 
                         {error && (
                             <div className="ap-note ap-note-red" role="alert">
-                                <span aria-hidden="true">⚠️</span>
+                                <Icon name="alert" />
                                 <span>{error}</span>
                             </div>
                         )}
@@ -182,7 +183,7 @@ export default function TeamSpace() {
                         </button>
 
                         <div className="lg-secure">
-                            <span aria-hidden="true">🔒</span>
+                            <Icon name="lock" />
                             <span>{t.note}</span>
                         </div>
 

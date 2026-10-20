@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import VoiceNote from "./VoiceNote";
+import Icon from "../Site/Icon";
 import { useSocialText } from "../../lib/socialText";
 
 /*
@@ -132,10 +133,10 @@ export default function VoiceRecorder({ value, onChange, disabled = false }) {
                 <VoiceNote url={value.dataUrl || value.url} seconds={value.seconds} />
                 <div className="sm-recorder-actions">
                     <button type="button" className="ts-btn ts-btn-light ts-btn-sm" onClick={start} disabled={disabled}>
-                        🎙️ {s("redo")}
+                        <Icon name="mic" /> {s("redo")}
                     </button>
                     <button type="button" className="ts-btn ts-btn-light ts-btn-sm" onClick={() => onChange(null)} disabled={disabled}>
-                        ✕ {s("remove")}
+                        <Icon name="x" /> {s("remove")}
                     </button>
                 </div>
             </div>
@@ -145,7 +146,7 @@ export default function VoiceRecorder({ value, onChange, disabled = false }) {
     return (
         <div className="sm-recorder">
             <button type="button" className="sm-record-btn" onClick={start} disabled={disabled}>
-                <span aria-hidden="true">🎙️</span>
+                <Icon name="mic" />
                 <span>
                     <strong>{s("record")}</strong>
                     <small>{s("recordHint")}</small>

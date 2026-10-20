@@ -1,4 +1,5 @@
-import { productEmoji, productName } from "../../lib/produce";
+import Icon from "../Site/Icon";
+import { productName } from "../../lib/produce";
 import { useLanguage } from "../../lib/LanguageContext";
 
 function coverOf(item) {
@@ -6,8 +7,8 @@ function coverOf(item) {
 }
 
 /*
- * The product's cover photo, or a soft gradient with the
- * product's emoji when the farmer hasn't added one yet.
+ * The product's cover photo, or a quiet tile with the
+ * product's name when the farmer hasn't added one yet.
  */
 export default function ProductMedia({ listing, children, eager = false }) {
     const { language } = useLanguage();
@@ -28,7 +29,8 @@ export default function ProductMedia({ listing, children, eager = false }) {
                 />
             ) : (
                 <div className="mk-media-emoji" aria-hidden="true">
-                    {productEmoji(listing.product)}
+                    <Icon name="image" size={34} stroke={1.4} />
+                    <span>{productName(listing, language)}</span>
                 </div>
             )}
 
@@ -47,7 +49,7 @@ export function ProductThumb({ item }) {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={cover} alt="" loading="lazy" decoding="async" />
             ) : (
-                productEmoji(item?.product)
+                <Icon name="sprout" size={20} stroke={1.5} />
             )}
         </div>
     );
